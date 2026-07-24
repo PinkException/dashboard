@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: Superseded
 dependencies: []
 last_verified: 2026-07-13
 ---
@@ -9,6 +9,7 @@ last_verified: 2026-07-13
 ## Status
 
 Accepted (2026-07-13)
+Superseded by [ADR-0004](./adr-0004-dashboard-owned-snapshots.md) (2026-07-24)
 
 - **Spec:** [002-03 compass-snapshot](../specs/002-dashboard-mvp/slice-03-compass-snapshot.md)
 

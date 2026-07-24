@@ -106,9 +106,14 @@ from session files, evolution graphs from snapshot history, cross-project
 
 ## Design principles & constraints
 
-1. **Read-only over other repos.** The dashboard never writes outside its
-   own repo; the only sanctioned external write is compass appending its
-   own snapshot in the surveyed project.
+1. **Read-only over other repos.** The dashboard never writes into a surveyed
+   project — no exceptions. Its own state (config, snapshots) lives in the
+   user's home data folder, `~/.claude/my-dashboard/`, outside every repo
+   including this one. *(Amended 2026-07-24 by
+   [ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md): the previous
+   wording sanctioned one external write — compass appending a snapshot into
+   the surveyed project — which ADR-0004 removes as a leak of one project's
+   internals into another project's git history.)*
 2. **Deterministic.** Everything is parsed; same disk state → same page.
 3. **Zero new rituals.** Every feature must work from artifacts that
    already exist; anything requiring new user habits is opt-in.
