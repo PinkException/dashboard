@@ -492,7 +492,7 @@ itself."* Therefore:
 
 **Still open:** OQ3 (does an entry need a `source` field) and OQ4 (the
 project-key mapping — which still gates the §5 reconciliation and, through it,
-§6's deletion step).
+§6's deletion step). *Superseded for OQ4 by the second amendment below.*
 
 **Unchanged by this amendment:** nothing is deleted; the existing history is
 preserved and migrated, not discarded; §6's verification set is still captured at
@@ -500,3 +500,60 @@ writer-retirement time; and the leak fix is still gated only on the two writers
 stopping. Half of that has now happened — see
 [bug 002](../bugs/002-compass-writer-still-active.md): compass is retired, and
 `scripts/snapshot.mjs` is the remaining in-repo writer.
+
+## Amendment (2026-07-24): Open question 4 resolved by the owner
+
+**OQ4 — how does a surveyed project map to one stable `<project-key>`? By an
+explicit, owner-confirmed alias list.** The mapping is *declared*, not derived.
+It lives at `~/.claude/my-dashboard/snapshot-aliases.json`, alongside the store
+and the config, and each entry pairs an old location with the project it is
+today plus the date the owner confirmed it. It is not tracked in this repo:
+it names real projects, this repo ships publicly, and vision principle 6 keeps
+per-user state out of repos.
+
+**Why not a derived identifier.** The alternative considered was deriving
+identity from inside the repository — the first commit being the usual choice,
+since it survives moves and renames. It was checked against the case that
+motivates the mapping and rejected on evidence: this project's history was
+rewritten on 2026-07-24 before publication, so its old folder and its current
+one carry *different* first commits. The one pairing the migration must get
+right is the one the derived identifier gets wrong, and it fails silently —
+two values simply look like two projects. A hybrid (derive where possible, list
+for exceptions) was rejected too: it still needs the list, and it hides which
+merges the owner confirmed and which the tool inferred.
+
+**What this unblocks and what it does not.** §5's deferred reconciliation is no
+longer blocked; it is drafted as
+[spec 005-02](../specs/005-snapshot-store/slice-02-migrate-history.md). §6's
+deletion of the in-repo files stays gated as written — on that merge verifying
+*and* an explicit approval, which 005-02 does not seek.
+
+**One assumption this answer carries, recorded deliberately.** A declared list is
+only as complete as the owner's recollection. A missed pairing splits a
+project's history silently, and §6's "every entry accounted for" check cannot
+detect it, since every entry is still present somewhere. 005-02 mitigates by
+reporting each resulting file with its entry count and source paths, and by
+refusing to run on a source path it cannot attribute. This is the residual risk
+of the option chosen, not an argument against it.
+
+**Two findings from drafting 005-02 that bear on this ADR's body**, recorded
+here rather than edited into it:
+
+- §5's note that "as of 2026-07-24 nothing has drifted" is **true only of the
+  five project-root files it checked**. Measured 2026-07-24: 25 live history
+  files against the backup's 23, with more entries in the live set, and one
+  backed-up worktree copy already pruned from disk. **The §6 retirement-time
+  capture has now been taken** (2026-07-24, on owner approval:
+  `~/.claude/my-dashboard/_migration-capture-2026-07-24/`, 25 files, 258 lines,
+  68 distinct entries, manifest included). Its arithmetic refines the §6
+  argument rather than confirming it wholesale: the backup contributes **zero**
+  entries that are not also live (66 distinct in the backup, 68 in the capture,
+  68 in the union), so the pruned copy held only duplicates. §6's union rule
+  stands — it is what makes that a measured statement instead of a hoped-for
+  one — but no unique entry has been lost to pruning so far.
+- The "genuine assumption" that entries can be de-duplicated reliably by
+  `ts` + `headline` is now **tested against the real data and holds**:
+  de-duplicating on `ts` + `headline` and on full content yield the same 68
+  distinct entries across 7 projects, with no case where the two disagree.
+  005-02 nonetheless de-duplicates on full content and refuses if the two ever
+  diverge.

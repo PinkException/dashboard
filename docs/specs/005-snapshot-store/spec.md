@@ -1,5 +1,5 @@
 ---
-status: DONE
+status: IN_PROGRESS
 skill:
 use_cases: [UC-3]
 ---
@@ -70,6 +70,16 @@ approved step gated on ADR-0004 §6.
   stable identifier such as the root-commit SHA — and must not simply reuse
   `projectKey` over historical paths. Recorded as the top input to ADR-0004 OQ4.
 
+  **Resolved 2026-07-24 (owner).** Identity comes from an explicit,
+  owner-confirmed alias list at `~/.claude/my-dashboard/snapshot-aliases.json`,
+  not from a derived identifier. A derived identifier was checked and rejected on
+  evidence: the obvious candidate — the repository's first commit — gives
+  *different* values for this project's old and current folders, because the
+  history was rewritten on 2026-07-24 before publication. It fails silently on
+  exactly the pairing the migration needs. See
+  [005-02](slice-02-migrate-history.md) "Why not a derived identifier"; recorded
+  in ADR-0004's 2026-07-24 OQ4 amendment.
+
 Probe-verified (not assumptions):
 
 - `git rev-parse --git-common-dir` resolves both a linked worktree and a primary
@@ -95,11 +105,11 @@ the shape.
   of [bug 002](../../bugs/002-compass-writer-still-active.md). Vertical: writer →
   store → reader → the project card still answers UC-3.
 - **005-02 (Data)** — migrate the existing history. Settles ADR-0004 OQ4's full
-  mapping (folding the 17 worktree copies into their parents, promoting the
-  worktree-only project), merges the 193 backed-up entries, verifies against a
-  retirement-time capture. **Must solve the identity problem A3 names** — at
-  minimum an alias from the old `project-dashboard` path to this project — since
-  `projectKey` alone would split that history. Deliberately **not drafted yet**.
+  mapping (folding worktree copies into their parents, promoting the
+  worktree-only project), merges the backed-up entries, verifies against a
+  retirement-time capture. Solves the identity problem A3 names with an
+  owner-confirmed alias list — see A3's 2026-07-24 resolution note. **Drafted
+  2026-07-24.**
 - **005-03 (Interface)** — the dashboard-owned skill that composes narrative
   entries, plus rebuilding the paused twice-daily routine and choosing its cadence
   (ADR-0004 OQ1 option (a), OQ2). Deliberately **not drafted yet**.
@@ -110,5 +120,5 @@ depends on nothing. 005-02 and 005-03 both build on the store it creates.
 ## Slices
 
 - [005-01 — relocate the snapshot store](slice-01-relocate-store.md)
-- 005-02 — migrate the existing history *(not drafted)*
+- [005-02 — migrate the existing history](slice-02-migrate-history.md)
 - 005-03 — dashboard-owned narrative writer *(not drafted)*
