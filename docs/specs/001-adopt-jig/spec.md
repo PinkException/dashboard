@@ -1,0 +1,47 @@
+---
+status: DONE
+skill: scaffold-init
+---
+
+# Spec 001: Adopt jig
+
+## Overview
+
+This is the worked-example spec that `scaffold-init` seeds into a fresh
+project so the very first turn has a faithful pattern to imitate. It
+records the genuine first unit of work in `project-dashboard`: adopting
+jig by running `scaffold-init` to lay down the docs tree, CLAUDE.md, the
+status board, and the runtime machinery under `.claude/`.
+
+It is **real, permanent project history**, not a labelled-deletable
+demo. Scaffolding genuinely was the first thing that happened here, so
+`001-adopt-jig` stays. Read [slice-01-bootstrap.md](slice-01-bootstrap.md)
+for the full slice shape — Goal, DoR, Acceptance Criteria, DoD,
+anti-horizontal-phasing check, and a short real deviation log — and use
+it as the template for your own slices.
+
+## Decomposition
+
+**SPIDR axis: Interface.** Adoption is a one-shot interface change: the
+project goes from "no workflow scaffold" to "jig docs + machinery
+present and wired." A single vertical slice delivers it end-to-end.
+
+### Slices
+
+1. **`001-01 bootstrap`** — Run `scaffold-init` so the project opens
+   with the jig docs tree, CLAUDE.md, an honest status board, and the
+   `.claude/` runtime machinery. DONE — see
+   [slice-01-bootstrap.md](slice-01-bootstrap.md).
+
+## Amendments
+
+### 2026-07-22 — Project renamed `project-dashboard` → `dashboard`
+
+This spec's prose calls the project `project-dashboard`. The project was
+renamed on 2026-07-22 (repo `Kyarha/dashboard`, plugin `dashboard@dashboard`,
+skill `/dashboard:open`, user data folder `~/.claude/my-dashboard/`) — see
+the amendment on
+[ADR-0003](../../decisions/adr-0003-claude-plugin-distribution.md). The
+original prose is preserved in place per jig's records-vs-live-prose rule
+(closed specs are records); read `dashboard` wherever it says
+`project-dashboard`.

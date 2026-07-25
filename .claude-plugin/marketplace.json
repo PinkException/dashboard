@@ -1,0 +1,11 @@
+{
+  "name": "dashboard",
+  "owner": { "name": "Kyarha" },
+  "plugins": [
+    {
+      "name": "dashboard",
+      "source": "./",
+      "description": "Local read-only dashboard over jig-managed projects — one page answering \"where is every project and what's next\"."
+    }
+  ]
+}

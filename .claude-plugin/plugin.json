@@ -1,0 +1,7 @@
+{
+  "name": "dashboard",
+  "version": "0.2.1",
+  "description": "Local read-only dashboard over jig-managed projects — one page answering \"where is every project and what's next\".",
+  "author": { "name": "Kyarha" },
+  "homepage": "https://github.com/Kyarha/dashboard"
+}
