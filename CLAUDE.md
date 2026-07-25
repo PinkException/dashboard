@@ -12,7 +12,7 @@
 Always-loaded primer, kept lean per jig's context-cost discipline. This is an **index**: each bold term is a one-line claim plus link; full definitions live in [docs/memory/glossary.md](docs/memory/glossary.md) and expand on demand via `/jig:explain <term>`. Update via `/jig:memory-sync`.
 
 ### Project codenames / active work
-- **dashboard** - local read-only dashboard over jig projects (spec %, workstreams, compass snapshots), distributed publicly as a Claude Code plugin (ADR-0003) — `/dashboard:open` → localhost:5111. Zero runtime deps (ADR-0001); compass snapshot contract ADR-0002; user config lives at `~/.claude/my-dashboard/config.json`, never in a repo (vision principle 6).
+- **dashboard** - local read-only dashboard over jig projects (spec %, workstreams, compass snapshots), distributed publicly as a Claude Code plugin (ADR-0003) — `/dashboard:open` → localhost:5111. Zero runtime deps (ADR-0001); snapshot store contract ADR-0004 (supersedes ADR-0002) — snapshots live in `~/.claude/my-dashboard/snapshots/`, never in a surveyed repo; user config lives at `~/.claude/my-dashboard/config.json`, never in a repo (vision principle 6).
 
 ### Key terms
 - **Context-cost discipline** - the orchestrator's context is re-read every turn; delegate file-heavy reading and keep only the result. See [docs/workflow.md](docs/workflow.md#context-cost-discipline).
@@ -24,6 +24,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 - [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) - DONE worked example to imitate; see [docs/specs/README.md](docs/specs/README.md) for the status board.
 - [002-dashboard-mvp](docs/specs/002-dashboard-mvp/spec.md) - DONE. The MVP: scan-and-serve, workstreams, compass-snapshot. Deferred to later specs: hours layer, evolution graphs, owner queue, jig upstreaming.
 - [003-sessions-panel](docs/specs/003-sessions-panel/spec.md) - next up. Per-project Claude Code sessions on each card (title foregrounded, branch, worktree, running badge, last activity), read zero-dep from the local `~/.claude` store. Slices 01–02 DRAFT, 03 (pr-badges) DEFERRED behind the `gh` decision.
+- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). 005-02 (migrate the existing 193 entries; needs the A3 alias/rekey answer) and 005-03 (dashboard-owned narrative writer + routine cadence) not drafted.
 - [004-claude-plugin](docs/specs/004-claude-plugin/spec.md) - DONE (retroactive, owner-approved). Plugin + own-marketplace manifests, `open` skill, config moved out of every repo to `~/.claude/my-dashboard/config.json` (ADR-0003).
 
 ### Deferred decisions
@@ -54,14 +55,21 @@ rename recorded in the ADR-0003 amendment: repo `Kyarha/dashboard`, plugin
 `dashboard@dashboard` (v0.2.1, installed at user scope), skill
 `/dashboard:open`, user data folder `~/.claude/my-dashboard/`. The owner
 has no `~/.claude/my-dashboard/config.json` yet — the first `/dashboard:open`
-run should offer to create it. Next active work: spec 003
-(sessions panel) — drafted, no code yet; start with slice
-[003-01 sessions-scan-and-render](docs/specs/003-sessions-panel/slice-01-sessions-scan-and-render.md).
+run should offer to create it. Spec 005 (dashboard-owned snapshot store,
+ADR-0004) landed slice 005-01 on 2026-07-24: snapshots now live outside every
+repo and no code path writes into a surveyed project. Next active work: spec
+005-02 (migrate the 193 backed-up entries — blocked on the identity question in
+spec assumption A3), then spec 003 (sessions panel) — drafted, no code yet.
 Later candidates (vision → MVP scope deferrals): hours-worked layer,
-evolution graphs from snapshot history, cross-project "waiting on you /
-ready for Claude" queue, jig upstreaming. Pending outside this repo: add
-the snapshot paragraph from
-[docs/compass-integration.md](docs/compass-integration.md) to the compass skill.
+evolution graphs from snapshot history (the owner confirmed 2026-07-24 they
+want this — ADR-0004 OQ2), cross-project "waiting on you / ready for Claude"
+queue, jig upstreaming.
+
+**Do NOT re-add a snapshot write to the compass skill.** An earlier note here
+asked for exactly that; ADR-0004 reversed it and the owner retired compass's
+write on 2026-07-24. Compass is read-only; the dashboard owns all writing, into
+its own store outside every repo. Re-adding it recreates
+[bug 002](docs/bugs/002-compass-writer-still-active.md).
 
 ## Development Conventions
 

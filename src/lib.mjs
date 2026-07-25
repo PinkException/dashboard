@@ -187,7 +187,26 @@ export function parseCompassHistory(text) {
   return { latest, malformed, count };
 }
 
-// Writer-side validation of the full ADR-0002 schema. The reader
+// Pick the genuinely newer of two candidate snapshots (ADR-0004 §5: the reader
+// reads both the dashboard-owned store and the project's legacy in-repo file
+// during the migration window). Comparing by `ts` is deliberate — concatenating
+// the two sources and re-parsing would let parseCompassHistory's last-line-wins
+// rule decide by read order instead of by time. On an identical `ts` the store
+// wins: it is the canonical source, the in-repo copy is the one being retired.
+// The unparseable-`ts` branches guard direct callers only — parseCompassHistory
+// already discards such lines, so scanCompass can never reach them.
+export function laterSnapshot(inRepo, fromStore) {
+  if (!fromStore) return inRepo ?? null;
+  if (!inRepo) return fromStore;
+  const a = Date.parse(inRepo.ts);
+  const b = Date.parse(fromStore.ts);
+  if (Number.isNaN(b)) return Number.isNaN(a) ? fromStore : inRepo;
+  if (Number.isNaN(a)) return fromStore;
+  return b >= a ? fromStore : inRepo;
+}
+
+// Writer-side validation of the full line schema — defined by ADR-0002 and
+// inherited unchanged by ADR-0004, which moved only the file's location. The reader
 // (parseCompassHistory) stays deliberately lenient — it only needs ts and
 // headline to render — but nothing malformed should ever be written.
 export function validateSnapshot(obj) {

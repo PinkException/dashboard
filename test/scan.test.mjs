@@ -1,10 +1,20 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from '../src/scan.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
+
+// Slice 005-01: scanProject now also reads the dashboard-owned snapshot store.
+// Pin it to an empty temp dir — a fixture scan must never reach into the
+// developer's real ~/.claude/my-dashboard/, or the suite's result depends on
+// whose machine it runs on.
+const STORE = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-scan-store-'));
+process.env.DASHBOARD_SNAPSHOTS = STORE;
+after(() => fs.rmSync(STORE, { recursive: true, force: true }));
 
 const jig = () =>
   scanProject({

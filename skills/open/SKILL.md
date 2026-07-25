@@ -37,8 +37,10 @@ repo) and serves one page at `http://localhost:5111`.
 
 ## Related
 
-- Append a compass status snapshot to every configured project (for the
-  "last compass" line on each card):
+- Append a status snapshot for every configured project (for the "last
+  snapshot" line on each card). Snapshots are written to the dashboard's own
+  store under `~/.claude/my-dashboard/snapshots/` — never into the surveyed
+  projects themselves:
 
   ```bash
   node "${CLAUDE_PLUGIN_ROOT}/scripts/snapshot.mjs" --all --auto

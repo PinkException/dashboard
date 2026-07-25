@@ -102,7 +102,8 @@ from session files, evolution graphs from snapshot history, cross-project
   - Key external services: none.
 - **Locked-in vs. still open:** zero-deps and local-only are locked
   (principles below); snapshot schema is versioned and open to extension
-  (ADR-0002).
+  ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md), which inherits
+  ADR-0002's schema unchanged and moves the store out of surveyed projects).
 
 ## Design principles & constraints
 

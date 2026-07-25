@@ -1,4 +1,5 @@
-// Compass-snapshot writer (ADR-0002, slice 002-03 AC4).
+// Snapshot writer. Appends to the dashboard-owned store outside every repo
+// (ADR-0004, slice 005-01); never into the surveyed project.
 //
 // Manual (narrative supplied by you or by compass):
 //   node scripts/snapshot.mjs --project <path> --headline "..." \
@@ -6,11 +7,17 @@
 //
 // Auto (deterministic headline from scan data; for scheduled routines):
 //   node scripts/snapshot.mjs --project <path> --auto
-//   node scripts/snapshot.mjs --all --auto     # every jig project in dashboard.config.json
+//   node scripts/snapshot.mjs --all --auto     # every jig project in the resolved config
 import fs from 'node:fs';
 import path from 'node:path';
 import { validateSnapshot } from '../src/lib.mjs';
-import { expandHome, loadConfig, resolveConfigPath, scanProject } from '../src/scan.mjs';
+import {
+  expandHome,
+  loadConfig,
+  resolveConfigPath,
+  scanProject,
+  snapshotFileFor,
+} from '../src/scan.mjs';
 
 function parseArgs(argv) {
   const args = {};
@@ -60,10 +67,20 @@ function writeSnapshot(root, args) {
   const errors = validateSnapshot(snapshot);
   if (errors.length) return { root, error: 'invalid snapshot: ' + errors.join('; ') };
 
-  const dir = path.join(root, 'docs', 'status');
-  fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(path.join(dir, 'compass-history.jsonl'), JSON.stringify(snapshot) + '\n');
-  return { root, snapshot };
+  // ADR-0004 §1: the snapshot goes to the dashboard-owned store outside every
+  // repo. Never into the surveyed project — that write was the leak (bug 002).
+  //
+  // I/O failures return like every other error here rather than throwing: the
+  // store is one shared directory, so an unhandled EACCES would abort every
+  // remaining project in an `--all` run instead of just this one.
+  const target = snapshotFileFor(root);
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.appendFileSync(target, JSON.stringify(snapshot) + '\n');
+  } catch (err) {
+    return { root, error: `could not write ${target}: ${err.message}` };
+  }
+  return { root, snapshot, target };
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -97,6 +114,7 @@ for (const root of targets) {
     console.log(`- ${root}: skipped (${res.skipped})`);
   } else {
     console.log(`✓ ${root}: ${res.snapshot.headline}`);
+    console.log(`  → ${res.target}`);
   }
 }
 process.exit(failed ? 1 : 0);

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import {
   parseFrontmatter,
@@ -14,6 +15,7 @@ import {
   countInboxItems,
   countRefinement,
   parseCompassHistory,
+  laterSnapshot,
   ageLabel,
   ageDays,
   BUG_CLOSED,
@@ -29,6 +31,88 @@ export function expandHome(p) {
 export function resolveConfigPath() {
   if (process.env.DASHBOARD_CONFIG) return expandHome(process.env.DASHBOARD_CONFIG);
   return path.join(os.homedir(), '.claude', 'my-dashboard', 'config.json');
+}
+
+// Snapshots are per-user state and live beside the config, never in a repo
+// (ADR-0004 §1, vision principle 1+6). Derived from the *resolved config path*
+// rather than a second hard-coded literal, so a DASHBOARD_CONFIG override moves
+// config and snapshots together instead of silently splitting them.
+export function resolveSnapshotsDir() {
+  if (process.env.DASHBOARD_SNAPSHOTS) return expandHome(process.env.DASHBOARD_SNAPSHOTS);
+  return path.join(path.dirname(resolveConfigPath()), 'snapshots');
+}
+
+const realpath = (p) => {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
+// The identity a project's history is keyed on.
+//
+// A linked worktree resolves to its parent repo, so a project and its worktrees
+// share one history instead of forking it — the fragmentation ADR-0004 exists to
+// remove. But a project configured at a *subdirectory* of some repo (a package in
+// a monorepo, or a fixture tree inside this repo) is its own project and must NOT
+// inherit that repo's key, or two configured projects would silently merge
+// histories — the cross-contamination ADR-0004 OQ4 names.
+//
+// Distinguishing the two: `--show-toplevel` is the working tree the path sits in.
+// For a worktree root or a repo root it equals the path itself, so the shared
+// parent key is correct. For a subdirectory it does not, so we key on the path.
+// Null for a non-git directory.
+function repoRootOf(root) {
+  const git = (args) =>
+    execFileSync('git', ['-C', root, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  try {
+    const toplevel = git(['rev-parse', '--show-toplevel']);
+    // path.resolve both sides: git emits forward slashes even on Windows.
+    if (!toplevel || path.resolve(realpath(toplevel)) !== path.resolve(realpath(root))) return null;
+    const common = git(['rev-parse', '--git-common-dir']);
+    if (!common) return toplevel;
+    // git prints '.git' relative to the repo for a primary worktree and an
+    // absolute path for a linked one; resolving against root handles both.
+    const resolved = path.resolve(root, common);
+    // Only a directory literally named `.git` points at a parent working tree.
+    // A submodule's common dir is `<superproject>/.git/modules/<name>`, whose
+    // dirname is shared by *every* submodule of that superproject — folding on
+    // it would merge unrelated projects into one history. A submodule is its
+    // own project, so key it on its own root.
+    if (path.basename(resolved) !== '.git') return toplevel;
+    return path.dirname(resolved);
+  } catch {
+    return null;
+  }
+}
+
+// Resolving the key shells out to git, and the server re-scans on every request,
+// so memoize per root (spec assumption A2). Note the cache is never invalidated:
+// within a long-lived server a root that *becomes* a repo keeps its earlier key
+// until restart. Acceptable for the writer; flagged as an input to 005-02.
+const keyCache = new Map();
+
+// Stable, filename-safe, collision-free key for one project's snapshot file.
+// The basename keeps it recognisable; the path digest keeps two projects that
+// merely share a basename apart. Exported so 005-02's migration reuses exactly
+// this mapping rather than inventing a second one.
+export function projectKey(root) {
+  const cached = keyCache.get(root);
+  if (cached) return cached;
+  const base = realpath(repoRootOf(root) ?? path.resolve(root));
+  const name =
+    path.basename(base).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+  const key = `${name}-${createHash('sha256').update(base).digest('hex').slice(0, 8)}`;
+  keyCache.set(root, key);
+  return key;
+}
+
+export function snapshotFileFor(root) {
+  return path.join(resolveSnapshotsDir(), `${projectKey(root)}.jsonl`);
 }
 
 export function loadConfig(configPath) {
@@ -211,10 +295,27 @@ function scanWorktreeOnlyDocs(root) {
   return out;
 }
 
+const EMPTY_COMPASS = { latest: null, malformed: 0, count: 0 };
+
+// Reads both sources during the migration window (ADR-0004 §5): the
+// dashboard-owned store, and the project's legacy in-repo file that 005-02 has
+// not yet migrated. Whichever carries the later `ts` wins — see laterSnapshot
+// for why comparing timestamps beats concatenating the two files.
 function scanCompass(root) {
-  const raw = readIf(path.join(root, 'docs', 'status', 'compass-history.jsonl'));
-  if (raw === null) return { latest: null, malformed: 0, count: 0 };
-  return parseCompassHistory(raw);
+  const readSource = (p) => {
+    const raw = readIf(p);
+    return raw === null ? EMPTY_COMPASS : parseCompassHistory(raw);
+  };
+  const inRepo = readSource(path.join(root, 'docs', 'status', 'compass-history.jsonl'));
+  const fromStore = readSource(snapshotFileFor(root));
+  return {
+    latest: laterSnapshot(inRepo.latest, fromStore.latest),
+    malformed: inRepo.malformed + fromStore.malformed,
+    count: inRepo.count + fromStore.count,
+    // How many of the two sources held at least one line — the warning names
+    // this rather than one filename, since a malformed line may be from either.
+    sources: (inRepo.count > 0 ? 1 : 0) + (fromStore.count > 0 ? 1 : 0),
+  };
 }
 
 export function scanProject(projectCfg) {
@@ -258,7 +359,9 @@ export function scanProject(projectCfg) {
     : null;
   result.warnings = [];
   if (compass.malformed > 0) {
-    result.warnings.push(`compass-history.jsonl: ${compass.malformed} malformed line(s) skipped`);
+    result.warnings.push(
+      `compass history (${compass.sources} source(s)): ${compass.malformed} malformed line(s) skipped`,
+    );
   }
   return result;
 }

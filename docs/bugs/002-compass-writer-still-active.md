@@ -1,5 +1,5 @@
 ---
-status: FIXING
+status: REVIEWED
 ---
 # Bug 002 — the snapshot writer is still active after the routine was paused
 
@@ -16,7 +16,7 @@ writers. On discovery only one had been retired:
 | Writer | On discovery (2026-07-24) | Now |
 |---|---|---|
 | the compass plugin skill (`compass/skills/compass/SKILL.md`) | active — appended after *every* briefing | **RETIRED by the owner, 2026-07-24** |
-| `scripts/snapshot.mjs` | active — hardcodes the in-repo target | **still open** — the remaining half |
+| `scripts/snapshot.mjs` | active — hardcoded the in-repo target | **FIXED in [slice 005-01](../specs/005-snapshot-store/slice-01-relocate-store.md)** — now writes to the dashboard-owned store |
 | the `compass-snapshots` scheduled routine | paused 2026-07-22 | paused; to be rebuilt against the new writer |
 
 Pausing the routine closed only the twice-daily path, never the per-run one.
@@ -42,11 +42,15 @@ writes nothing — no files, no lifecycle"*, and no `compass-history` /
 Combined with the paused routine, **no automatic writer into any surveyed project
 remains.**
 
-**Remaining — `scripts/snapshot.mjs` still targets the in-repo path.** It only
-fires when someone runs it, so the channel is dormant rather than active; severity
-drops from *high* to *medium*. Until it is retargeted at the dashboard-owned
-store, **no manual snapshot may be run against a surveyed project** — doing so
-reproduces this bug.
+**Second half fixed — `scripts/snapshot.mjs` retargeted (slice 005-01).** It now
+appends to `~/.claude/my-dashboard/snapshots/<project-key>.jsonl` and creates no
+`docs/status/` anywhere. The earlier warning against running a manual snapshot
+against a surveyed project **no longer applies**. Regression coverage:
+`test/snapshot-store.test.mjs` asserts the write lands in the store, that no
+`docs/status/` is created, and that the surveyed repo's `git status --porcelain`
+is byte-identical before and after.
+
+**With both halves closed, no code path writes into a surveyed project.**
 
 **Consequence for the design.** With compass writing nothing, ADR-0004's Open
 question 1 option (b) — a compass companion that records the headline compass
@@ -84,6 +88,6 @@ files is a later, separately approved step.
 - [x] root cause proven (the write was a documented step in the skill's own
       instructions; 12 backed-up entries carry compass's own schema)
 - [x] compass half fixed (owner, 2026-07-24 — verified: no write path in SKILL.md)
-- [ ] `snapshot.mjs` retargeted
-- [ ] regression test red
-- [ ] fix landed
+- [x] `snapshot.mjs` retargeted (slice 005-01)
+- [x] regression test written and witnessed red before the fix
+- [x] fix landed on `claude/spec-005-snapshot-store`

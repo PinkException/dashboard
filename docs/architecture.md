@@ -26,7 +26,7 @@ dashboard/
 ├── public/
 │   └── index.html       # the one self-contained page (inline CSS/JS, no build step)
 ├── scripts/
-│   └── snapshot.mjs     # compass-snapshot writer (ADR-0002): manual and --auto/--all routine mode
+│   └── snapshot.mjs     # snapshot writer (ADR-0004): appends to the store outside every repo
 ├── test/                # node:test suites + fixture project trees under test/fixtures/
 ├── docs/                # jig-managed: specs, decisions, bugs, memory, vision, this file
 └── dashboard.config.example.json  # shape of ~/.claude/my-dashboard/config.json — the real config never lives in a repo
@@ -57,16 +57,28 @@ and checkbox parsing are hand-rolled in `src/lib.mjs` for the flat YAML
 subset jig actually emits — do **not** replace with an npm parser; extend
 the parsers instead. Tests use built-in `node:test`.
 
-### Compass snapshot contract ([ADR-0002](decisions/adr-0002-compass-snapshot-contract.md))
+### Snapshot store ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md), supersedes ADR-0002)
 
-**Principle:** read-only over other repos (vision principle 1) — the
-dashboard never writes lifecycle state anywhere.
-**Mechanics:** each surveyed project gets an append-only
-`docs/status/compass-history.jsonl`; writers are compass or
-`scripts/snapshot.mjs`, never the dashboard. The reader
-(`parseCompassHistory`) is deliberately lenient — latest valid line wins,
+**Principle:** read-only over other repos (vision principle 1, amended
+2026-07-24) — the dashboard never writes *into a surveyed project*, no
+exceptions. Its own state lives in the user's home data folder.
+**Mechanics:** one append-only `<project-key>.jsonl` per project under
+`~/.claude/my-dashboard/snapshots/`, resolved by `resolveSnapshotsDir()`
+(`DASHBOARD_SNAPSHOTS` overrides; otherwise it sits beside the resolved
+config, so an override cannot split the two apart). `projectKey()` folds a
+linked worktree into its parent repo — one project, one history — while a
+sub-directory of a repo keeps its own key so two configured projects never
+merge. Compass writes nothing at all; `scripts/snapshot.mjs` is the writer.
+The reader (`parseCompassHistory`) stays lenient — latest valid line wins,
 malformed lines warn and never crash; the writer (`validateSnapshot`)
-enforces the full versioned schema.
+enforces the full versioned schema, which ADR-0004 inherits unchanged.
+
+**Migration window (slice 005-01 → 005-02):** the reader reads *both* the
+store and each project's legacy in-repo `docs/status/compass-history.jsonl`
+and surfaces whichever carries the later `ts` (`laterSnapshot`) — comparing
+timestamps, never concatenating, since `parseCompassHistory` picks the last
+line in *file* order. The dual read retires once 005-02 has migrated and
+verified the existing history.
 
 ## Module boundaries
 
@@ -81,9 +93,10 @@ One-directional, read-only coupling:
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html` and `/api/data` (a fresh `scanAll` per request, no
   cache). Imports scan.
-- **`scripts/snapshot.mjs`** — the one sanctioned writer (ADR-0002):
-  validates and appends snapshots into *surveyed* projects. Imports lib +
-  scan.
+- **`scripts/snapshot.mjs`** — the one writer
+  ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)): validates a
+  snapshot and appends it to the dashboard-owned store in the user's home data
+  folder. It never writes into a surveyed project. Imports lib + scan.
 - **`public/index.html`** — renders the `/api/data` JSON; all display
   logic is client-side in the single page.
 
@@ -96,20 +109,23 @@ Stateless by design — same disk state → same page (vision principle 2):
   project roots, labels, per-project `pinnedWorkstreams` /
   `hiddenWorkstreams`. Resolved by `resolveConfigPath()` in `src/scan.mjs`
   for server, scan CLI, and `snapshot.mjs` alike.
-- **`docs/status/compass-history.jsonl`** in each *surveyed* project — the
-  only durable artifact this ecosystem appends (via compass or
-  `snapshot.mjs`, never the dashboard/scanner itself); the latest valid
-  line is the current narrative, earlier lines are the time series.
+- **`~/.claude/my-dashboard/snapshots/<project-key>.jsonl`** — the only
+  durable artifact this ecosystem appends, and it lives outside every repo
+  (ADR-0004). The latest valid line is the current narrative, earlier lines
+  are the time series. Each surveyed project's legacy in-repo
+  `docs/status/compass-history.jsonl` is still *read* during the migration
+  window and is never written to.
 - Everything else is derived per request from the surveyed repos' own
   artifacts (spec/slice frontmatter, checkbox docs, bug files, git log).
 
 ## Contract surfaces
 
-- **Compass snapshot file** — file contract at
-  `<project>/docs/status/compass-history.jsonl`
-  ([ADR-0002](decisions/adr-0002-compass-snapshot-contract.md)): versioned
-  JSONL, append-only, shared with compass (writer) and potentially jig
-  upstream.
+- **Snapshot file** — file contract at
+  `~/.claude/my-dashboard/snapshots/<project-key>.jsonl`
+  ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md), superseding
+  ADR-0002's in-project location): versioned JSONL, append-only, written
+  only by the dashboard. The line schema is inherited from ADR-0002
+  unchanged, so existing entries migrate without transformation.
 - **`~/.claude/my-dashboard/config.json`** — local config contract (see
   [dashboard.config.example.json](../dashboard.config.example.json));
   consumed by scanner, server, and `snapshot.mjs --all`.

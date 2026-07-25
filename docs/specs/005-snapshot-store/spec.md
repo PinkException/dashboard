@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: DONE
 skill:
 use_cases: [UC-3]
 ---
@@ -43,10 +43,32 @@ approved step gated on ADR-0004 §6.
   slice mitigates by leaving the in-repo files in place and readable — nothing is
   removed — so a hidden consumer degrades to "stops receiving new entries" rather
   than breaking outright.
-- **A2 — reading two candidate sources per project does not materially slow a
-  scan.** *Unverified.* Each project already reads many files per scan; this adds
-  one file read per project. Asserted, not measured. If a scan visibly slows on
-  the owner's real config, the store read can be cached across projects.
+- **A2 — resolving the store per project does not materially slow a scan.**
+  *Unverified.* The read path adds one file read **and one `git rev-parse`
+  subprocess** per project (`snapshotFileFor` → `projectKey` → `repoRootOf`), on
+  top of the two git calls `gitInfo` already makes — and `server.mjs` re-scans on
+  every request. Mitigated, not measured: `projectKey` memoizes per root, so the
+  subprocess cost is paid once per root per process rather than per request. If a
+  scan still visibly slows on the owner's real config, the store read itself can
+  be cached too.
+
+- **A3 — a project's resolved filesystem path is NOT a durable identity, and
+  `projectKey` does not pretend otherwise.** *Declared, with a known
+  falsification.* The key is `sha256(realpath(repo root))`, so a project that is
+  moved or renamed gets a **new** key and starts a new history file. This is not
+  hypothetical: ADR-0004 records that 16 of the 193 backed-up entries live under
+  the old `project-dashboard` path and "belong to this project's series" — one
+  project, two paths, and by construction two keys.
+  **Consequence, scoped deliberately:** for the *writer* (this slice) the cost is
+  bounded — a moved project starts a fresh series and its card falls back to the
+  in-repo headline, which is indistinguishable on disk from the benign day-one
+  case. For the *migration* (005-02) it is not acceptable: folding on path alone
+  would split one project's history in two, recreating the fragmentation ADR-0004
+  exists to remove, and §6's "every entry accounted for" check cannot catch it
+  (every entry is present *somewhere*). **005-02 therefore requires an explicit
+  alias/rekey mechanism** — an owner-supplied map from old path to project, or a
+  stable identifier such as the root-commit SHA — and must not simply reuse
+  `projectKey` over historical paths. Recorded as the top input to ADR-0004 OQ4.
 
 Probe-verified (not assumptions):
 
@@ -75,7 +97,9 @@ the shape.
 - **005-02 (Data)** — migrate the existing history. Settles ADR-0004 OQ4's full
   mapping (folding the 17 worktree copies into their parents, promoting the
   worktree-only project), merges the 193 backed-up entries, verifies against a
-  retirement-time capture. Deliberately **not drafted yet**.
+  retirement-time capture. **Must solve the identity problem A3 names** — at
+  minimum an alias from the old `project-dashboard` path to this project — since
+  `projectKey` alone would split that history. Deliberately **not drafted yet**.
 - **005-03 (Interface)** — the dashboard-owned skill that composes narrative
   entries, plus rebuilding the paused twice-daily routine and choosing its cadence
   (ADR-0004 OQ1 option (a), OQ2). Deliberately **not drafted yet**.

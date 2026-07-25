@@ -44,12 +44,12 @@ node src/server.mjs        # → http://localhost:5111
   discovered-but-unpinned checkbox docs.
 - **Worktree-only docs**: warns when a doc exists only under
   `.claude/worktrees/` — one cleanup away from being lost.
-- **Last compass**: latest line of `docs/status/compass-history.jsonl`
-  ([ADR-0002](docs/decisions/adr-0002-compass-snapshot-contract.md)); wire
-  compass via [docs/compass-integration.md](docs/compass-integration.md),
-  append manually with `scripts/snapshot.mjs`, or schedule
-  `scripts/snapshot.mjs --all --auto` for twice-daily deterministic
-  history points (routine mode).
+- **Last snapshot**: the newest entry for a project, read from the
+  dashboard's own store at `~/.claude/my-dashboard/snapshots/`
+  ([ADR-0004](docs/decisions/adr-0004-dashboard-owned-snapshots.md)) — outside
+  every repo, so surveying a project never writes to it. Append one with
+  `scripts/snapshot.mjs`, or `--all --auto` for deterministic history points.
+  See [docs/compass-integration.md](docs/compass-integration.md).
 
 ## Develop
 

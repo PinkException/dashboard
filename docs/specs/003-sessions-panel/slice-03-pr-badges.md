@@ -42,3 +42,12 @@ shouldn't pay yet:
 ### Deviation log
 
 _(n/a while DEFERRED)_
+
+> **Barred by ADR-0004 (added 2026-07-24).** Any option above that has the
+> dashboard write a `docs/status/` file inside a surveyed project is no longer
+> available: vision principle 1 (amended) says the dashboard never writes into a
+> surveyed project, and [ADR-0004](../../decisions/adr-0004-dashboard-owned-snapshots.md)
+> moved all dashboard state to `~/.claude/my-dashboard/`. If this slice is
+> un-deferred, route any persistence through the dashboard-owned store instead —
+> re-adding an in-project write recreates
+> [bug 002](../../bugs/002-compass-writer-still-active.md).
