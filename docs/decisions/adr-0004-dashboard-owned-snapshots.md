@@ -522,6 +522,24 @@ two values simply look like two projects. A hybrid (derive where possible, list
 for exceptions) was rejected too: it still needs the list, and it hides which
 merges the owner confirmed and which the tool inferred.
 
+**The one pairing, confirmed on content (2026-07-25).** The owner confirmed that
+the history recorded under this project's pre-rename folder belongs to this
+project, and asked that the record cite the evidence rather than the say-so.
+Verified against the file, not inferred from the folder name:
+
+- All 16 entries name *this* project's own work — spec 002 (dashboard MVP),
+  003-sessions-panel including 003-03 pr-badges as DEFERRED, 004, 005, and 007
+  through 012 — and its port `:5111`. No other project's specs appear.
+- They run 2026-07-13T17:54Z to 2026-07-22T19:03Z, ending on the rename day with
+  the final run of the routine this ADR records as paused at 2026-07-22T19:02Z.
+- The post-rename folder has no `docs/status/` directory at all, so there is no
+  competing history for the entries to conflict with.
+
+Recorded as the single entry in `~/.claude/my-dashboard/snapshot-aliases.json`.
+This also settles the Consequences note that 16 entries "live under a folder
+which is no longer a workplace but holds real history belonging to this
+project's series" — that claim is now evidenced rather than assumed.
+
 **What this unblocks and what it does not.** §5's deferred reconciliation is no
 longer blocked; it is drafted as
 [spec 005-02](../specs/005-snapshot-store/slice-02-migrate-history.md). §6's

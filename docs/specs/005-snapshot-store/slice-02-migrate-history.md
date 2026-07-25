@@ -119,7 +119,11 @@ store — not in this repo. Two reasons, both binding: it names real projects an
 this repo ships publicly (the leak gate would reject it anyway), and vision
 principle 6 keeps per-user state out of repos. Each entry pairs an old location
 with the project it is today, plus a short reason and the date the owner
-confirmed it. Today exactly one entry is needed: this project's old folder name.
+confirmed it. **Written 2026-07-25 with the one entry it needs** — this
+project's pre-rename folder — confirmed by the owner on content rather than on
+the folder name (all 16 entries name this project's own specs and its port; the
+post-rename folder has no history of its own). The evidence is recorded in
+ADR-0004's OQ4 amendment.
 A source path that resolves to a project not covered by the list and not present
 on disk stops the run with a message naming the path, rather than guessing.
 
