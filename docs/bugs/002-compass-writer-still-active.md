@@ -59,6 +59,10 @@ Retarget `scripts/snapshot.mjs` at `~/.claude/my-dashboard/snapshots/`, per
 ADR-0004 §1 and the Sequencing section. Gated on nothing else — not the history
 migration, not its verification, not any open question.
 
+**Owned by [slice 005-01](../specs/005-snapshot-store/slice-01-relocate-store.md)**
+(AC1 is this fix). The acceptance criteria live there rather than being duplicated
+here, so there is one owner for the change.
+
 Three earlier readings of the gate were wrong and are recorded so the reasoning is
 not re-derived: blocked on the open questions; then on the migration being verified
 (the migration itself waits on an open question, so that parked the
