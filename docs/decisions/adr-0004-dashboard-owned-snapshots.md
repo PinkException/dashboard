@@ -445,3 +445,58 @@ This decision should be reversed or reshaped if:
    to its own key — and the ongoing writer, so histories cannot split or
    cross-contaminate on basename collisions or ambiguous worktree-to-parent
    resolution. The `ts`+`headline` dedup does not catch a mis-keyed merge.
+
+## Amendment (2026-07-24): Open questions 1 and 2 resolved by the owner
+
+Two of the four open questions are settled. The decision body above is unchanged;
+this records what the owner answered and what it implies.
+
+**OQ2 — is a growing time series wanted? YES.** The owner wants the
+**evolution / velocity view**. This is the claim the ADR deliberately declined to
+settle, so answering it changes what follows:
+
+- §7's *"the paused `compass-snapshots` routine stays paused"* is **lifted**, by
+  §7's own terms (*"the owner can lift it by answering OQ2"*). A recurring writer
+  is back in scope, and the routine is rebuilt against it.
+- The growing series is now a committed product goal, not a deferred candidate.
+  Cadence — still genuinely open — is the implementing spec's call: at most one
+  automatic entry per project per day, or only when the computed state differs
+  from the previous entry. Even sampling matters more now, since the series feeds
+  a chart.
+- §5's deferred reconciliation gains a real consumer: a per-project chart wants
+  one continuous history, so the merge is worth doing rather than optional. It
+  still waits on OQ4.
+
+**OQ1 — who writes the narrative prose? The dashboard, via its own skill.**
+The owner retired the compass write directly (verified 2026-07-24: compass's
+SKILL.md now says it *"reports in chat and writes nothing — no files"*), and
+directed: *"If we want dashboard to write something, it will have to do it
+itself."* Therefore:
+
+- Option **(b)** (a compass companion recording compass's headline) is **dead** —
+  there is no compass write to companion, and coupling the plugins was its only
+  advantage.
+- Option **(a)** — a dashboard-owned snapshot skill — is the answer, and the
+  body's stated objection to it needs correcting. OQ1 above says principle 2's
+  determinism rules option (a) out because the dashboard "makes no LLM calls".
+  That conflates two different things: **vision principle 2 binds the scanner and
+  the rendered page** (same disk state → same page), not a skill. A dashboard-owned
+  *skill* is Claude-run — exactly how compass composed its headlines — so it can
+  author narrative prose without touching the scanner's determinism. The
+  scanner/server stays deterministic and LLM-free; the skill is where prose comes
+  from.
+- Kill criterion 3 (a dashboard-written entry may be "too thin") is therefore
+  **less likely to fire** than the body assumed: the thin `auto:` line was only
+  forced under the mistaken reading. It stays a kill criterion — a skill that
+  produces bland headlines is still a failure — but it is no longer near-certain.
+
+**Still open:** OQ3 (does an entry need a `source` field) and OQ4 (the
+project-key mapping — which still gates the §5 reconciliation and, through it,
+§6's deletion step).
+
+**Unchanged by this amendment:** nothing is deleted; the existing history is
+preserved and migrated, not discarded; §6's verification set is still captured at
+writer-retirement time; and the leak fix is still gated only on the two writers
+stopping. Half of that has now happened — see
+[bug 002](../bugs/002-compass-writer-still-active.md): compass is retired, and
+`scripts/snapshot.mjs` is the remaining in-repo writer.
