@@ -24,7 +24,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 - [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) - DONE worked example to imitate; see [docs/specs/README.md](docs/specs/README.md) for the status board.
 - [002-dashboard-mvp](docs/specs/002-dashboard-mvp/spec.md) - DONE. The MVP: scan-and-serve, workstreams, compass-snapshot. Deferred to later specs: hours layer, evolution graphs, owner queue, jig upstreaming.
 - [003-sessions-panel](docs/specs/003-sessions-panel/spec.md) - next up. Per-project Claude Code sessions on each card (title foregrounded, branch, worktree, running badge, last activity), read zero-dep from the local `~/.claude` store. Slices 01–02 DRAFT, 03 (pr-badges) DEFERRED behind the `gh` decision.
-- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). 005-02 (migrate the existing 193 entries; needs the A3 alias/rekey answer) and 005-03 (dashboard-owned narrative writer + routine cadence) not drafted.
+- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). **005-02 migrate-history IN_PROGRESS** - the merge has run (68 entries in 7 store files; identity is an owner-confirmed alias list, ADR-0004 OQ4 amendment), but the two review passes and the reconciliation write-up are still outstanding, so the slice is not DONE. **Nothing has been deleted** - removing the in-repo files needs explicit owner approval on top of §6. 005-03 (dashboard-owned narrative writer + routine cadence) not drafted.
 - [004-claude-plugin](docs/specs/004-claude-plugin/spec.md) - DONE (retroactive, owner-approved). Plugin + own-marketplace manifests, `open` skill, config moved out of every repo to `~/.claude/my-dashboard/config.json` (ADR-0003).
 
 ### Deferred decisions
@@ -57,9 +57,14 @@ rename recorded in the ADR-0003 amendment: repo `Kyarha/dashboard`, plugin
 has no `~/.claude/my-dashboard/config.json` yet — the first `/dashboard:open`
 run should offer to create it. Spec 005 (dashboard-owned snapshot store,
 ADR-0004) landed slice 005-01 on 2026-07-24: snapshots now live outside every
-repo and no code path writes into a surveyed project. Next active work: spec
-005-02 (migrate the 193 backed-up entries — blocked on the identity question in
-spec assumption A3), then spec 003 (sessions panel) — drafted, no code yet.
+repo and no code path writes into a surveyed project. Slice 005-02 ran the
+migration on 2026-07-27 (`ee21c27`): the scattered histories are folded into
+one store file per project — 68 entries across 7 projects, this repo's own 16
+recovered from its pre-rename folder via the owner-confirmed alias. Identity is
+**declared, not derived** (ADR-0004 OQ4 amendment); do not re-propose a
+root-commit identity, it was probed and falsified. Next active work: finish
+005-02 (two review passes + reconciliation, then DONE), then spec 003 (sessions
+panel) — drafted, no code yet.
 Later candidates (vision → MVP scope deferrals): hours-worked layer,
 evolution graphs from snapshot history (the owner confirmed 2026-07-24 they
 want this — ADR-0004 OQ2), cross-project "waiting on you / ready for Claude"
