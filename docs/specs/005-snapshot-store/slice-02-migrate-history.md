@@ -1,8 +1,9 @@
 ---
-status: DRAFT
+status: IN_PROGRESS
 dependencies: [005-01, adr-0004]
 last_verified: 2026-07-24
 frame_review: true
+claimed_by: claude/draft-005-02-identity-012cdf
 ---
 
 ## Slice 005-02 — migrate the existing history

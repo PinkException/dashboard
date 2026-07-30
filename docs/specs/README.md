@@ -24,7 +24,7 @@
 | [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | DEFERRED | needs `gh`; trigger = decide gh-on-scan vs routine-snapshot bridge |
 | [004-claude-plugin](004-claude-plugin/spec.md) | 004-01 — plugin-packaging | **DONE** | retroactive spec (owner-approved); ADR-0003; config moved to `~/.claude/my-dashboard/config.json`; fixed bug 001 en route |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-01 — relocate the snapshot store | **DONE** |  |
-| [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | DRAFT |  |
+| [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | IN_PROGRESS (claude/draft-005-02-identit…) |  |
 
 ## Deferred slices
 

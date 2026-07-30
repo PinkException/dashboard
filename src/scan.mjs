@@ -90,6 +90,15 @@ function repoRootOf(root) {
   }
 }
 
+// The canonical directory a project's history is keyed on: a linked worktree
+// folds to its parent repo, a subdirectory or submodule keeps its own root.
+// Exported so 005-02's migration resolves identity through exactly this rule —
+// and can apply an owner-confirmed alias to the *resolved root* rather than to
+// a raw file path (ADR-0004 OQ4).
+export function projectRootOf(root) {
+  return realpath(repoRootOf(root) ?? path.resolve(root));
+}
+
 // Resolving the key shells out to git, and the server re-scans on every request,
 // so memoize per root (spec assumption A2). Note the cache is never invalidated:
 // within a long-lived server a root that *becomes* a repo keeps its earlier key
@@ -103,7 +112,7 @@ const keyCache = new Map();
 export function projectKey(root) {
   const cached = keyCache.get(root);
   if (cached) return cached;
-  const base = realpath(repoRootOf(root) ?? path.resolve(root));
+  const base = projectRootOf(root);
   const name =
     path.basename(base).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
   const key = `${name}-${createHash('sha256').update(base).digest('hex').slice(0, 8)}`;
