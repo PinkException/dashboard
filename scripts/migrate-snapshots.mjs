@@ -14,6 +14,8 @@
 //                         defaults to every `_migration-*` folder beside the store)
 //   --aliases <file>      owner-confirmed identity list (default: beside the store)
 //   --report <file>       where to write the report (default: beside the store)
+//   --capture             take a dated verification capture of the live sources,
+//                         then exit (ADR-0004 §6); writes no store, no report
 //   --write               actually write; without it nothing is written anywhere
 import fs from 'node:fs';
 import path from 'node:path';

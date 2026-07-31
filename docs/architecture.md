@@ -115,6 +115,14 @@ Stateless by design — same disk state → same page (vision principle 2):
   are the time series. Each surveyed project's legacy in-repo
   `docs/status/compass-history.jsonl` is still *read* during the migration
   window and is never written to.
+- **`~/.claude/my-dashboard/snapshot-aliases.json`** (user home, never in any
+  repo) — the owner-confirmed identity map (ADR-0004 OQ4): each entry pairs a
+  project's old location with the project it is today, plus a reason and the
+  date the owner confirmed it. Consumed by the migration (`src/migrate.mjs`
+  `loadAliases`/`applyAlias`) to fold a renamed project's history under one key.
+  Identity is **declared here, not derived** — a derived identifier (first
+  commit) was rejected because this repo's history was rewritten before
+  publication, giving its old and new folders different first commits.
 - Everything else is derived per request from the surveyed repos' own
   artifacts (spec/slice frontmatter, checkbox docs, bug files, git log).
 
@@ -129,6 +137,13 @@ Stateless by design — same disk state → same page (vision principle 2):
 - **`~/.claude/my-dashboard/config.json`** — local config contract (see
   [dashboard.config.example.json](../dashboard.config.example.json));
   consumed by scanner, server, and `snapshot.mjs --all`.
+- **`~/.claude/my-dashboard/snapshot-aliases.json`** — file contract for the
+  identity map ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)
+  OQ4): `{ "v": 1, "aliases": [ { "from": <old-path>, "to": <project-path>,
+  "reason": <string>, "confirmed": <date> } ] }`. Owner-authored, read by
+  `src/migrate.mjs`; `~` is expanded on load. A missing file is tolerated (no
+  aliases). Kept outside every repo — it names real projects and this repo
+  ships publicly (vision principle 6, and the leak gate would reject it).
 - **`GET /api/data`** — localhost-only JSON shape consumed by the page;
   additive evolution preferred (the page degrades gracefully on missing
   fields, per spec 003's plan).

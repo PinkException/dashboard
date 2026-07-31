@@ -79,8 +79,6 @@ const plannerFor = (aliases = []) =>
     aliases,
   });
 
-const projectByKey = (plan, root) => plan.projects.find((p) => p.key === projectKey(root));
-
 // ---------------------------------------------------------------- AC3
 
 test('AC3: a worktree copy folds into its parent project, not its own history', () => {
@@ -282,7 +280,7 @@ test('AC5: the accounting balances — every line read is written or attributed 
   assert.match(duplicates[0].duplicateOf, /2026-02-02T00:00:00Z/);
 });
 
-test('AC5: the report names the search roots and one row per resulting project', () => {
+test('AC5: the report names the search roots and one row per resulting project, listing the source paths', () => {
   const a = makeRepo('fernhollow');
   const b = makeRepo('gildergreen');
   writeHistory(a, [entry('2026-01-01T00:00:00Z', 'alpha')]);
@@ -293,6 +291,10 @@ test('AC5: the report names the search roots and one row per resulting project',
   assert.match(report, new RegExp(workspace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(report, /fernhollow/);
   assert.match(report, /gildergreen/);
+  // AC5 asks for the source paths each project file was built from, not a bare
+  // count — the row must name the actual history file, so a missed alias is a
+  // recognisable path rather than an opaque number.
+  assert.match(report, /compass-history\.jsonl/, 'each project row lists its source paths');
 });
 
 // ---------------------------------------------------------------- AC6
@@ -355,7 +357,12 @@ test('AC6: a second run appends only genuinely new entries, without reordering',
   assert.deepEqual(lines, ['first', 'later']);
 });
 
-test('AC6: the store file is written whole — an interrupted write leaves no partial history', () => {
+test("AC4: a project's first write leaves no leftover temp file (cleanup)", () => {
+  // The first write of a project file is atomic (temp file, then rename into
+  // place); this asserts only the cleanup half — the temp file is moved, never
+  // left behind. It does not (and cannot without interrupting the process)
+  // prove the rename itself is atomic. Re-run appends are intentionally not
+  // atomic (ADR-0004 §2 append-only) and are covered by the AC6 re-run tests.
   const repo = makeRepo('thornquay');
   writeHistory(repo, [entry('2026-01-01T00:00:00Z', 'x')]);
   const plan = plannerFor();
