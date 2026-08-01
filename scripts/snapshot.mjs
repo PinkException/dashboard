@@ -1,9 +1,12 @@
 // Snapshot writer. Appends to the dashboard-owned store outside every repo
 // (ADR-0004, slice 005-01); never into the surveyed project.
 //
-// Manual (narrative supplied by you or by compass):
+// Manual (narrative supplied by you, or by the dashboard's own snapshot skill):
 //   node scripts/snapshot.mjs --project <path> --headline "..." \
-//     [--next "..."] [--blockers "a;b"] [--ts <iso>]
+//     [--next "..."] [--blockers "a;b"] [--ts <iso>] [--source <value>]
+//
+// --source overrides the provenance tag (default: `auto` under --auto, else
+// `manual`). The dashboard-owned narrative skill passes `--source dashboard`.
 //
 // Auto (deterministic headline from scan data; for scheduled routines):
 //   node scripts/snapshot.mjs --project <path> --auto
@@ -62,6 +65,11 @@ function writeSnapshot(root, args) {
     }
     snapshot.source = 'manual';
   }
+  // --source overrides the default provenance tag. The dashboard-owned snapshot
+  // skill (slice 005-03) passes `--source dashboard` so its narrative entries are
+  // distinguishable from a human `manual` headline and the deterministic `auto`
+  // line. A bare `--source` with no value is ignored — the default tag stands.
+  if (typeof args.source === 'string' && args.source) snapshot.source = args.source;
   snapshot.specs = { done: scanned.progress.done, total: scanned.progress.denom };
 
   const errors = validateSnapshot(snapshot);
@@ -85,7 +93,7 @@ function writeSnapshot(root, args) {
 
 const args = parseArgs(process.argv.slice(2));
 const usage =
-  'usage: node scripts/snapshot.mjs --project <path> --headline "..." [--next "..."] [--blockers "a;b"] [--ts <iso>]\n' +
+  'usage: node scripts/snapshot.mjs --project <path> --headline "..." [--next "..."] [--blockers "a;b"] [--ts <iso>] [--source <value>]\n' +
   '       node scripts/snapshot.mjs --project <path> --auto\n' +
   '       node scripts/snapshot.mjs --all --auto [--config <path>]';
 

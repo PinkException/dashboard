@@ -18,7 +18,8 @@ dashboard/
 │   ├── plugin.json      # Claude Code plugin manifest
 │   └── marketplace.json # this repo is its own plugin marketplace
 ├── skills/
-│   └── open/SKILL.md    # /dashboard:open — start the server from any project
+│   ├── open/SKILL.md    # /dashboard:open — start the server from any project
+│   └── snapshot/SKILL.md # /dashboard:snapshot — compose a narrative "what's next" entry (005-03)
 ├── src/
 │   ├── lib.mjs          # pure parsing helpers — no filesystem access, fully unit-testable
 │   ├── scan.mjs         # scanner over configured project roots (fs walk + git subprocess); CLI: node src/scan.mjs
@@ -133,7 +134,11 @@ Stateless by design — same disk state → same page (vision principle 2):
   ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md), superseding
   ADR-0002's in-project location): versioned JSONL, append-only, written
   only by the dashboard. The line schema is inherited from ADR-0002
-  unchanged, so existing entries migrate without transformation.
+  unchanged, so existing entries migrate without transformation. The `source`
+  field records provenance: `manual` (a human headline), `auto` (the
+  deterministic `snapshot.mjs --auto` line), or `dashboard` (the narrative
+  `/dashboard:snapshot` skill, slice 005-03). `validateSnapshot` does not
+  constrain the value — this is a documented convention, not a validated enum.
 - **`~/.claude/my-dashboard/config.json`** — local config contract (see
   [dashboard.config.example.json](../dashboard.config.example.json));
   consumed by scanner, server, and `snapshot.mjs --all`.

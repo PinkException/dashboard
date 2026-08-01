@@ -14,6 +14,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scanProject, snapshotFileFor } from '../src/scan.mjs';
+import { validateSnapshot } from '../src/lib.mjs';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'snapshot.mjs');
 let tmp;
@@ -78,6 +79,33 @@ test('snapshot.mjs --auto builds a deterministic headline and tags source (routi
   assert.equal(snap.source, 'auto');
   assert.match(snap.headline, /^auto: 1\/1 specs done/);
   assert.deepEqual(snap.specs, { done: 1, total: 1 });
+});
+
+test('snapshot.mjs tags a manual entry source:manual by default (005-03 AC1)', () => {
+  run([SCRIPT, '--project', tmp, '--headline', 'plain manual']);
+  const lines = fs.readFileSync(historyFile(), 'utf8').trim().split('\n');
+  const snap = JSON.parse(lines[lines.length - 1]);
+  assert.equal(snap.headline, 'plain manual');
+  assert.equal(snap.source, 'manual', 'default provenance unchanged when --source absent');
+});
+
+test('snapshot.mjs --source overrides the provenance tag (005-03 AC1)', () => {
+  run([SCRIPT, '--project', tmp, '--headline', 'sessions-panel 003 ready to implement', '--source', 'dashboard']);
+  const lines = fs.readFileSync(historyFile(), 'utf8').trim().split('\n');
+  const snap = JSON.parse(lines[lines.length - 1]);
+  assert.equal(snap.source, 'dashboard', 'skill-authored entries are tagged source:dashboard');
+  assert.equal(snap.headline, 'sessions-panel 003 ready to implement');
+  assert.deepEqual(validateSnapshot(snap), [], 'the tagged line still validates');
+});
+
+test('snapshot.mjs ignores a bare --source with no value (005-03 AC1)', () => {
+  // `--source` as the last arg parses to boolean true; the guard must reject it
+  // and leave the default provenance tag standing, not write `source: true`.
+  run([SCRIPT, '--project', tmp, '--headline', 'bare source flag', '--source']);
+  const lines = fs.readFileSync(historyFile(), 'utf8').trim().split('\n');
+  const snap = JSON.parse(lines[lines.length - 1]);
+  assert.equal(snap.headline, 'bare source flag');
+  assert.equal(snap.source, 'manual', 'bare --source is ignored; default tag stands');
 });
 
 test('snapshot.mjs refuses invalid input and writes nothing (002-03 AC4)', () => {

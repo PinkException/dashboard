@@ -56,3 +56,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** Audit found the install manifest three versions stale and factually wrong (claimed no tests, claimed in-repo machinery this repo does not carry), and three ADRs in a status format jig's gate cannot parse — a latent refusal on the next ADR-dependent slice → DONE. Owner asked for all three fixed in one pass. project_name and is_team were overridden by hand: the builder derives the name from the folder (a worktree here) and counts Claude's co-author email as a second contributor.
 
 **Scope:** scaffold.json, docs/decisions/adr-0001..0003, live docs prose, closed specs 001/004, .jig/no-people-md
+
+### 2026-08-01 — snapshot source: "dashboard" provenance value + plugin 0.3.0
+
+**Decision:** The narrative /dashboard:snapshot skill (005-03) tags its entries source: "dashboard" via a new snapshot.mjs --source flag, distinct from a human 'manual' headline and the deterministic 'auto' line. validateSnapshot does not constrain source, so this is a documented convention (architecture.md), not a validated enum. Plugin version bumped 0.2.1 -> 0.3.0 (plugin.json + package.json) so the new skill reaches an installed plugin.
+
+**Context:** ADR-0004 OQ1 resolved that the dashboard writes narrative via its own skill; the future evolution view (OQ2) may want to tell the three producers apart. A new skill does not propagate to an installed plugin without a version bump.
+
+**Scope:** scripts/snapshot.mjs, skills/snapshot/SKILL.md, docs/architecture.md, .claude-plugin/plugin.json, package.json
