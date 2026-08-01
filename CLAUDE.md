@@ -24,7 +24,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 - [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) - DONE worked example to imitate; see [docs/specs/README.md](docs/specs/README.md) for the status board.
 - [002-dashboard-mvp](docs/specs/002-dashboard-mvp/spec.md) - DONE. The MVP: scan-and-serve, workstreams, compass-snapshot. Deferred to later specs: hours layer, evolution graphs, owner queue, jig upstreaming.
 - [003-sessions-panel](docs/specs/003-sessions-panel/spec.md) - next up. Per-project Claude Code sessions on each card (title foregrounded, branch, worktree, running badge, last activity), read zero-dep from the local `~/.claude` store. Slices 01–02 DRAFT, 03 (pr-badges) DEFERRED behind the `gh` decision.
-- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). **005-02 migrate-history DONE (2026-07-31)** - 68 entries in 7 store files, identity via the owner-confirmed alias list (ADR-0004 OQ4); all four review passes recorded, deviation log + reconciliation sweep written. **Nothing has been deleted** - removing the in-repo files is §6, still gated on explicit owner approval (see the §6 handoff in the slice's reconciliation sweep: reconcile the search root against the real project list first, delete per-file). 005-03 (dashboard-owned narrative writer + routine cadence) not drafted — spec 005 rolls up DONE on its drafted slices, but 005-03 remains the real next step here.
+- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). **005-02 migrate-history DONE (2026-07-31)** - 68 entries in 7 store files, identity via the owner-confirmed alias list (ADR-0004 OQ4); all four review passes recorded, deviation log + reconciliation sweep written. **Nothing has been deleted** - removing the in-repo files is §6, still gated on explicit owner approval (see the §6 handoff in the slice's reconciliation sweep: reconcile the search root against the real project list first, delete per-file). **005-03 (dashboard-owned narrative snapshot skill) DRAFTed 2026-07-31** (resolves ADR-0004 OQ1; `frame_review` on for kill-criterion-3 = no bland filler); the recurring routine + cadence was split into **005-04 (not drafted)**. Spec 005 is back to IN_PROGRESS with 005-03 DRAFT. Next: refine 005-03 toward implementation (see its Open questions: write path, `source` value, invocation surface).
 - [004-claude-plugin](docs/specs/004-claude-plugin/spec.md) - DONE (retroactive, owner-approved). Plugin + own-marketplace manifests, `open` skill, config moved out of every repo to `~/.claude/my-dashboard/config.json` (ADR-0003).
 
 ### Deferred decisions
@@ -63,10 +63,11 @@ scattered histories are folded into one store file per project — 68 entries
 across 7 projects, this repo's own 16 recovered from its pre-rename folder via
 the owner-confirmed alias. Identity is **declared, not derived** (ADR-0004 OQ4
 amendment); do not re-propose a root-commit identity, it was probed and
-falsified. Next active work: spec 003 (sessions panel) — drafted, no code yet —
-or draft 005-03 (dashboard-owned narrative writer + routine cadence), the
-remaining snapshot-store work. Still nothing deleted; §6 in-repo cleanup stays
-owner-gated.
+falsified. 005-03 (dashboard-owned narrative snapshot skill) was DRAFTed
+2026-07-31 (ADR-0004 OQ1), with the recurring routine + cadence split into
+005-04 (not drafted). Next active work: refine 005-03 toward implementation, or
+spec 003 (sessions panel) — drafted, no code yet. Still nothing deleted; §6
+in-repo cleanup stays owner-gated.
 Later candidates (vision → MVP scope deferrals): hours-worked layer,
 evolution graphs from snapshot history (the owner confirmed 2026-07-24 they
 want this — ADR-0004 OQ2), cross-project "waiting on you / ready for Claude"
