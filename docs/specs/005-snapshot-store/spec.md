@@ -1,5 +1,5 @@
 ---
-status: DONE
+status: IN_PROGRESS
 skill:
 use_cases: [UC-3]
 ---
@@ -111,8 +111,15 @@ the shape.
   owner-confirmed alias list — see A3's 2026-07-24 resolution note. **Drafted
   2026-07-24.**
 - **005-03 (Interface)** — the dashboard-owned skill that composes narrative
-  entries, plus rebuilding the paused twice-daily routine and choosing its cadence
-  (ADR-0004 OQ1 option (a), OQ2). Deliberately **not drafted yet**.
+  entries (ADR-0004 OQ1 option (a)). Vertical: run the skill → a narrative entry
+  lands in the store → the project card answers UC-3 in prose. **Drafted
+  2026-07-31.** The routine was split out (below) because a scheduled-task rebuild
+  and a human-invoked skill are two independently-testable deliverables.
+- **005-04 (Interface)** — rebuild the paused twice-daily `compass-snapshots`
+  routine against 005-03's skill and the new store, and choose its cadence
+  (ADR-0004 OQ2: at most one entry per project per day, or only on a changed
+  computed state — sampling matters because the series feeds a chart). **Not
+  drafted yet.**
 
 Why 005-01 first: it is the only slice that closes an open leak path, and it
 depends on nothing. 005-02 and 005-03 both build on the store it creates.
@@ -121,4 +128,5 @@ depends on nothing. 005-02 and 005-03 both build on the store it creates.
 
 - [005-01 — relocate the snapshot store](slice-01-relocate-store.md)
 - [005-02 — migrate the existing history](slice-02-migrate-history.md)
-- 005-03 — dashboard-owned narrative writer *(not drafted)*
+- [005-03 — dashboard-owned narrative snapshot skill](slice-03-narrative-writer.md)
+- 005-04 — rebuild the recurring routine + choose cadence *(not drafted)*
