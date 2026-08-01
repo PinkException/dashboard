@@ -26,6 +26,7 @@
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-01 — relocate the snapshot store | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-03 — dashboard-owned narrative snapshot skill | **DONE** |  |
+| [005-snapshot-store](005-snapshot-store/spec.md) | 005-04 — rebuild the recurring snapshot routine + choose its cadence | DRAFT |  |
 
 ## Deferred slices
 

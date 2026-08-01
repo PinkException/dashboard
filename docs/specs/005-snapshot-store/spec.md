@@ -1,5 +1,5 @@
 ---
-status: DONE
+status: IN_PROGRESS
 skill:
 use_cases: [UC-3]
 ---
@@ -118,8 +118,10 @@ the shape.
 - **005-04 (Interface)** — rebuild the paused twice-daily `compass-snapshots`
   routine against 005-03's skill and the new store, and choose its cadence
   (ADR-0004 OQ2: at most one entry per project per day, or only on a changed
-  computed state — sampling matters because the series feeds a chart). **Not
-  drafted yet.**
+  computed state — sampling matters because the series feeds a chart). **Drafted
+  2026-08-01.** The one non-negotiable: the rebuilt routine drops the old
+  `--commit` that wrote into each repo (the bug-002 leak); it writes only to the
+  store. Cadence and narrative-vs-deterministic are its open questions.
 
 Why 005-01 first: it is the only slice that closes an open leak path, and it
 depends on nothing. 005-02 and 005-03 both build on the store it creates.
@@ -129,4 +131,4 @@ depends on nothing. 005-02 and 005-03 both build on the store it creates.
 - [005-01 — relocate the snapshot store](slice-01-relocate-store.md)
 - [005-02 — migrate the existing history](slice-02-migrate-history.md)
 - [005-03 — dashboard-owned narrative snapshot skill](slice-03-narrative-writer.md)
-- 005-04 — rebuild the recurring routine + choose cadence *(not drafted)*
+- [005-04 — rebuild the recurring routine + choose cadence](slice-04-recurring-routine.md)
