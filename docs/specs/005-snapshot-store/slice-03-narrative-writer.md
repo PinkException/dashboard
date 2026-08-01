@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [005-01, adr-0004]
 last_verified: 2026-08-01
 frame_review: true
-claimed_by: claude/dashboard-status-caa399
 ---
 
 ## Slice 005-03 — dashboard-owned narrative snapshot skill

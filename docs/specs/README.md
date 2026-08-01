@@ -25,7 +25,7 @@
 | [004-claude-plugin](004-claude-plugin/spec.md) | 004-01 — plugin-packaging | **DONE** | retroactive spec (owner-approved); ADR-0003; config moved to `~/.claude/my-dashboard/config.json`; fixed bug 001 en route |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-01 — relocate the snapshot store | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | **DONE** |  |
-| [005-snapshot-store](005-snapshot-store/spec.md) | 005-03 — dashboard-owned narrative snapshot skill | DRAFT |  |
+| [005-snapshot-store](005-snapshot-store/spec.md) | 005-03 — dashboard-owned narrative snapshot skill | **DONE** |  |
 
 ## Deferred slices
 
