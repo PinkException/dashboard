@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [005-01, 005-03, adr-0004]
 last_verified: 2026-08-03
 frame_review: true
-claimed_by: claude/005-04-5a219f
 ---
 
 ## Slice 005-04 — rebuild the recurring snapshot routine + choose its cadence
