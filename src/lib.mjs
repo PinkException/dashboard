@@ -161,8 +161,15 @@ export function countRefinement(text) {
 export const BUG_CLOSED = new Set(['DONE', 'RESOLVED_ON_MAIN', 'CLOSED', 'WONT_FIX']);
 
 // Last valid snapshot line wins; malformed lines are counted, never fatal.
+// `latestNarrative` tracks the last valid line whose `source` is not `auto`
+// (slice 005-04): a card prefers a human/skill prose headline over the routine's
+// deterministic `auto:` counts, so the daily auto series can accumulate for the
+// future evolution chart without ever burying a narrative headline on the card.
+// A line with no `source` predates the tag (pre-005-03) and is treated as
+// narrative — never hidden.
 export function parseCompassHistory(text) {
   let latest = null;
+  let latestNarrative = null;
   let malformed = 0;
   let count = 0;
   for (const line of text.split('\n')) {
@@ -177,6 +184,7 @@ export function parseCompassHistory(text) {
         typeof obj.headline === 'string'
       ) {
         latest = obj;
+        if (obj.source !== 'auto') latestNarrative = obj;
       } else {
         malformed++;
       }
@@ -184,7 +192,7 @@ export function parseCompassHistory(text) {
       malformed++;
     }
   }
-  return { latest, malformed, count };
+  return { latest, latestNarrative, malformed, count };
 }
 
 // Pick the genuinely newer of two candidate snapshots (ADR-0004 §5: the reader

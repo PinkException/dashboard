@@ -81,6 +81,33 @@ timestamps, never concatenating, since `parseCompassHistory` picks the last
 line in *file* order. The dual read retires once 005-02 has migrated and
 verified the existing history.
 
+**Recurring routine + cadence (slice 005-04, resolves ADR-0004 OQ2):** the
+unattended twice-daily routine is rebuilt to write only deterministic
+`snapshot.mjs --all --auto` entries to the store (the narrative
+`/dashboard:snapshot` skill stays human-invoked). It drops the retired
+`--commit` flag entirely — that write into each surveyed repo was the leak
+(bug 002). Cadence is **on-change-only**, enforced by the new `--if-changed`
+flag: a project is skipped unless its **progress signature** —
+`specs.done` + `specs.total` + `next` — differs from its most recent stored
+entry *of the same `source`*. Two deliberate properties:
+- **Bug-count churn is excluded** from the signature (a bug opening then
+  closing is net-zero progress, not a series point).
+- **Progress is spec-granular**, so a multi-slice spec yields no auto point
+  until a spec completes or the active spec changes. Slice-granular sampling
+  would need a richer `auto` fingerprint and is deferred to the future
+  evolution-chart spec.
+
+Because the routine now adds a fresh `auto` line potentially every day, the
+card reader **prefers the latest narrative (non-`auto`) entry** for the card
+headline (`parseCompassHistory` exposes `latestNarrative`; `scanCompass`
+selects it, falling back to the latest entry overall only when no prose
+exists). A `source`-less legacy line counts as narrative. The `auto` series
+still accumulates in the store for the chart; it just never takes over the
+card. **Consequence:** the card's freshness label (`stale`/`ageDays`) now
+tracks the displayed *narrative* entry's age, not routine activity — an
+actively-sampled project can still read "stale" if its prose is old. This is
+intended (a nudge to refresh prose), not a bug.
+
 ## Module boundaries
 
 One-directional, read-only coupling:

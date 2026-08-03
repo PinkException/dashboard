@@ -64,3 +64,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** ADR-0004 OQ1 resolved that the dashboard writes narrative via its own skill; the future evolution view (OQ2) may want to tell the three producers apart. A new skill does not propagate to an installed plugin without a version bump.
 
 **Scope:** scripts/snapshot.mjs, skills/snapshot/SKILL.md, docs/architecture.md, .claude-plugin/plugin.json, package.json
+
+### 2026-08-03 — Recurring-snapshot cadence: on-change deterministic
+
+**Decision:** The rebuilt compass-snapshots routine writes deterministic `snapshot.mjs --all --auto --if-changed` entries only (no unattended narrative). On-change cadence: a project is skipped unless its progress signature (specs.done/total + active spec) differs from its last stored same-source entry; open-bug churn is excluded. The card reader prefers the latest narrative (non-auto) entry so the daily auto series never buries 005-03's prose.
+
+**Context:** ADR-0004 OQ2 + owner decisions 2026-08-01 (deterministic-only, on-change) and 2026-08-03 (card prefers prose). Two frame-critique findings folded in: full-headline comparison would sample bug-count noise; source-blind card selection would bury prose.
+
+**Scope:** scripts/snapshot.mjs (--if-changed), src/lib.mjs (parseCompassHistory.latestNarrative), src/scan.mjs (scanCompass), per-user ~/.claude/scheduled-tasks/compass-snapshots/

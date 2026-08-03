@@ -126,6 +126,26 @@ test('parseCompassHistory: empty text → no latest', () => {
   assert.equal(parseCompassHistory('').latest, null);
 });
 
+test('parseCompassHistory: latestNarrative prefers non-auto over a newer auto line (005-04)', () => {
+  const text =
+    '{"v":1,"ts":"2026-08-01T08:00:00Z","headline":"sessions panel ready","source":"dashboard"}\n' +
+    '{"v":1,"ts":"2026-08-02T05:00:00Z","headline":"auto: 3/8 specs done","source":"auto"}\n';
+  const { latest, latestNarrative } = parseCompassHistory(text);
+  assert.equal(latest.source, 'auto', 'latest is still the newest line overall');
+  assert.equal(latestNarrative.headline, 'sessions panel ready', 'narrative selection skips the auto line');
+});
+
+test('parseCompassHistory: a source-less line counts as narrative (pre-005-03 entries) (005-04)', () => {
+  const text = '{"v":1,"ts":"2026-07-01T08:00:00Z","headline":"legacy prose"}\n';
+  const { latestNarrative } = parseCompassHistory(text);
+  assert.equal(latestNarrative.headline, 'legacy prose', 'missing source is treated as narrative, never hidden');
+});
+
+test('parseCompassHistory: only auto lines → latestNarrative is null (005-04)', () => {
+  const text = '{"v":1,"ts":"2026-08-02T05:00:00Z","headline":"auto: 3/8 specs done","source":"auto"}\n';
+  assert.equal(parseCompassHistory(text).latestNarrative, null);
+});
+
 test('parseCompassHistory: unparseable ts counts as malformed, never surfaces (review finding 5)', () => {
   const { latest, malformed } = parseCompassHistory('{"v":1,"ts":"garbage","headline":"x"}\n');
   assert.equal(latest, null);

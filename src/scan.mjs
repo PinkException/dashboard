@@ -304,7 +304,7 @@ function scanWorktreeOnlyDocs(root) {
   return out;
 }
 
-const EMPTY_COMPASS = { latest: null, malformed: 0, count: 0 };
+const EMPTY_COMPASS = { latest: null, latestNarrative: null, malformed: 0, count: 0 };
 
 // Reads both sources during the migration window (ADR-0004 §5): the
 // dashboard-owned store, and the project's legacy in-repo file that 005-02 has
@@ -317,8 +317,15 @@ function scanCompass(root) {
   };
   const inRepo = readSource(path.join(root, 'docs', 'status', 'compass-history.jsonl'));
   const fromStore = readSource(snapshotFileFor(root));
+  // The card displays the latest narrative (human/skill) entry across both
+  // sources, falling back to the latest entry overall only when no prose entry
+  // exists anywhere (slice 005-04). This keeps the routine's deterministic
+  // `auto` series — which feeds the future evolution chart — from taking over
+  // the card headline, which is 005-03's delivered value.
+  const narrative = laterSnapshot(inRepo.latestNarrative, fromStore.latestNarrative);
+  const overall = laterSnapshot(inRepo.latest, fromStore.latest);
   return {
-    latest: laterSnapshot(inRepo.latest, fromStore.latest),
+    latest: narrative ?? overall,
     malformed: inRepo.malformed + fromStore.malformed,
     count: inRepo.count + fromStore.count,
     // How many of the two sources held at least one line — the warning names
