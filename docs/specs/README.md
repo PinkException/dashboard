@@ -27,7 +27,7 @@
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-03 — dashboard-owned narrative snapshot skill | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-04 — rebuild the recurring snapshot routine + choose its cadence | **DONE** |  |
-| [006-routine-installer](006-routine-installer/spec.md) | 006-01 — routine source, ADR, and read-only drift check | DRAFT |  |
+| [006-routine-installer](006-routine-installer/spec.md) | 006-01 — routine source, ADR, and read-only drift check | **DONE** |  |
 | [006-routine-installer](006-routine-installer/spec.md) | 006-02 — the owner-gated install path | DRAFT |  |
 
 ## Deferred slices
