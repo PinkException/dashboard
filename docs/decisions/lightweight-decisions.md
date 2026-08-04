@@ -80,3 +80,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** ADR-0005 recorded the decision (dashboard owns + gates its install) but delegated the concrete contract to spec 006. The slice close-out asks that the exit-code map and manifest filename be recorded outside the code. No new load-bearing choice with rejected alternatives — this is the mechanical contract, so a lightweight decision, not an ADR amendment.
 
 **Scope:** tools/install-routine.mjs, test/install-routine.test.mjs, docs/architecture.md
+
+### 2026-08-04 — Release cut: plugin 0.4.0
+
+**Decision:** Plugin version bumped 0.3.0 -> 0.4.0 (plugin.json + package.json) and shipped to the installed plugin. This is a release-marker bump only — no code changed in this commit; it gives the accumulated work that landed under the unchanged 0.3.0 (005-04 recurring routine, 006 routine-installer, 007 plugin-onboarding) an honest version so an installed plugin — the owner's, and any public reuser's — sees a version delta to update on. Minor (not patch) because 006/007 added user-facing features; no breaking change, so not 1.0.
+
+**Context:** 005-03 set 0.3.0 (c8dc58b); 005-04, 006, and 007 all landed under it without a further bump, so a plugin at 0.3.0 would not be signalled to update for the onboarding + installer work. The owner asked to ship the version bump to the installed plugin and chose a clean 0.4.0 over shipping 0.3.0 as-is. Distribution unchanged: marketplace remains the Kyarha/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache.
+
+**Scope:** .claude-plugin/plugin.json, package.json
