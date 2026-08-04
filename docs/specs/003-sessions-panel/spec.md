@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: IN_PROGRESS
 use_cases: [UC-5]
 ---
 

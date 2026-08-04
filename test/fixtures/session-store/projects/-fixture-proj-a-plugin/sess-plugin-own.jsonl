@@ -1,0 +1,1 @@
+{"type":"user","message":{"role":"user","content":"This session belongs to proj-a-plugin, not proj-a"},"cwd":"/fixture/proj-a-plugin","gitBranch":"main"}

@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"Ship the login flow (should be overridden by custom-title)"},"cwd":"/fixture/proj-a","gitBranch":"main"}
+{"type":"custom-title","customTitle":"Ship the login flow"}

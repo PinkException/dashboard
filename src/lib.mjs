@@ -273,3 +273,164 @@ export function ageDays(ts, now = Date.now()) {
   if (Number.isNaN(t)) return null;
   return Math.floor((now - t) / 86400000);
 }
+
+// --- Spec 003-01: session panel — pure helpers (attribution, title, ordering) ---
+// Kept disk-free and unit-tested directly; the impure store reads (fs, mtimes,
+// bounded transcript scans) live in scan.mjs and call into these.
+
+// Claude Code's own `~/.claude/projects/<slug>` scheme: every non-alphanumeric
+// char in the launch cwd becomes '-' (so '/.claude/' → '--claude'). Verified
+// on disk 2026-07-13/2026-08-04 (spec 003 Assumptions A1-A3; A4 flags this as
+// not a stable contract across versions).
+export function encodeCwdSlug(p) {
+  return p.replace(/[^A-Za-z0-9]/g, '-');
+}
+
+// Precise worktree extraction from a REAL path (has real '/' separators) — used
+// in phase 2 (AC7) once a transcript body's own `cwd` is read, so it correctly
+// handles nesting below the worktree root (`.../worktrees/<name>/.claude/skills/...`).
+export function worktreeFromCwd(cwd) {
+  if (!cwd) return null;
+  const m = cwd.match(/\.claude\/worktrees\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+// Approximate ("first cut") worktree extraction from a store DIRECTORY SLUG
+// alone (phase 1, body-free — AC4). A slug collapses every separator to '-',
+// so a literal dash inside a worktree name is indistinguishable from a
+// path-separator dash once nesting goes deeper than the worktree root itself —
+// this is exactly the ambiguity AC7 defers to the phase-2 refinement above
+// (worktreeFromCwd), which reads the real cwd for the emitted/capped sessions
+// only. This function just returns the whole slug remainder after the
+// worktree-root prefix; it is correct for the common case (session launched
+// at the worktree root) and imprecise, by design, for deeper nesting.
+export function worktreeFromSlug(dirSlug, rootSlug) {
+  const prefix = rootSlug + '--claude-worktrees-';
+  if (!dirSlug.startsWith(prefix)) return null;
+  const remainder = dirSlug.slice(prefix.length);
+  return remainder || null;
+}
+
+// Attributes one `~/.claude/projects/<dirSlug>` directory to a configured
+// project root, or null when no root claims it (AC4). Segment-anchored: a
+// main-root match requires an EXACT slug match, and a worktree match requires
+// the slug to start with `rootSlug + '--claude-worktrees-'` — never a bare
+// string prefix, so a sibling root that shares a text prefix
+// (`.../dashboard` vs `.../dashboard-plugin`) can never cross-attribute.
+// `roots` is `[{ root, slug }]`; when more than one root matches (a rare
+// nested-roots configuration), the longest root wins.
+export function attributeSessionDir(dirSlug, roots) {
+  const candidates = [];
+  for (const { root, slug } of roots) {
+    if (dirSlug === slug) {
+      candidates.push({ root, worktree: null });
+      continue;
+    }
+    const prefix = slug + '--claude-worktrees-';
+    if (dirSlug.startsWith(prefix)) {
+      candidates.push({ root, worktree: worktreeFromSlug(dirSlug, slug) });
+    }
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.root.length - a.root.length);
+  return candidates[0];
+}
+
+// Wrapper tags that surround non-prose scaffolding in a transcribed human
+// turn — stripped whole (tag + contents), never treated as title material.
+function stripWrapperBlocks(text) {
+  let t = text
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '')
+    .replace(/<command-[a-z-]+>[\s\S]*?<\/command-[a-z-]+>/gi, '');
+  t = t.trim();
+  if (!t) return '';
+  const firstLine = t.split('\n')[0].trim();
+  return firstLine.length > 80 ? firstLine.slice(0, 79) + '…' : firstLine;
+}
+
+// A turn counts as "human" title material only when it is a genuine typed
+// user turn — not a meta/synthetic turn (`isMeta`) and not spawned-subagent
+// scaffolding (`isSidechain`), per AC2.
+function isHumanTurn(obj) {
+  return obj.type === 'user' && !obj.isMeta && !obj.isSidechain;
+}
+
+// First TEXT block only — an `image`/`tool_use`/`tool_result` block is
+// skipped so a pasted image (base64) or tool payload never becomes a title
+// (AC2). Returns null when the turn carries no text block at all (e.g.
+// image-only, tool-result-only).
+function firstTextOf(content) {
+  if (typeof content === 'string') {
+    const s = stripWrapperBlocks(content);
+    return s || null;
+  }
+  if (Array.isArray(content)) {
+    for (const block of content) {
+      if (block && block.type === 'text' && typeof block.text === 'string') {
+        const s = stripWrapperBlocks(block.text);
+        if (s) return s;
+      }
+    }
+  }
+  return null;
+}
+
+// Folds one already-JSON-parsed transcript line into a running accumulator.
+// Pure and order-dependent only on call order — scan.mjs's bounded/streamed
+// reader calls this once per line, in file order, without holding the whole
+// transcript in memory (AC7). `acc` starts as
+// `{ customTitle: null, firstHumanText: null, lastGitBranch: null, lastCwd: null }`.
+export function foldTranscriptLine(acc, obj) {
+  if (!obj || typeof obj !== 'object') return acc;
+  if (obj.type === 'custom-title' && typeof obj.customTitle === 'string') {
+    acc.customTitle = obj.customTitle;
+  }
+  if (typeof obj.gitBranch === 'string' && obj.gitBranch) {
+    acc.lastGitBranch = obj.gitBranch; // raw; HEAD/absent → null resolved by the caller
+  }
+  if (typeof obj.cwd === 'string' && obj.cwd) {
+    acc.lastCwd = obj.cwd;
+  }
+  if (acc.firstHumanText === null && isHumanTurn(obj)) {
+    const content = obj.message && obj.message.content !== undefined ? obj.message.content : obj.content;
+    const text = firstTextOf(content);
+    if (text !== null) acc.firstHumanText = text;
+  }
+  return acc;
+}
+
+// Title fallback chain (AC2): verbatim custom-title → first human text →
+// sidecar `name` (only when its `nameSource` is a human source, i.e. not
+// `"derived"`) → the session id itself.
+export function resolveSessionTitle(acc, sidecar, id) {
+  if (acc.customTitle) return acc.customTitle;
+  if (acc.firstHumanText) return acc.firstHumanText;
+  if (sidecar && sidecar.name && sidecar.nameSource && sidecar.nameSource !== 'derived') {
+    return sidecar.name;
+  }
+  return id;
+}
+
+// Running-first, then most-recently-active first (AC5). `lastActivityMs` is
+// the transcript file's mtime in epoch ms.
+export function compareSessionOrder(a, b) {
+  if (a.running !== b.running) return a.running ? -1 : 1;
+  return b.lastActivityMs - a.lastActivityMs;
+}
+
+// Coarse "Nh ago" / "Nd ago" relative label for a session's last activity —
+// deliberately finer-grained than `ageLabel` (which buckets by day for
+// compass snapshots); a session refreshed 20 minutes ago should not read
+// "this morning" (AC8).
+export function relativeTime(ts, now = Date.now()) {
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return null;
+  const diffMs = now - t;
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}

@@ -77,6 +77,11 @@
   .owner.you { background: var(--warn-bg); color: var(--warn-text); }
   .owner.claude { background: var(--accent-bg); color: var(--accent-text); }
   .disc { margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .session { padding: 4px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .session + .session { border-top: 1px dashed var(--border); }
+  .session .title { font-weight: 600; font-size: 13px; }
+  .session .running { color: var(--good); margin-right: 4px; }
+  .session .meta2 { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
   button { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); font-size: 12px; padding: 4px 12px; cursor: pointer; }
   button:hover { background: var(--inset); }
 </style>
@@ -110,11 +115,39 @@ function wsRow(w) {
 
 function shorten(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
+// Small client-side mirror of src/lib.mjs's relativeTime (spec 003-01 AC8) —
+// not shared as an import because this script isn't a module and the server
+// serves no static path for src/lib.mjs; see the slice's deviation log.
+function relativeTime(ts) {
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return null;
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
+// One row per ACTIVE session (running-first — the data already arrives in
+// that order from the scanner); 003-02 adds the "show older" expander for the
+// rest. Omitted entirely when the project has no sessions (AC8).
+function sessionsSection(p) {
+  const sessions = (p.sessions || []).filter((s) => s.active);
+  if (!sessions.length) return '';
+  const rows = sessions.map((s) => {
+    const secondary = [s.branch, s.worktree, relativeTime(s.lastActivity)].filter(Boolean).map(esc).join(' · ');
+    return `<div class="session"><span class="title">${s.running ? '<span class="running">●</span>' : ''}${esc(s.title)}</span><span class="meta2">${secondary}</span></div>`;
+  }).join('');
+  return `<div class="sect"><span class="lbl">sessions</span>${rows}</div>`;
+}
+
 function card(p) {
   if (p.error) return `<div class="card"><div class="head"><h2>${esc(p.name)}</h2><span class="chip mutedc">error</span></div><p class="err">${esc(p.error)}: ${esc(p.path)}</p></div>`;
   if (!p.jigManaged) {
     return `<div class="card"><div class="head"><h2>${esc(p.name)}</h2><span class="chip mutedc">not jig-managed</span></div>
-      <p class="counts">No docs/specs/ found. ${gitLine(p.git)}</p></div>`;
+      <p class="counts">No docs/specs/ found. ${gitLine(p.git)}</p>
+      ${sessionsSection(p)}</div>`;
   }
   const pct = p.progress.pct;
   const chip = pct === 100 ? '<span class="chip good">all specs done</span>' : '<span class="chip accent">active</span>';
@@ -146,6 +179,7 @@ function card(p) {
     <p class="counts">${statusCounts(p)}${extra ? ' · ' + extra : ''}</p>
     <details><summary>specs</summary><ul class="speclist">${specRows}</ul></details>
     ${ws || disc ? `<div class="sect"><span class="lbl">workstreams</span>${ws}${disc}</div>` : ''}
+    ${sessionsSection(p)}
     ${wtWarn}
     <div class="sect">${compassBlock}</div>
     <div class="git">${gitLine(p.git)}</div>

@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"Rebase onto main"},"cwd":"/fixture/branch-proj","gitBranch":"claude/feature-y"}
+{"type":"user","message":{"role":"user","content":"Now detached"},"cwd":"/fixture/branch-proj","gitBranch":"HEAD"}

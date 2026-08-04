@@ -1,0 +1,1 @@
+{"type":"user","message":{"role":"user","content":"This session belongs to no configured project root"},"cwd":"/fixture/some-other-project","gitBranch":"main"}

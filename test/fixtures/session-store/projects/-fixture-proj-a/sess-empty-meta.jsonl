@@ -1,0 +1,2 @@
+{"type":"queue-operation","op":"add"}
+{"type":"user","isMeta":true,"message":{"role":"user","content":"synthetic meta content should be skipped"}}

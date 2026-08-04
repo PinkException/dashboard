@@ -19,6 +19,12 @@ import {
   ageLabel,
   ageDays,
   BUG_CLOSED,
+  encodeCwdSlug,
+  attributeSessionDir,
+  worktreeFromCwd,
+  foldTranscriptLine,
+  resolveSessionTitle,
+  compareSessionOrder,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -40,6 +46,17 @@ export function resolveConfigPath() {
 export function resolveSnapshotsDir() {
   if (process.env.DASHBOARD_SNAPSHOTS) return expandHome(process.env.DASHBOARD_SNAPSHOTS);
   return path.join(path.dirname(resolveConfigPath()), 'snapshots');
+}
+
+// The local Claude Code session store (spec 003, Assumptions A1-A3): running
+// sidecars + transcripts. Read-only, never written to (AC9). Overridable —
+// DASHBOARD_SESSION_STORE for tests/dev, then a `sessionStore` config field,
+// else the real default — mirroring the DASHBOARD_CONFIG/DASHBOARD_SNAPSHOTS
+// override pattern above (AC1).
+export function resolveSessionStore(config) {
+  if (process.env.DASHBOARD_SESSION_STORE) return expandHome(process.env.DASHBOARD_SESSION_STORE);
+  if (config && config.sessionStore) return expandHome(config.sessionStore);
+  return path.join(os.homedir(), '.claude');
 }
 
 const realpath = (p) => {
@@ -401,10 +418,215 @@ export function scanProject(projectCfg) {
   return result;
 }
 
+// Sessions "active" iff running or within this many days of last activity
+// (AC5). The emitted list per project is capped, with the pre-cap count
+// recorded separately so the page can show a "+N" overflow.
+export const SESSION_ACTIVE_DAYS = 7;
+export const SESSION_CAP = 20;
+
+// Running sidecars: `<store>/sessions/*.json`, one per live process, keyed by
+// PID filename, carrying `sessionId` (+ `cwd`, `name`, `nameSource`). Presence
+// of a sessionId here == running (AC3). Lenient per A4: a malformed sidecar
+// is skipped, never fatal; a missing `sessions/` dir (no sessions running
+// right now) is a normal, silent empty result — not the same as an
+// unreadable *store* (AC6), which is signalled by listSessionDirs below.
+function readRunningSidecars(storeDir) {
+  const out = new Map();
+  let entries;
+  try {
+    entries = fs.readdirSync(path.join(storeDir, 'sessions'), { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith('.json')) continue;
+    let obj;
+    try {
+      obj = JSON.parse(fs.readFileSync(path.join(storeDir, 'sessions', e.name), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (obj && typeof obj.sessionId === 'string') {
+      out.set(obj.sessionId, { name: obj.name ?? null, nameSource: obj.nameSource ?? null });
+    }
+  }
+  return out;
+}
+
+// Lists `<store>/projects/` directory names — null signals the store itself
+// is missing/unreadable (AC6), distinct from "readable but empty."
+function listSessionDirs(storeDir) {
+  try {
+    return fs
+      .readdirSync(path.join(storeDir, 'projects'), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return null;
+  }
+}
+
+// Bounded/streamed line reader over a transcript file (AC7): reads in fixed-
+// size chunks via synchronous core `fs` calls (no npm dep, no readline —
+// readline's stream/event API doesn't fit this codebase's fully-synchronous
+// scan pipeline, see the slice's deviation log) and yields complete lines as
+// they're found. Memory is bounded to one chunk + one in-flight line, never
+// the whole file. Lines are decoded from complete byte spans only (buffered
+// as a Buffer, split on the raw '\n' byte), so a multi-byte UTF-8 character
+// split across a chunk boundary is never mis-decoded.
+const READ_CHUNK_BYTES = 64 * 1024;
+
+function* readLinesSync(filePath) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+  } catch {
+    return;
+  }
+  try {
+    const chunk = Buffer.alloc(READ_CHUNK_BYTES);
+    let leftover = Buffer.alloc(0);
+    for (;;) {
+      let n;
+      try {
+        n = fs.readSync(fd, chunk, 0, READ_CHUNK_BYTES, null);
+      } catch {
+        break;
+      }
+      if (n === 0) break;
+      leftover = Buffer.concat([leftover, chunk.subarray(0, n)]);
+      let idx;
+      while ((idx = leftover.indexOf(10)) !== -1) {
+        yield leftover.subarray(0, idx).toString('utf8');
+        leftover = leftover.subarray(idx + 1);
+      }
+    }
+    if (leftover.length) yield leftover.toString('utf8');
+  } finally {
+    try {
+      fs.closeSync(fd);
+    } catch {
+      // already closed or never opened — nothing to do
+    }
+  }
+}
+
+// Phase 2 (AC7): bounded read of ONE emitted transcript, resolving title
+// (AC2), branch (AC6), and a refined worktree from the body's own `cwd`.
+// Malformed JSON lines are skipped, never fatal (A4 leniency).
+function readTranscriptBody(filePath) {
+  const acc = { customTitle: null, firstHumanText: null, lastGitBranch: null, lastCwd: null };
+  for (const line of readLinesSync(filePath)) {
+    if (!line.trim()) continue;
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    foldTranscriptLine(acc, obj);
+  }
+  return {
+    acc,
+    branch: acc.lastGitBranch && acc.lastGitBranch !== 'HEAD' ? acc.lastGitBranch : null,
+    worktree: worktreeFromCwd(acc.lastCwd),
+  };
+}
+
+// The full two-phase reader (AC1, AC4, AC5, AC7): body-free triage over every
+// configured project's attributed session directories, then a bounded body
+// read for only the capped, emitted set. Returns a Map keyed by project path
+// -> `{ sessions, sessionsTotal, warning? }`. Never throws — a missing or
+// unreadable store degrades every project to `{ sessions: [], sessionsTotal: 0,
+// warning }` (AC6).
+export function readAllSessions(projects, opts = {}) {
+  const { storeDir = resolveSessionStore(), now = Date.now(), cap = SESSION_CAP, activeDays = SESSION_ACTIVE_DAYS } = opts;
+  const result = new Map(projects.map((p) => [p.path, { sessions: [], sessionsTotal: 0 }]));
+
+  const dirNames = listSessionDirs(storeDir);
+  if (dirNames === null) {
+    for (const p of projects) {
+      result.set(p.path, {
+        sessions: [],
+        sessionsTotal: 0,
+        warning: `session store unreadable at ${storeDir}`,
+      });
+    }
+    return result;
+  }
+
+  const running = readRunningSidecars(storeDir);
+  const roots = projects.map((p) => ({ root: p.path, slug: encodeCwdSlug(p.path) }));
+  const byRoot = new Map(projects.map((p) => [p.path, []]));
+
+  for (const dirName of dirNames) {
+    const attribution = attributeSessionDir(dirName, roots);
+    if (!attribution) continue; // no configured root claims this directory (AC4)
+    const dirPath = path.join(storeDir, 'projects', dirName);
+    let files;
+    try {
+      files = fs.readdirSync(dirPath);
+    } catch {
+      continue;
+    }
+    for (const f of files) {
+      if (!f.endsWith('.jsonl')) continue; // a transcript dir may hold non-session entries (e.g. memory/)
+      const id = f.slice(0, -'.jsonl'.length);
+      let mtimeMs;
+      try {
+        mtimeMs = fs.statSync(path.join(dirPath, f)).mtimeMs;
+      } catch {
+        continue;
+      }
+      const isRunning = running.has(id);
+      byRoot.get(attribution.root).push({
+        id,
+        filePath: path.join(dirPath, f),
+        running: isRunning,
+        lastActivityMs: mtimeMs,
+        active: isRunning || now - mtimeMs <= activeDays * 86400000,
+        worktree: attribution.worktree,
+        sidecar: running.get(id) || null,
+      });
+    }
+  }
+
+  for (const p of projects) {
+    const list = byRoot.get(p.path) || [];
+    const sessionsTotal = list.length;
+    list.sort(compareSessionOrder);
+    const capped = list.slice(0, cap);
+    const sessions = capped.map((s) => {
+      const body = readTranscriptBody(s.filePath); // phase 2: bounded, only for the emitted set
+      return {
+        id: s.id,
+        title: resolveSessionTitle(body.acc, s.sidecar, s.id),
+        branch: body.branch,
+        worktree: body.worktree ?? s.worktree,
+        running: s.running,
+        lastActivity: new Date(s.lastActivityMs).toISOString(),
+        active: s.active,
+      };
+    });
+    result.set(p.path, { sessions, sessionsTotal });
+  }
+  return result;
+}
+
 export function scanAll(config) {
+  const projects = config.projects.map(scanProject);
+  const sessionsByRoot = readAllSessions(config.projects, { storeDir: resolveSessionStore(config) });
+  config.projects.forEach((cfgProj, i) => {
+    const s = sessionsByRoot.get(cfgProj.path) || { sessions: [], sessionsTotal: 0 };
+    projects[i].sessions = s.sessions;
+    projects[i].sessionsTotal = s.sessionsTotal;
+    if (s.warning) {
+      projects[i].warnings = [...(projects[i].warnings || []), s.warning];
+    }
+  });
   return {
     generatedAt: new Date().toISOString(),
-    projects: config.projects.map(scanProject),
+    projects,
   };
 }
 

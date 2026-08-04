@@ -121,7 +121,19 @@ One-directional, read-only coupling:
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
-  outside this repo.
+  outside this repo. **Named read-boundary extension (spec 003-01):** the
+  scanner also makes a **read-only** pass over the *global* Claude Code
+  session store — running sidecars at `~/.claude/sessions/*.json` and
+  transcripts at `~/.claude/projects/<slug>/<uuid>.jsonl` — attributing each
+  session back to a configured project by directory slug and emitting a
+  per-project `sessions` array + `sessionsTotal`. This is the first read
+  outside a configured project root; it is snapshot-from-disk (not a live
+  session client), spawns no subprocess for sessions, and writes nothing under
+  `~/.claude`. The store layout is **not a stable public contract** (spec 003
+  A4): the reader is lenient — malformed/absent data degrades to `[]` + a
+  `warnings` entry, never a throw. Attribution + emit are batched in
+  `readAllSessions` (called from `scanAll`), not `scanProject`, because the
+  longest-root tie-break needs every configured root at once.
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html` and `/api/data` (a fresh `scanAll` per request, no
   cache). Imports scan.
@@ -181,6 +193,12 @@ Stateless by design — same disk state → same page (vision principle 2):
   Identity is **declared here, not derived** — a derived identifier (first
   commit) was rejected because this repo's history was rewritten before
   publication, giving its old and new folders different first commits.
+- **`~/.claude/sessions/*.json` + `~/.claude/projects/<slug>/<uuid>.jsonl`**
+  (Claude Code's own global session store; **read-only input**, never written
+  by the dashboard — spec 003-01) — running-process sidecars and session
+  transcripts. Read per request to compute each project's `sessions` list.
+  Overridable via a `sessionStore` path (default `~/.claude`) so tests point at
+  a fixture store. Treated as an unstable layout (spec 003 A4), read leniently.
 - Everything else is derived per request from the surveyed repos' own
   artifacts (spec/slice frontmatter, checkbox docs, bug files, git log).
 
