@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: []
 last_verified: 2026-08-04
 frame_review: false
-claimed_by: claude/007-plugin-onboarding
 ---
 
 ## Slice 007-02 — README onboarding section

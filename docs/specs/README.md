@@ -29,8 +29,8 @@
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-04 — rebuild the recurring snapshot routine + choose its cadence | **DONE** |  |
 | [006-routine-installer](006-routine-installer/spec.md) | 006-01 — routine source, ADR, and read-only drift check | **DONE** |  |
 | [006-routine-installer](006-routine-installer/spec.md) | 006-02 — the owner-gated install path | **DONE** |  |
-| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | DRAFT |  |
-| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | DRAFT |  |
+| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | **DONE** |  |
+| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | **DONE** |  |
 
 ## Deferred slices
 
