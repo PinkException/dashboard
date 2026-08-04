@@ -28,6 +28,10 @@ dashboard/
 │   └── index.html       # the one self-contained page (inline CSS/JS, no build step)
 ├── scripts/
 │   └── snapshot.mjs     # snapshot writer (ADR-0004): appends to the store outside every repo
+├── prompts/
+│   └── compass-snapshots/SKILL.md # version-controlled source of truth for the scheduled routine (ADR-0005)
+├── tools/
+│   └── install-routine.mjs # installs the routine to the live scheduler (ADR-0005); 006-01 ships read-only `check`
 ├── test/                # node:test suites + fixture project trees under test/fixtures/
 ├── docs/                # jig-managed: specs, decisions, bugs, memory, vision, this file
 └── dashboard.config.example.json  # shape of ~/.claude/my-dashboard/config.json — the real config never lives in a repo
@@ -125,6 +129,18 @@ One-directional, read-only coupling:
   ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)): validates a
   snapshot and appends it to the dashboard-owned store in the user's home data
   folder. It never writes into a surveyed project. Imports lib + scan.
+- **`prompts/compass-snapshots/SKILL.md`** — the version-controlled **source of
+  truth** for the scheduled snapshot routine
+  ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). Changed only
+  through the spec workflow; copied to the live scheduler by the installer.
+- **`tools/install-routine.mjs`** — the dashboard's own routine installer
+  ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). Compares the
+  repo source against the live `~/.claude/scheduled-tasks/compass-snapshots/`
+  copy. **The line is at writes, not the directory:** `check` (slice 006-01) is
+  read-only and needs no approval; the owner-gated `install` write path lands in
+  006-02. Imports `expandHome` from scan (same `tools/scripts → src` coupling as
+  `snapshot.mjs`). Run via Bash, so the Write/Edit-only guardrail does not
+  intercept it (spec 006 A1).
 - **`public/index.html`** — renders the `/api/data` JSON; all display
   logic is client-side in the single page.
 

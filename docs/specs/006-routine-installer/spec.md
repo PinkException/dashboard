@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: IN_PROGRESS
 skill:
 use_cases: [UC-3]
 ---
@@ -19,9 +19,11 @@ hand-edits), and the only tool that writes there — the **night-worker's**
 after its 2026-08-03 rework, explicitly excludes the dashboard from scope.
 
 So the routine has a guardrail but no installer that manages it. This spec gives
-the **dashboard** its own routine-install path: the routine's SKILL.md becomes a
-version-controlled artifact in this repo, and a small, tested, zero-dependency
-installer copies it out to the live scheduler under an owner-gated write — the
+the **dashboard** its own routine-install path: the routine's SKILL.md is authored
+as a version-controlled artifact in this repo (the 005-04 rebuild was decided but
+never committed, so this is its first durable record), and a small, tested,
+zero-dependency installer copies it out to the live scheduler under an owner-gated
+write — the
 same shape the night-worker proved in its
 [ADR-0001](../../../night-worker/docs/decisions/adr-0001-prompts-live-in-this-repo.md)
 and slice 001-06.
@@ -77,9 +79,10 @@ any code writes into the armed scheduler. No spike: every unknown that mattered
 (the guardrail's matcher, the existing scheduler entry, the transferable
 contract) was resolved by probe above.
 
-- **006-01 (Path — the read-only half + the decision).** Move the routine's
-  SKILL.md into `prompts/compass-snapshots/SKILL.md` (version-controlled source of
-  truth), write the ADR recording dashboard-owned install, and ship the
+- **006-01 (Path — the read-only half + the decision).** Author the routine's
+  SKILL.md at `prompts/compass-snapshots/SKILL.md` (version-controlled source of
+  truth — its first durable record), write the ADR recording dashboard-owned
+  install, and ship the
   installer's `check` command: a read-only drift report comparing the repo source
   against the live copy, non-zero exit on drift, **no writes at all**. Vertical:
   the routine source lives in the repo → `check` tells you whether the live copy

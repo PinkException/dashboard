@@ -1,9 +1,10 @@
 ---
-status: DRAFT
+status: RECONCILED
 dependencies: [005-04, adr-0004]
-last_verified:
+last_verified: 2026-08-04
 frame_review: true
 arch_review: true
+claimed_by: claude/005-04-5a219f
 ---
 
 <!-- jig grounding (spec 064-02 / ADR-0020): ground factual claims about runnable
@@ -18,21 +19,32 @@ read-only `check` command reports whether the live scheduler copy matches the re
 source — delivering drift visibility with **zero writes** to the armed scheduler.
 
 **DoR:**
-- ✅ 005-04 DONE — the rebuilt routine content exists (deterministic `--all --auto
-  --if-changed`, no `--commit`, current paths, ADR-0004). Staged content is the
-  source to version-control.
+- ✅ 005-04 DONE — the routine's *behaviour* is decided (deterministic `--all
+  --auto --if-changed`, no `--commit`, current paths, ADR-0004). **Caveat
+  (frame-critique 2026-08-04):** that rebuilt SKILL.md was never committed — it
+  lives only as prose in the 005-04 spec plus ephemeral staged content, and the
+  live scheduler copy is still the *old orphaned* routine. So 006-01 does not copy
+  a canonical artifact; it **authors the routine's SKILL.md as the first durable,
+  reviewed record** of that decided behaviour (see AC1).
 - ✅ A1 probed — the guardrail (`guard-jig-prompts.py`) matches only `Write|Edit`;
   a Bash-run Node reader is not intercepted, and `check` writes nothing regardless.
 - ✅ A2 probed — the `compass-snapshots` scheduler entry exists (disabled), so
-  `check` has a live target to compare against (or reports it absent).
+  `check` has a live target to compare against (currently the stale orphaned copy,
+  so `check` will correctly report drift until 006-02 installs).
 
 **Acceptance Criteria:**
 
-1. **Version-controlled source.** `prompts/compass-snapshots/SKILL.md` exists in
-   this repo and is byte-identical to the 005-04 rebuilt routine (writes
-   `snapshot.mjs --all --auto --if-changed`; no `--commit`; targets
-   `~/Documents/Claude/dashboard` + `~/.claude/my-dashboard/config.json`; cites
-   ADR-0004; never names the abandoned `project-dashboard` path).
+1. **Version-controlled source (the first durable record).**
+   `prompts/compass-snapshots/SKILL.md` exists in this repo and expresses the
+   005-04-decided routine behaviour — asserted by **content requirements**, not by
+   identity to a (nonexistent) canonical copy: it invokes `snapshot.mjs --all
+   --auto --if-changed`; contains **no** `--commit` and no in-repo write; targets
+   the current `~/Documents/Claude/dashboard` + `~/.claude/my-dashboard/config.json`;
+   cites ADR-0004; and never names the abandoned `project-dashboard` path or
+   ADR-0002. It is authored in this slice (it may be seeded from the 005-04 staged
+   content, but is finalised and **reviewed here** — this commit is the first
+   durable, reviewed record of the rebuilt routine text). The `no-leaks` gate
+   still passes over it.
 2. **The decision is recorded as an ADR.** An ADR under `docs/decisions/` states
    that the dashboard owns and installs its own automation (this repo is the
    source of truth for the routine it runs), names the rejected alternatives
@@ -51,15 +63,15 @@ source — delivering drift visibility with **zero writes** to the armed schedul
    including `test/no-leaks.test.mjs`.
 
 **DoD:**
-- [ ] All ACs pass; full test suite green (no regressions).
-- [ ] Each new test shown to fail when its feature is removed (non-vacuous).
-- [ ] Compliance + craft review passed and recorded.
-- [ ] Frame-critique passed and recorded (`frame_review: true`).
-- [ ] Arch review passed and recorded (`arch_review: true` — establishes the
+- [x] All ACs pass; full test suite green (104/104, no regressions).
+- [x] Each new test shown to fail when its feature is removed (mutation-verified).
+- [x] Compliance + craft review passed and recorded.
+- [x] Frame-critique passed and recorded (`frame_review: true`).
+- [x] Arch review passed and recorded (`arch_review: true` — establishes the
       repo→scheduler install boundary + the manifest/source-of-truth contract).
-- [ ] ADR accepted (or Proposed with owner sign-off path noted).
-- [ ] Deviation log + reconciliation sweep produced under this slice heading.
-- [ ] Reconciliation review passed.
+- [x] ADR accepted (ADR-0005, by the owner's 2026-08-04 selection).
+- [x] Deviation log + reconciliation sweep produced under this slice heading.
+- [x] Reconciliation review passed.
 
 ### Close-out (post-DONE)
 
@@ -74,8 +86,39 @@ visibility) even before any install path exists.
 
 ### Deviation log (after reconciliation)
 
-_TODO at reconciliation._
+Original ACs preserved above. What changed during implementation and why:
+
+1. **The routine SKILL.md was authored fresh, not copied** — per the DoR caveat
+   and the pre-implementation frame-critique. The 005-04 rebuild was never
+   committed (it lived only as spec prose + ephemeral staged content), so
+   `prompts/compass-snapshots/SKILL.md` is the **first durable, reviewed record**
+   of the routine text. AC1 is asserted by content requirements, not identity to a
+   (nonexistent) canonical copy.
+2. **The installer re-expresses the night-worker's Python contract in Node**
+   (zero-dep, ADR-0001), rather than sharing code — accepted duplication recorded
+   in ADR-0005 Consequences (two per-project installers).
+3. **Craft/arch nits folded in before REVIEWED, not deferred:**
+   - The routine SKILL.md embedded the owner's real name in a publicly-tracked
+     file → genericized to "the owner's local project dashboard". (The no-leaks
+     gate does not catch personal names; this repo ships publicly.)
+   - `formatDrift`'s empty-diff fallback label was misleading ("whitespace-only")
+     for reordered/duplicated lines → reworded to name that case. The *verdict*
+     was always correct (exact string compare); only the diagnostic text improved.
+   - Added CLI tests for the AC4 no-approval path and the `USAGE` exit code (the
+     unknown/`install` command), closing the "each feature has a failing-capable
+     test" gap the reviewers flagged.
+4. **Non-vacuity verified by mutation:** forcing the drift comparison to always
+   return "match" turned exactly the two drift tests red; restored to green.
 
 ### Reconciliation sweep
 
-_TODO at reconciliation._
+| Artifact | Disposition | Rationale |
+|----------|-------------|-----------|
+| `docs/architecture.md` | `updated` | Added `prompts/` (routine source of truth) + `tools/install-routine.mjs` to Repository structure and Module boundaries, with the read/write line and the `tools → src` coupling (arch-review reconciliation item). |
+| `docs/decisions/adr-0005-*` + `docs/decisions/README.md` | `updated` | New ADR authored + indexed (AC2). |
+| `test/no-leaks.test.mjs` | `no-op` | Green over the newly-tracked SKILL.md/ADR/tool; owner name removed so nothing personal ships. |
+| `docs/inbox.md` | `updated` | Parked the pre-existing nit: `expandHome` fits `lib.mjs` (pure/no-fs) better than `scan.mjs`; relocation is out of scope here. |
+| `docs/product-vision.md` | `no-op` | No behaviour/scope drift; principle 1 (never write into a surveyed repo) upheld — `check` is read-only. |
+| Primer surfaces: `CLAUDE.md` / scaffold templates | `no-op` | Spec 006 stays in flight (006-02 remains); primer compression deferred to spec close-out. |
+| `docs/specs/README.md` | `updated` (close-out) | Regenerated by `workflow.py status-board` at DONE. |
+| `docs/refinement-todo.md` / `docs/memory/**` | `no-op` | No deferred decisions or new durable learnings beyond ADR-0005 + the inbox nit. |
