@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [006-01]
 last_verified: 2026-08-04
 frame_review: true
-claimed_by: claude/006-02-jig-full-ceremony-5bb234
 ---
 
 <!-- jig grounding (spec 064-02 / ADR-0020): ground factual claims about runnable
