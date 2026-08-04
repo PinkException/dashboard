@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [002-01]
 last_verified: 2026-08-04
 frame_review: true
-claimed_by: claude/003-01-sessions-scan-and-render
 ---
 
 ## Slice 003-01 — sessions-scan-and-render
