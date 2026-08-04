@@ -72,3 +72,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** ADR-0004 OQ2 + owner decisions 2026-08-01 (deterministic-only, on-change) and 2026-08-03 (card prefers prose). Two frame-critique findings folded in: full-headline comparison would sample bug-count noise; source-blind card selection would bury prose.
 
 **Scope:** scripts/snapshot.mjs (--if-changed), src/lib.mjs (parseCompassHistory.latestNarrative), src/scan.mjs (scanCompass), per-user ~/.claude/scheduled-tasks/compass-snapshots/
+
+### 2026-08-04 — Routine installer: exit-code + manifest contract (006-02)
+
+**Decision:** tools/install-routine.mjs install uses distinct exit codes on top of the 006-01 check-side map (MATCH=0, DRIFT=1, ABSENT=2, SOURCE_MISSING=3, USAGE=4): NOT_APPROVED=5 (no --approved-by-owner flag), REFUSED=6 (hand-edited or unmanaged live file, no --force), VERIFY_FAILED=7 (post-write byte-for-byte read-back mismatch). The install manifest is a single JSON file at the scheduler-dir root, ~/.claude/scheduled-tasks/.dashboard-install.json (NOT inside compass-snapshots/, to avoid the scheduler treating it as a task), recording the installed file's SHA-256 plus an informational installedAt timestamp. Installed file mode is 0o644.
+
+**Context:** ADR-0005 recorded the decision (dashboard owns + gates its install) but delegated the concrete contract to spec 006. The slice close-out asks that the exit-code map and manifest filename be recorded outside the code. No new load-bearing choice with rejected alternatives — this is the mechanical contract, so a lightweight decision, not an ADR amendment.
+
+**Scope:** tools/install-routine.mjs, test/install-routine.test.mjs, docs/architecture.md

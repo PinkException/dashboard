@@ -31,7 +31,7 @@ dashboard/
 ├── prompts/
 │   └── compass-snapshots/SKILL.md # version-controlled source of truth for the scheduled routine (ADR-0005)
 ├── tools/
-│   └── install-routine.mjs # installs the routine to the live scheduler (ADR-0005); 006-01 ships read-only `check`
+│   └── install-routine.mjs # routine installer (ADR-0005): read-only `check` (006-01) + owner-gated `install` (006-02)
 ├── test/                # node:test suites + fixture project trees under test/fixtures/
 ├── docs/                # jig-managed: specs, decisions, bugs, memory, vision, this file
 └── dashboard.config.example.json  # shape of ~/.claude/my-dashboard/config.json — the real config never lives in a repo
@@ -134,13 +134,27 @@ One-directional, read-only coupling:
   ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). Changed only
   through the spec workflow; copied to the live scheduler by the installer.
 - **`tools/install-routine.mjs`** — the dashboard's own routine installer
-  ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). Compares the
-  repo source against the live `~/.claude/scheduled-tasks/compass-snapshots/`
-  copy. **The line is at writes, not the directory:** `check` (slice 006-01) is
-  read-only and needs no approval; the owner-gated `install` write path lands in
-  006-02. Imports `expandHome` from scan (same `tools/scripts → src` coupling as
+  ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). **The line is
+  at writes, not the directory:**
+  - `check` (slice 006-01) is read-only, needs no approval, and exits non-zero on
+    any drift between the repo source and the live copy.
+  - `install` (slice 006-02) is the **owner-gated write path**. It refuses without
+    `--approved-by-owner` (exit `NOT_APPROVED`); its enforceable promise is *no
+    unflagged write*, every run — the flag signals a deliberate approval, not proof
+    of owner identity (that rests on operator discipline, per ADR-0005). On a
+    sanctioned run it copies the source out, **reads it back byte-for-byte** (a copy
+    that did not land exits `VERIFY_FAILED`), sets file mode `0o644`, and records a
+    manifest at `~/.claude/scheduled-tasks/.dashboard-install.json` holding the
+    installed file's SHA-256. It **refuses** (exit `REFUSED`) to clobber a live file
+    it cannot prove is safe — one hand-edited since our last install (live hash ≠
+    manifest hash) or an unmanaged pre-existing file (no manifest) — unless
+    `--force` adopts it; a *managed upgrade* (manifest matches live, source moved)
+    proceeds without `--force`. Exit codes are distinct (`NOT_APPROVED` /
+    `REFUSED` / `VERIFY_FAILED` / `MATCH`) so a caller can tell the outcomes apart.
+  Imports `expandHome` from scan (same `tools/scripts → src` coupling as
   `snapshot.mjs`). Run via Bash, so the Write/Edit-only guardrail does not
-  intercept it (spec 006 A1).
+  intercept it (spec 006 A1). **Enabling/scheduling the cron stays a separate owner
+  action** — the installer only manages the SKILL.md content.
 - **`public/index.html`** — renders the `/api/data` JSON; all display
   logic is client-side in the single page.
 
