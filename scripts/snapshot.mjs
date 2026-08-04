@@ -163,7 +163,19 @@ if (args.all) {
     console.error('--all requires --auto (a shared manual headline would be wrong per project)\n' + usage);
     process.exit(1);
   }
-  const cfg = loadConfig(args.config ? expandHome(args.config) : resolveConfigPath());
+  let cfg;
+  try {
+    cfg = loadConfig(args.config ? expandHome(args.config) : resolveConfigPath());
+  } catch (err) {
+    // A missing config is the fresh-install case (slice 007-01): print the
+    // one friendly pointer line and exit cleanly, no ENOENT stack trace.
+    // Any other failure (e.g. malformed JSON) surfaces honestly instead.
+    if (err && err.code === 'CONFIG_MISSING') {
+      console.error(err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
   targets = cfg.projects.map((p) => p.path);
 } else if (args.project && (args.auto || args.headline)) {
   targets = [expandHome(args.project)];

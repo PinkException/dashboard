@@ -223,3 +223,41 @@ test('the card shows the narrative headline even when a newer auto entry exists 
   assert.equal(p.compass.headline, 'sessions panel ready to implement', 'auto series does not bury the prose headline');
   assert.equal(p.compass.source, 'dashboard');
 });
+
+// --- slice 007-01: graceful config-missing message ---
+// A fresh plugin install has run the routine before ever creating a config.
+// DASHBOARD_CONFIG always points at a throwaway temp path here, never the
+// developer's real ~/.claude/my-dashboard/config.json.
+test('snapshot.mjs --all --auto --if-changed with no config: clean non-zero exit, friendly pointer, no fs stack trace (007-01 AC2)', () => {
+  const missingConfig = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dash-noconfig-')), 'config.json');
+  let threw = false;
+  let stderr = '';
+  try {
+    run([SCRIPT, '--all', '--auto', '--if-changed'], {
+      env: { ...process.env, DASHBOARD_SNAPSHOTS: store, DASHBOARD_CONFIG: missingConfig },
+      stdio: 'pipe',
+    });
+  } catch (err) {
+    threw = true;
+    stderr = err.stderr.toString();
+  }
+  assert.ok(threw, 'exits non-zero when the config is missing');
+  assert.match(stderr, /config not found/i);
+  assert.match(stderr, /\/dashboard:open/, 'friendly message points at /dashboard:open');
+  assert.ok(stderr.includes(missingConfig), 'message names the resolved missing path');
+  assert.ok(!/at Object\.readFileSync/.test(stderr), 'no node:fs stack frame leaked');
+  assert.ok(!/node:fs/.test(stderr), 'no node:fs stack frame leaked');
+  assert.ok(!/ENOENT/.test(stderr), 'raw ENOENT is not the primary signal');
+});
+
+test('snapshot.mjs --all --auto with a present, valid config still works (007-01 AC4)', () => {
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-hasconfig-'));
+  const configPath = path.join(configDir, 'config.json');
+  const proj = freshProject([{ id: '001-a', status: 'DONE' }]);
+  fs.writeFileSync(configPath, JSON.stringify({ projects: [{ path: proj }] }));
+  const out = run([SCRIPT, '--all', '--auto', '--if-changed'], {
+    env: { ...process.env, DASHBOARD_SNAPSHOTS: store, DASHBOARD_CONFIG: configPath },
+  }).toString();
+  assert.match(out, /✓/);
+  assert.equal(lineCount(snapshotFileFor(proj)), 1);
+});

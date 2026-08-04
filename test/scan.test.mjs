@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanProject } from '../src/scan.mjs';
+import { scanProject, loadConfig, ConfigMissingError } from '../src/scan.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -100,4 +100,48 @@ test('compass: latest valid snapshot surfaces, malformed line warns (002-03 AC2)
   assert.equal(p.compass.headline, 'beta is close');
   assert.equal(p.compass.next, 'finish slice 002-02');
   assert.ok(p.warnings.some((w) => w.includes('malformed')));
+});
+
+// --- slice 007-01: graceful config-missing message ---
+// Always against a throwaway temp dir, never the developer's real
+// ~/.claude/my-dashboard/config.json.
+const CONFIG_TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-config-'));
+after(() => fs.rmSync(CONFIG_TMP, { recursive: true, force: true }));
+
+test('loadConfig: missing path throws a typed CONFIG_MISSING error naming the path + /dashboard:open (007-01 AC1)', () => {
+  const missing = path.join(CONFIG_TMP, 'does-not-exist', 'config.json');
+  assert.throws(
+    () => loadConfig(missing),
+    (err) => {
+      assert.ok(err instanceof ConfigMissingError, 'error is the dedicated ConfigMissingError type');
+      assert.equal(err.code, 'CONFIG_MISSING');
+      assert.ok(err.message.includes(missing), 'message names the missing path');
+      assert.ok(err.message.includes('/dashboard:open'), 'message points at /dashboard:open');
+      return true;
+    },
+  );
+});
+
+test('loadConfig: a present-but-invalid-JSON file throws a DIFFERENT error, not CONFIG_MISSING (007-01 AC3)', () => {
+  const bad = path.join(CONFIG_TMP, 'malformed.json');
+  fs.writeFileSync(bad, '{ not valid json');
+  assert.throws(
+    () => loadConfig(bad),
+    (err) => {
+      assert.notEqual(err.code, 'CONFIG_MISSING', 'a malformed-but-present file must not be misreported as missing');
+      assert.ok(!(err instanceof ConfigMissingError));
+      return true;
+    },
+  );
+});
+
+test('loadConfig: a valid config still returns the expected projects unchanged (007-01 AC4 regression)', () => {
+  const ok = path.join(CONFIG_TMP, 'valid.json');
+  fs.writeFileSync(ok, JSON.stringify({ projects: [{ path: '/tmp/some-project', label: 'x' }] }));
+  const cfg = loadConfig(ok);
+  assert.equal(cfg.projects.length, 1);
+  assert.equal(cfg.projects[0].path, '/tmp/some-project');
+  assert.equal(cfg.projects[0].label, 'x');
+  assert.deepEqual(cfg.projects[0].pinnedWorkstreams, []);
+  assert.deepEqual(cfg.projects[0].hiddenWorkstreams, []);
 });

@@ -124,8 +124,27 @@ export function snapshotFileFor(root) {
   return path.join(resolveSnapshotsDir(), `${projectKey(root)}.jsonl`);
 }
 
+// Thrown by loadConfig when the resolved config path does not exist — the
+// fresh-install case (slice 007-01). `code: 'CONFIG_MISSING'` lets callers
+// (the CLI, the server) distinguish this from a malformed-JSON or other I/O
+// failure without string-matching the message.
+export class ConfigMissingError extends Error {
+  constructor(configPath) {
+    super(`dashboard config not found at ${configPath} — run /dashboard:open to create one`);
+    this.name = 'ConfigMissingError';
+    this.code = 'CONFIG_MISSING';
+    this.configPath = configPath;
+  }
+}
+
 export function loadConfig(configPath) {
-  const raw = fs.readFileSync(configPath, 'utf8');
+  let raw;
+  try {
+    raw = fs.readFileSync(configPath, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') throw new ConfigMissingError(configPath);
+    throw err;
+  }
   const cfg = JSON.parse(raw);
   cfg.projects = (cfg.projects || []).map((p) => ({
     pinnedWorkstreams: [],
