@@ -1,5 +1,5 @@
 ---
-status: IN_PROGRESS
+status: DONE
 use_cases: [UC-5]
 ---
 

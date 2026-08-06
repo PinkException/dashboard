@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [003-01]
 last_verified: 2026-08-06
 frame_review: true
-claimed_by: claude/003-02-recency-expand-toggle
 ---
 
 ## Slice 003-02 — recency-expand-toggle
