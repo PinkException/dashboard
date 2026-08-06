@@ -20,6 +20,7 @@ import {
   resolveSessionTitle,
   compareSessionOrder,
   relativeTime,
+  sessionCounts,
 } from '../src/lib.mjs';
 
 test('parseFrontmatter: flat keys, arrays, quotes, comments', () => {
@@ -313,4 +314,43 @@ test('relativeTime: minutes/hours/days ago (003-01 AC8)', () => {
   assert.equal(relativeTime(new Date(now - 3 * 3600000).toISOString(), now), '3h ago');
   assert.equal(relativeTime(new Date(now - 2 * 86400000).toISOString(), now), '2d ago');
   assert.equal(relativeTime('garbage', now), null);
+});
+
+test('sessionCounts: all emitted sessions active — older=0, overflow=0 (003-02 AC1/AC4)', () => {
+  const p = { sessions: [{ active: true }, { active: true }], sessionsTotal: 2 };
+  assert.deepEqual(sessionCounts(p), { activeCount: 2, olderCount: 0, overflowCount: 0 });
+});
+
+test('sessionCounts: some non-active sessions in the emitted list — older>0 (003-02 AC3)', () => {
+  const p = {
+    sessions: [{ active: true }, { active: false }, { active: false }],
+    sessionsTotal: 3,
+  };
+  assert.deepEqual(sessionCounts(p), { activeCount: 1, olderCount: 2, overflowCount: 0 });
+});
+
+test('sessionCounts: cap overflow with older present — overflow>0 and older>0 (003-02 AC3)', () => {
+  const p = {
+    sessions: [{ active: true }, { active: false }],
+    sessionsTotal: 5,
+  };
+  assert.deepEqual(sessionCounts(p), { activeCount: 1, olderCount: 1, overflowCount: 3 });
+});
+
+test('sessionCounts: cap overflow with ALL-ACTIVE emitted (25-running case) — older=0, overflow>0 (003-02 AC3 frame-critique)', () => {
+  const p = {
+    sessions: Array(20).fill({ active: true }),
+    sessionsTotal: 25,
+  };
+  assert.deepEqual(sessionCounts(p), { activeCount: 20, olderCount: 0, overflowCount: 5 });
+});
+
+test('sessionCounts: zero sessions — all counts zero (003-02 AC4)', () => {
+  const p = { sessions: [], sessionsTotal: 0 };
+  assert.deepEqual(sessionCounts(p), { activeCount: 0, olderCount: 0, overflowCount: 0 });
+});
+
+test('sessionCounts: missing sessionsTotal falls back to emitted length — overflow=0 (003-02 AC6)', () => {
+  const p = { sessions: [{ active: true }, { active: false }] };
+  assert.deepEqual(sessionCounts(p), { activeCount: 1, olderCount: 1, overflowCount: 0 });
 });

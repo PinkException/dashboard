@@ -434,3 +434,19 @@ export function relativeTime(ts, now = Date.now()) {
   const day = Math.floor(hr / 24);
   return `${day}d ago`;
 }
+
+// --- Spec 003-02: recency-expand-toggle — header-count arithmetic (AC3/AC4/AC6) ---
+// Pinned by frame-critique: N/activeCount and M/olderCount are counted over the
+// EMITTED sessions array (post-cap), never the pre-cap total — the cap
+// (SESSION_CAP=20, 003-01) can drop active sessions too, so "active" here means
+// "active among what actually arrived". K/overflowCount is the gap between
+// sessionsTotal (pre-cap) and the emitted length: sessions the cap dropped
+// entirely, never revealable by the older-toggle (they aren't in the payload).
+export function sessionCounts(project) {
+  const sessions = project.sessions || [];
+  const activeCount = sessions.filter((s) => s.active === true).length;
+  const olderCount = sessions.length - activeCount;
+  const total = project.sessionsTotal ?? sessions.length;
+  const overflowCount = Math.max(0, total - sessions.length);
+  return { activeCount, olderCount, overflowCount };
+}

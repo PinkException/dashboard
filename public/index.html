@@ -77,11 +77,13 @@
   .owner.you { background: var(--warn-bg); color: var(--warn-text); }
   .owner.claude { background: var(--accent-bg); color: var(--accent-text); }
   .disc { margin-top: 6px; font-size: 12px; color: var(--muted); }
-  .session { padding: 4px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .session { padding: 4px 0; }
   .session + .session { border-top: 1px dashed var(--border); }
-  .session .title { font-weight: 600; font-size: 13px; }
+  .session .title { display: block; font-weight: 600; font-size: 13px; }
   .session .running { color: var(--good); margin-right: 4px; }
-  .session .meta2 { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+  .session .meta2 { display: block; color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+  .sessions-older { margin-top: 2px; }
+  .sessions-older > summary { margin-top: 2px; }
   button { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-2); font-size: 12px; padding: 4px 12px; cursor: pointer; }
   button:hover { background: var(--inset); }
 </style>
@@ -129,17 +131,51 @@ function relativeTime(ts) {
   return `${Math.floor(hr / 24)}d ago`;
 }
 
-// One row per ACTIVE session (running-first — the data already arrives in
-// that order from the scanner); 003-02 adds the "show older" expander for the
-// rest. Omitted entirely when the project has no sessions (AC8).
+// Small client-side mirror of src/lib.mjs's sessionCounts (003-02 AC3/AC4/AC6)
+// — not shared as an import for the same reason as relativeTime above (this
+// script isn't a module). N/M are counted over the emitted sessions array
+// (the cap can drop active sessions too); K is the cap-dropped remainder,
+// never revealable by the older toggle.
+function sessionCounts(p) {
+  const sessions = p.sessions || [];
+  const activeCount = sessions.filter((s) => s.active === true).length;
+  const olderCount = sessions.length - activeCount;
+  const total = p.sessionsTotal ?? sessions.length;
+  const overflowCount = Math.max(0, total - sessions.length);
+  return { activeCount, olderCount, overflowCount };
+}
+
+// One row per session — title on its own line so a long
+// `branch · worktree · time` string never squeezes it (003-02 AC5); the
+// running ● badge stays on the title line, secondary metadata sits beneath.
+function sessionRow(s) {
+  const secondary = [s.branch, s.worktree, relativeTime(s.lastActivity)].filter(Boolean).map(esc).join(' · ');
+  return `<div class="session"><span class="title">${s.running ? '<span class="running">●</span>' : ''}${esc(s.title)}</span>${secondary ? `<span class="meta2">${secondary}</span>` : ''}</div>`;
+}
+
+// Default = active-only (AC1). When the emitted list has ≥1 non-active
+// session, a native <details>/<summary> "show older" control (same idiom the
+// page already uses for the specs list) reveals the rest, ordered
+// last-activity-desc as emitted; toggling collapses it again — purely
+// client-side, no network (AC2). The header's "N active · M older" always
+// shows M's segment only when M>0 (AC4), and "(+K not shown)" independently
+// whenever the cap dropped sessions (AC3) — the toggle never reveals the +K
+// set, it isn't in the payload. Omitted entirely when the project has no
+// sessions (AC8, unchanged from 003-01).
 function sessionsSection(p) {
-  const sessions = (p.sessions || []).filter((s) => s.active);
-  if (!sessions.length) return '';
-  const rows = sessions.map((s) => {
-    const secondary = [s.branch, s.worktree, relativeTime(s.lastActivity)].filter(Boolean).map(esc).join(' · ');
-    return `<div class="session"><span class="title">${s.running ? '<span class="running">●</span>' : ''}${esc(s.title)}</span><span class="meta2">${secondary}</span></div>`;
-  }).join('');
-  return `<div class="sect"><span class="lbl">sessions</span>${rows}</div>`;
+  const all = p.sessions || [];
+  if (!all.length) return '';
+  const { activeCount, olderCount, overflowCount } = sessionCounts(p);
+  // Strict === true / !== true to match sessionCounts's predicate exactly, so
+  // rendered/revealed rows can never diverge from the header counts.
+  const activeRows = all.filter((s) => s.active === true).map(sessionRow).join('');
+  const header = `${activeCount} active`
+    + (olderCount > 0 ? ` · ${olderCount} older` : '')
+    + (overflowCount > 0 ? ` (+${overflowCount} not shown)` : '');
+  const older = olderCount > 0
+    ? `<details class="sessions-older"><summary>show older (${olderCount})</summary>${all.filter((s) => s.active !== true).map(sessionRow).join('')}</details>`
+    : '';
+  return `<div class="sect"><span class="lbl">sessions — ${header}</span>${activeRows}${older}</div>`;
 }
 
 function card(p) {
