@@ -88,3 +88,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** 005-03 set 0.3.0 (c8dc58b); 005-04, 006, and 007 all landed under it without a further bump, so a plugin at 0.3.0 would not be signalled to update for the onboarding + installer work. The owner asked to ship the version bump to the installed plugin and chose a clean 0.4.0 over shipping 0.3.0 as-is. Distribution unchanged: marketplace remains the Kyarha/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache.
 
 **Scope:** .claude-plugin/plugin.json, package.json
+
+### 2026-08-06 — Release cut: plugin 0.5.0 (sessions panel)
+
+**Decision:** Plugin version bumped 0.4.0 -> 0.5.0 (plugin.json + package.json) and shipped to the installed plugin. This release carries spec 003 (sessions panel): 003-01 (per-project Claude Code sessions on each card, read body-free from the local `~/.claude` store) and 003-02 (the recency "show older" toggle + honest "N active · M older (+K not shown)" summary + the session-row title-layout fix). Minor (not patch) — a new user-facing feature; no breaking change. 003-01's release was deliberately held and batched here with 003-02 so the installed plugin updates once, with the panel and its title-wrap polish together.
+
+**Context:** 003-01 landed on main under 0.4.0 without its own release; the owner chose to batch its plugin release with 003-02 rather than ship an interim version with the known title-wrap roughness. Distribution unchanged: marketplace is the Kyarha/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache. Privacy-checked before publish (public noreply emails only; no personal email / real home path / other-project names; leak gate green — it caught and blocked a real-project name accidentally written into the 003-02 docs, twice, both redacted).
+
+**Scope:** .claude-plugin/plugin.json, package.json
