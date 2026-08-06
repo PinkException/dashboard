@@ -1,7 +1,7 @@
 ---
-status: Proposed
+status: Accepted
 dependencies: [adr-0001]
-last_verified:
+last_verified: 2026-08-06
 frame_review: true
 ---
 
@@ -9,7 +9,7 @@ frame_review: true
 
 ## Status
 
-Proposed (2026-08-06)
+Accepted (2026-08-06)
 
 ## Context
 
@@ -25,8 +25,46 @@ core question requires reading each card top to bottom instead of glancing.
 
 The core question a multi-project owner asks the overview is not "what is the
 full status of everything?" but **"which project needs me, and for what?"** —
-a triage question. The information to answer it already exists on the card; it
-is drowned by everything else.
+a triage question. The uniform-card / detail split (Option B) is justified by
+the report-vs-dashboard problem **on its own**: equal-size cards kill the
+unequal-column mess and give the eye an entry point whether or not any single
+badge works. Within that split, the highest-value *and* riskiest element is
+one signal — a per-project **"needs you"** indicator. It is not a field the
+scanner emits; it must be **derived**, and the derivation is the hard part. It
+carries its own failure modes and its own fallback (below); if it proves
+underivable, the split still delivers — the design does not stand or fall on
+this one field.
+
+The trap has two symmetric sides. Lean only on the two intent-bearing but
+*sparse* inputs — `**(you)**`-tagged next steps and compass `blockers` — and
+the badge **under-reports**: a project that doesn't use the convention shows a
+false "nothing needs you". React to that by counting the *high-coverage*
+structural markers — total open bugs, any deferred slice, any worktree-stranded
+doc — and the badge **saturates**: those flag "there is activity here," not
+"the owner is blocked," and they are present in most or all projects (a local
+probe found the stranded-doc and deferred-slice markers turn up almost
+everywhere), so the badge lights on every card and discriminates nothing. A
+signal that fires everywhere answers "which project needs me" no better than the dense
+report it replaces.
+
+The resolution this ADR commits to: **"needs you" is an _intent-scoped_
+signal** — it counts only markers that specifically encode that *the owner* is
+blocked, and it deliberately excludes generic activity counts. Owner-blocking
+is inherently sparse, and that is correct: most projects, most days, genuinely
+do not need the owner, so **"nothing needs you" is a valid and common state**,
+not a failure to be papered over. The redesign spec pins the exact marker set
+and must validate it on *both* sides (see Kill criteria): it must not saturate,
+and it must not under-report where the owner truly is blocked. The catch on the
+under-report side — surfaced in review — is that **recall cannot be measured
+from disk**: a project where the owner is blocked but nobody wrote the
+`**(you)**` tag or ran the narrative snapshot is, on disk, indistinguishable
+from one that genuinely needs nothing. So the derivation is backstopped by an
+**owner-settable "needs you" marker** — an explicit flag the owner can set on a
+project — so the signal is never *only* an inference from conventions that may
+not have been used. Derive-plus-owner-override makes the badge reliable for
+**owner-declared** blocks; it is a floor, not a total recall guarantee (the
+owner who never wrote the tag may also not set the flag), which is why recall
+still needs the owner-ground-truth check at spec time (Kill criteria).
 
 The project has already reached for the reveal-behind-a-click idea once, at a
 smaller scale: spec 003-02 added a per-card "show older" toggle that hides
@@ -59,14 +97,15 @@ each carries a dependency wrinkle this ADR must rule on:
   a spec count. Every new card section makes the glance worse.
 
 ### Option B: Uniform triage cards + click-through project detail view
-- **Pros:** The glance layer answers "which project needs me" in ~5 seconds:
-  fixed-size, number- and badge-forward cards showing status, coarse progress,
-  a "needs you" blocker count, active-session count, and the first line of
-  "what's next". Everything else — full spec/session lists, workstreams,
-  narrative history, warnings, business/design/PM material — moves one click
-  into a per-project detail view. Uniform cards make a real grid possible;
-  unequal columns disappear because their cause does. A detail view gives
-  future content (§ business/design tabs) a home without touching the glance.
+- **Pros — two distinct wins.** *Legibility (independent of any badge):*
+  fixed-size cards make a real grid possible, unequal columns disappear
+  because their cause does, and moving full spec/session lists, workstreams,
+  narrative history, warnings, and business/design/PM material one click into
+  a per-project detail view stops the glance from drowning. *Triage (carried
+  by the "needs you" badge):* once that badge discriminates, the glance answers
+  "which project needs me" in ~5 seconds. The detail view also gives future
+  content (§ business/design tabs) a home without touching the glance. The two
+  wins are separable — the legibility win holds even if the badge is dropped.
 - **Cons:** Two surfaces to build and keep coherent instead of one. A card no
   longer shows a datum without a click. Adds a detail-view navigation model to
   a page that is currently a single scroll.
@@ -85,10 +124,27 @@ each carries a dependency wrinkle this ADR must rule on:
 1. **Glance layer — a uniform, fixed-size card per project.** It carries only
    what answers "which project needs me, and for what?": name + one-line
    description + status; a coarse progress signal (one big number, optionally
-   a small trend mark); a **"needs you" blocker count** (owner decisions,
-   pending reviews, PRs awaiting the owner); the first line of "what's next";
-   an active-session count with last-activity time; and a **reserved slot for
-   token usage** (see below). All cards are the same size.
+   a small trend mark); a **"needs you" count**; the first line of "what's
+   next"; an active-session count with last-activity time; and a **reserved
+   slot for token usage** (see below). All cards are the same size.
+
+   The **"needs you" count is derived and intent-scoped** (see Context). It
+   counts only markers that encode *the owner* is blocked — candidates for the
+   redesign spec to pin: `**(you)**`-tagged next steps, compass `blockers` /
+   the "blocked — waiting on owner decision" line, deferred slices whose
+   resolution trigger is explicitly an owner decision, and work awaiting the
+   owner's land/merge (review-ready/reviewed slices, and — when `gh` is
+   present — approved PRs ready to merge). It deliberately **excludes** generic
+   activity counts — total open bugs, any deferred slice, any worktree-stranded
+   doc — which flag "there is work here", saturate the badge, and destroy its
+   triage value. The count is expected to be sparse and often zero; that is the
+   correct behaviour, not under-reporting. Because on-disk recall is
+   structurally limited (Context, Kill criteria), the derived count is
+   backstopped by an **owner-settable marker** so a real block is never missed
+   just because a convention went unwritten. This ADR fixes the *principle*
+   (intent-scoped, activity-excluded, sparse-by-design, owner-override
+   backstop, dual-side validated); the exact marker set and its validation are
+   the redesign spec's job (Open questions, Kill criteria).
 
 2. **Detail layer — a per-project view reached by clicking a card.** It holds
    everything the card no longer shows: full spec list with per-spec state,
@@ -131,8 +187,10 @@ the redesign spec build on.
 ## Consequences
 
 **Becomes easier:**
-- Answering "which project needs me?" at a glance, in seconds, without reading.
-- A real uniform grid — the unequal-column problem is designed out.
+- A real uniform grid, scannable at a glance — the unequal-column problem is
+  designed out and the reader stops drowning (holds regardless of the badge).
+- Answering "which project needs me?" in seconds — *once the "needs you" badge
+  discriminates*; until then the grid still gives the legibility win above.
 - Adding future card sections: the glance/detail rule decides placement once.
 - Landing PR triage without breaking the zero-install promise.
 - Giving business/design/PM material a home (detail tabs) without crowding the
@@ -158,22 +216,74 @@ the redesign spec build on.
   references tokens. Token usage is therefore a reserved slot, deferred.
 - 003-03 (pr-badges) is DEFERRED specifically behind "the `gh` decision."
   Verified in [docs/specs/003-sessions-panel/spec.md](../specs/003-sessions-panel/spec.md).
+- **"Needs you" must be validated for _discrimination_, not just presence.**
+  Two facts bound the design. The intent-bearing inputs are sparse: the
+  `**(you)**` owner tag appears in only a document or two per project and some
+  projects use it not at all, and compass `blockers` are written only by the
+  human-invoked narrative snapshot (005-03), never by the deterministic
+  `--auto` routine (005-04). The generic activity markers, by contrast, are
+  near-ubiquitous — worktree-stranded docs, deferred slices, and open bugs
+  turn up in most or all projects. Presence data alone cannot confirm the
+  signal *discriminates* owner-blocked projects from the rest — a marker
+  present in every project discriminates nothing. That is exactly why the
+  Recommended Decision scopes the count to intent markers and excludes the
+  ubiquitous activity counts. Discrimination is disk-measurable (does the count
+  separate projects?); **recall is not** — whether a "quiet" project genuinely
+  needs nothing or just never got its block written down cannot be read from
+  disk. So recall validation needs **owner-provided ground truth** (the owner
+  says which projects actually need them), and the owner-settable marker is the
+  standing backstop for the cases derivation misses. A disk-only grep re-probe
+  would re-measure presence, not recall.
+- **ESCALATED bugs are not a separate scanner field today.** `scanBugs`
+  (`src/scan.mjs`) returns `{open, total}` only; an ESCALATED count would need
+  added derivation. So any use of ESCALATED in the "needs you" signal is new
+  work for the redesign spec, not a field already emitted. Verified by reading
+  `scanBugs`.
 
 ## Kill criteria
 
-- If the triage signals ("needs you" blockers, active-session state, coarse
-  progress) turn out not to be computable from the on-disk artifacts, the
-  glance card cannot answer its question without a click and the split fails —
-  the dense report would then be the honest design.
+The decision has two separable parts — the **split** and the **badge** — and
+they fail independently. A badge failure does **not** revert the split (the
+split earns its keep on legibility alone, per Context); it degrades the triage
+signal down to the owner-settable marker.
+
+**Kills the derived "needs you" _badge_ (not the split):**
+- **Under-report:** if the pinned taxonomy routinely shows "nothing needs you"
+  on projects where the owner *is* blocked (recall too low), the derived count
+  can't be trusted. Recall is **not** disk-measurable — it must be checked
+  against owner-provided ground truth; a grep-only "recall probe" that
+  re-measures presence would mask this failure. Consequence: fall back to the
+  owner-settable marker as the signal (drop the derived count), keep the grid.
+- **Over-report / saturation:** if the badge lights on most or all cards
+  (the taxonomy crept back toward ubiquitous activity markers), it
+  discriminates nothing. Measure explicitly against the real project set — a
+  badge on ≳ half of cards is the failure signature. Same consequence: strip
+  the derived count back to the owner-settable marker; the grid stands.
+- The local probe bounds the inputs but does not settle discrimination;
+  that verdict is the redesign spec's to reach with a discrimination probe
+  plus an owner-ground-truth recall check.
+
+**Kills the _split_ itself:**
 - If the detail view cannot be built without adding a routing/client
   framework, it collides with ADR-0001's single self-contained page; the split
   must then be reshaped (e.g. an in-page panel) rather than pursued as a route.
+  This is the only failure that sends the design back toward the dense report.
 
 ## Open questions
 
-- The exact **"needs you" taxonomy** — which signals count as blocking the
-  owner (owner decisions, review-ready slices, PR states, stale "what's next").
-  Spec-level; the redesign spec pins it.
+- The exact **"needs you" taxonomy** — the boundary cases inside the
+  intent-scoped set: does a review-ready/reviewed slice count as *owner*-blocking
+  (the owner lands it) or Claude-blocking (a reviewer agent acts first)? How do
+  PR states and a stale "what's next" fold in? Spec-level; the redesign spec
+  pins the marker set and settles it with the discrimination+recall probe (Kill
+  criteria), not a presence count.
+- **The owner-settable marker's mechanics** — how the owner's flag and the
+  derived signal combine on the card. It must live in the home-folder config
+  (`~/.claude/my-dashboard/`), never in a surveyed repo (vision principles 1
+  and 6), and it is legitimate as an *opt-in* backstop under principle 3 ("new
+  user habits are opt-in"): the derived signal is the zero-ritual default, the
+  marker the opt-in floor. This ADR commits to *having* the backstop; the
+  redesign spec designs it.
 - **Fate of the current dense view** — kept as a secondary "console" mode or
   dropped once the triage overview ships. Decide after the triage view is real
   and its coverage is known; do not build two co-equal layouts (Option C).
