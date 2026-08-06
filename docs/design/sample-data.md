@@ -2,20 +2,26 @@
 
 > **This is the project's canonical working sample dataset for design work.**
 > Hand it to Claude Design (CD) so mockups are built against realistic content.
-> **All content below is invented placeholder data** — five fictional projects,
+> **All content below is invented placeholder data** — eight fictional projects,
 > made up purely to design against. Nothing here is a real project.
 
 ## What the dashboard is
 
 One local page that shows **every project the owner is running**, so they can see
-at a glance *where each project stands* and *what's next* — read entirely from
-files already on disk (no database, no login). **One card per project**, many
-cards on one page. The design has to stay scannable when a project has 3 specs
-**and** when it has 60.
+at a glance *which projects need them right now, and for what* — read entirely
+from files already on disk (no database, no login). **One card per project**,
+many cards on one page. The design has to stay scannable when a project has 3
+specs **and** when it has 60.
 
 ## The fields every project card carries
 
-- **Header** — project name/label + a status chip: `active`, or `all specs done`.
+- **Header** — project name/label + a one-line description + a status chip:
+  `active`, or `all specs done`.
+- **Needs you** *(the headline triage signal)* — what genuinely needs *this
+  person's* action: a decision to make, work awaiting their review, something to
+  merge — a small count plus a word or two on what it is. **Usually empty** —
+  most projects, most days, need nothing — so "nothing needs you" is a
+  first-class, calm state to design well.
 - **Progress** — a percentage bar (specs done ÷ total specs).
 - **Counts line** — specs done / in-progress / draft / total · open bugs ·
   deferred decisions · inbox items.
@@ -33,8 +39,10 @@ cards on one page. The design has to stay scannable when a project has 3 specs
 - **"What's next" narrative** — a headline, an optional **Next:** line, an
   optional **Blocked:** line, and an age ("40m ago"). Can be marked stale.
 
-The five samples below deliberately span the range: empty states, overflow,
-long titles, a finished project, and a blocked/troubled one.
+The eight samples below deliberately span the range: empty states, overflow,
+long titles, a finished project, a blocked/troubled one, a big review queue, and
+the calm "nothing needs you" case. The cards are all the same size regardless of
+how much each project has going on.
 
 ---
 
@@ -42,6 +50,7 @@ long titles, a finished project, and a blocked/troubled one.
 *Big and busy — many specs, lots of sessions, overflow.*
 
 - **Chip:** `active`
+- **Needs you:** **1 decision parked on you** (a routing-engine choice)
 - **Progress:** **62%**
 - **Counts:** 18 done · 3 in progress · 7 draft · **28 specs** · 2 open bugs · 9 deferred decisions · 14 inbox
 
@@ -89,6 +98,7 @@ long titles, a finished project, and a blocked/troubled one.
 *Brand new — barely started. Good for empty states.*
 
 - **Chip:** `active`
+- **Needs you:** *nothing needs you*
 - **Progress:** **0%**
 - **Counts:** 0 done · 0 in progress · 3 draft · **3 specs** · 0 open bugs · 1 deferred decision · 2 inbox
 
@@ -112,6 +122,7 @@ long titles, a finished project, and a blocked/troubled one.
 *Finished. Everything shipped.*
 
 - **Chip:** `all specs done`
+- **Needs you:** *nothing needs you* (shipped, idle)
 - **Progress:** **100%**
 - **Counts:** 11 done · 0 in progress · 0 draft · **11 specs** *(1 abandoned, excluded from the count)* · 0 open bugs · 0 deferred decisions · 0 inbox
 
@@ -143,6 +154,7 @@ long titles, a finished project, and a blocked/troubled one.
 *Troubled — open bugs, a blocker, worktree drift, a big inbox.*
 
 - **Chip:** `active`
+- **Needs you:** **1 decision waiting on you** (a currency-rounding rule)
 - **Progress:** **45%**
 - **Counts:** 9 done · 1 in progress · 5 draft · **20 specs** *(2 deferred)* · **4 open bugs** · 12 deferred decisions · 23 inbox
 
@@ -184,6 +196,7 @@ long titles, a finished project, and a blocked/troubled one.
 *Steady mid-project, a couple of running sessions, mild overflow.*
 
 - **Chip:** `active`
+- **Needs you:** **2 reviews waiting on you** (two finished slices to review)
 - **Progress:** **78%**
 - **Counts:** 14 done · 2 in progress · 2 draft · **18 specs** · 1 open bug · 3 deferred decisions · 5 inbox
 
@@ -213,3 +226,97 @@ long titles, a finished project, and a blocked/troubled one.
 **What's next** — *20m ago*
 > 14 of 18 specs done; styling and export are wrapping up for v0.5.
 > **Next:** Finish 016 vector styling, then cut v0.5 once 017 SVG export lands.
+
+---
+
+## 6. Almanac — habit tracker
+*Barely started, but with a big review queue — the "needs you" is loud.*
+
+- **Chip:** `active`
+- **Needs you:** **9 specs awaiting your review** (the review queue is the story here)
+- **Progress:** **30%**
+- **Counts:** 3 done · 0 in progress · 7 draft · **10 specs** · 0 open bugs · 4 deferred decisions · 6 inbox
+
+**Specs** *(10 total)*
+| id | status | slices |
+|---|---|---|
+| 001-habit-model | DONE | 2/2 |
+| 002-daily-checkin | DONE | 3/3 |
+| 003-streaks | DONE | 2/2 |
+| 004-reminders | DRAFT | 0/2 |
+| 005-stats | DRAFT | 0/3 |
+| … | *(5 more DRAFT, all awaiting review)* | |
+
+**Workstreams** — *none yet*
+
+**Sessions** — header: **0 active · 2 older** *(both in worktrees)*
+| title | branch | worktree | running | last activity |
+|---|---|---|---|---|
+| Streak edge cases | claude/003-streaks | almanac-streak-b2c3 | | 3d ago |
+| Reminder scheduling sketch | claude/004-reminders | almanac-remind-d4e5 | | 5d ago |
+
+**What's next** — *3d ago*
+> Foundations done; a stack of draft specs is waiting on a review pass before more building.
+> **Next:** Review the 9 open drafts and promote the ready ones.
+
+---
+
+## 7. Semaphore — deploy notifier
+*Calm and mid-way, but spread across several worktrees. Nothing needs you.*
+
+- **Chip:** `active`
+- **Needs you:** *nothing needs you*
+- **Progress:** **55%**
+- **Counts:** 6 done · 1 in progress · 4 draft · **11 specs** · 0 open bugs · 2 deferred decisions · 3 inbox
+
+**Specs** *(11 total — notable ones)*
+| id | status | slices |
+|---|---|---|
+| 001-webhook-in | DONE | 2/2 |
+| 002-slack-out | DONE | 2/2 |
+| 006-retry-policy | IN_PROGRESS | 1/3 |
+| 008-rate-limits | DRAFT | 0/2 |
+| … | *(7 more)* | |
+
+**Workstreams**
+- Release Plan: **v0.4** — `release`
+
+**Sessions** — header: **1 active · 3 older** *(spread over 4 worktrees)*
+| title | branch | worktree | running | last activity |
+|---|---|---|---|---|
+| Retry backoff tuning | claude/006-retry-policy | semaphore-retry-f6g7 | ● | 45m ago |
+| Slack formatting polish | claude/002-slack-out | semaphore-slack-h8i9 | | 2d ago |
+| Rate-limit design notes | claude/008-rate-limits | semaphore-rate-j0k1 | | 3d ago |
+| Webhook signature check | claude/001-webhook-sig | semaphore-hook-l2m3 | | 6d ago |
+
+**What's next** — *45m ago*
+> Steady progress on delivery reliability; nothing blocked or waiting.
+> **Next:** Finish 006 retry policy, then start 008 rate limits.
+
+---
+
+## 8. Kestrel — note-taking app
+*Brand new and sparse — one spec, mostly empty. The minimal card.*
+
+- **Chip:** `active`
+- **Needs you:** *nothing needs you*
+- **Progress:** **50%**
+- **Counts:** 1 done · 0 in progress · 1 draft · **2 specs** · 0 open bugs · 0 deferred decisions · 1 inbox
+
+**Specs**
+| id | status | slices |
+|---|---|---|
+| 001-note-editor | DONE | 2/2 |
+| 002-search | DRAFT | 0/2 |
+
+**Workstreams** — *none yet*
+
+**Sessions** — header: **1 active · 1 older** *(new, 2 worktrees)*
+| title | branch | worktree | running | last activity |
+|---|---|---|---|---|
+| Editor keybindings | claude/001-note-editor | kestrel-editor-n4o5 | ● | 30m ago |
+| Search index spike | claude/002-search | kestrel-search-p6q7 | | 1d ago |
+
+**What's next** — *30m ago*
+> Editor works; search is the next piece.
+> **Next:** Build the 002 search index.

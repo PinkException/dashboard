@@ -27,18 +27,7 @@ The screen is a grid of equal-size cards, one per project, all visible together 
 
 Clicking a card opens that project's **detail view** (in place, within the same page), holding everything the card leaves off: the full list of specs with each one's state; the individual work sessions with their branch, worktree, and timestamps; the workstreams and runbooks; the full "what's next" note and its history; warnings (e.g. documents that exist only in an unmerged worktree); counts of parked decisions and inbox items; a token-usage breakdown; and room to grow later into Business / Design / project-management tabs.
 
-**The sample content — use this fictional project set** (invented placeholder data; swap for real values at build time):
-
-| Project | Description | Progress | Needs you | Activity signal |
-|---|---|---|---|---|
-| Trailhead | hiking route planner | 62% (18 of 28 done) | a decision parked on you | 6 sessions, active now |
-| Verdant | plant-care reminders | 8% (1 of 12 done) | nothing needs you | quiet, last touched last week |
-| Beacon | status-page generator | 100% (11 of 11 done) | nothing needs you | shipped, idle |
-| Ledger | personal finance tracker | 45% (9 of 20 done) | 1 decision waiting on you | 4 sessions, active today |
-| Cartographer | map-notes tool | 78% (14 of 18 done) | 2 reviews waiting on you | 3 sessions, active now |
-| Almanac | habit tracker | 30% (3 of 10 done) | 9 specs awaiting your review | 2 worktrees |
-| Semaphore | deploy notifier | 55% (6 of 11 done) | nothing needs you | 4 worktrees |
-| Kestrel | note-taking app | 50% (1 of 2 done) | nothing needs you | 2 worktrees, new |
+**The sample content** — use the project's canonical working sample dataset at [`../sample-data.md`](../sample-data.md) (invented placeholder data; swap for real values at build time). It holds eight fictional projects, each with every card field: the **needs-you** signal, progress, the counts line, the full specs list, workstreams, sessions (running / older / overflow), worktree warnings, and the "what's next" note — plus the empty and edge states.
 
 The set deliberately spans the range the design must hold: a calm finished project with nothing outstanding (Beacon), a barely-started one with a big review queue (Almanac), busy in-flight ones (Trailhead, Cartographer), and a brand-new sparse one (Kestrel). The cards are all the same size regardless of how much each project has going on.
 
@@ -56,4 +45,9 @@ You own the visual design — mood, colour, type, layout, imagery. Show me 3 dis
 
 ## Revisions
 
-_(none yet — design-tweaks adds change rounds here, editing the current version's files in place)_
+- **2026-08-06 — sample content converged to a shared file.** The inline
+  project table was replaced by a pointer to the project's canonical working
+  sample dataset, [`../sample-data.md`](../sample-data.md), so there is one
+  source of truth for sample content across design briefs. The same eight
+  projects and their range are preserved there, now with each project's full
+  per-card detail (specs list, sessions, worktree warnings, "what's next").
