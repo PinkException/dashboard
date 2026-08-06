@@ -11,7 +11,8 @@
 - [ADR-0002: Compass snapshot contract: docs/status/compass-history.jsonl](adr-0002-compass-snapshot-contract.md) — Compass is deliberately read-only: it reports in chat and persists nothing, so "what did compass say last" has no data source. (2026-07-24, Superseded)
 - [ADR-0003: Distribution: Claude Code plugin, private state in user home](adr-0003-claude-plugin-distribution.md) — The dashboard was always meant to be shared publicly as a companion to jig, but the 2026-07-13 vision brief only recorded the personal-tool half. (Accepted)
 - [ADR-0004: Dashboard owns one append-only snapshot history per project](adr-0004-dashboard-owned-snapshots.md) — Compass snapshots currently live inside every surveyed project and are written by compass itself, and that arrangement has become a source of repo pollution and repeated re-litigation. (2026-07-24, Accepted)
-- [ADR-0005: The dashboard owns and installs its own automation](adr-0005-dashboard-owns-routine-install.md) — After the night-worker rework dropped the dashboard from scope, the snapshot routine was guarded but had no installer that managed it; the dashboard now owns its own version-controlled routine + zero-dep installer, gated at writes. (2026-08-04, Accepted)
+- [ADR-0005: The dashboard owns and installs its own automation](adr-0005-dashboard-owns-routine-install.md) — The dashboard's recurring snapshot routine (`compass-snapshots`) runs from the Claude Code scheduler at `~/.claude/scheduled-tasks/compass-snapshots/SKILL.md` — outside every repository. (Accepted)
+- [ADR-0006: Overview is a triage surface: glance/detail split, PR state via optional gh](adr-0006-overview-triage-surface.md) — The dashboard's overview page renders every project as a card that prints everything it knows — spec lists, session lists, workstreams, warnings, and the narrative "what's next" — in one dense monospace layer at uniform visual weight. (2026-08-06, Proposed)
 
 ## Format
 
