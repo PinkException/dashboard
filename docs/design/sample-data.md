@@ -95,23 +95,25 @@ how much each project has going on.
 ---
 
 ## 2. Verdant — plant-care reminders
-*Brand new — barely started. Good for empty states.*
+*Barely started — a dozen specs, only one done. Quiet; carries the calm early-project and the empty states.*
 
 - **Chip:** `active`
 - **Needs you:** *nothing needs you*
-- **Progress:** **0%**
-- **Counts:** 0 done · 0 in progress · 3 draft · **3 specs** · 0 open bugs · 1 deferred decision · 2 inbox
+- **Progress:** **8%**
+- **Counts:** 1 done · 0 in progress · 11 draft · **12 specs** · 0 open bugs · 1 deferred decision · 2 inbox
 
-**Specs**
+**Specs** *(12 total)*
 | id | status | slices |
 |---|---|---|
-| 001-plant-list | DRAFT | 0/2 |
+| 001-plant-list | DONE | 2/2 |
 | 002-watering-schedule | DRAFT | 0/3 |
 | 003-reminder-notifications | DRAFT | 0/2 |
+| 004-plant-database | DRAFT | 0/4 |
+| … | *(8 more DRAFT)* | |
 
 **Workstreams** — *none yet*
 
-**Sessions** — *none* (no sessions attributed to this project yet — the section is omitted)
+**Sessions** — *none* (no sessions attributed yet — the section is omitted; the project is quiet, last touched about a week ago)
 
 **What's next** — *no snapshot yet*
 > *no "what's next" written yet — this is the empty state.*
