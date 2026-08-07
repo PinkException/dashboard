@@ -1,0 +1,8 @@
+#!/bin/sh
+# Block commits that put a private project name (from the owner's local config)
+# into a tracked file. This repo is a public plugin; docs/ ships to installers.
+# No-op gracefully on branches/checkouts that predate the guard.
+GUARD="$(git rev-parse --show-toplevel)/tools/leak-guard.mjs"
+[ -f "$GUARD" ] || exit 0
+command -v node >/dev/null 2>&1 || exit 0
+exec node "$GUARD" --staged
