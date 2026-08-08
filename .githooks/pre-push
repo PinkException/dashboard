@@ -1,0 +1,10 @@
+#!/bin/sh
+# Block a push that would publish a private project name or a credential in any
+# commit DIFF. This is the gap the pre-commit gate misses: a name can sit in the
+# diff of a commit whose final file tree is clean (003-02). git feeds the pushed
+# refs on stdin; the scanner reads them and checks only the commits not yet on
+# the remote. Fails closed. No-op gracefully on checkouts that predate the tool.
+SCAN="$(git rev-parse --show-toplevel)/tools/leak-scan-range.mjs"
+[ -f "$SCAN" ] || exit 0
+command -v node >/dev/null 2>&1 || exit 0
+exec node "$SCAN" --pre-push

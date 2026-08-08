@@ -1,0 +1,33 @@
+name: leak-scan
+
+# Server-side leak gate. Runs on GitHub, independent of any local hook or agent,
+# so a private project name or credential cannot reach the public repo even if a
+# local check is bypassed. Enforce it by making this a required status check in
+# branch-protection for `main` (Settings → Branches).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  leak-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history — the diff scan needs every commit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 1. Tip file tree: no denied term or credential in any tracked file.
+      - name: no-leaks (tracked file tree)
+        run: node --test test/no-leaks.test.mjs
+
+      # 2. Commit diffs: no denied term or credential in any diff in history.
+      #    Catches a name that was redacted from the file but lingers in the
+      #    diff of the commit that removed it.
+      - name: no-leaks (commit diffs)
+        run: node tools/leak-scan-range.mjs --all-history

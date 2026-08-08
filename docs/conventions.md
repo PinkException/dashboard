@@ -25,6 +25,12 @@
 **Why:** Specs as contracts at the right granularity let humans and agents work in parallel without constant re-alignment.
 **How to apply:** Run `/jig:spec-workflow` (when implemented), or write `docs/specs/NNN-<slug>/spec.md` by hand using the SPIDR template. Each slice must touch the user-facing layer (no horizontal phasing).
 
+## Privacy (public plugin repo)
+
+**Rule:** Verification and review evidence recorded in a tracked file must be de-identified — record the *shape* (counts, structure, behavior), never a real project's *identity* (its name, path, logo, or distinctive labels). Illustrative examples use invented sample names (`sample-alpha`, `sample-beta`), never a name from the owner's config or another project.
+**Why:** This repo is a public plugin — `docs/` ships to every installer. The step most likely to break this is **live-verification** during reconciliation: it runs the dashboard/tools over the owner's real `~/.claude/my-dashboard/config.json`, observes real project names, and the instinct to record "what I actually saw" as credible evidence writes a private name into a tracked doc. That is exactly how the 003-02 reconciliation named a real project — caught red by `test/no-leaks.test.mjs`, but only at commit time, after the name was already written into the doc (and thus into that commit's diff forever). Invented data is always sufficient evidence; the real identity adds nothing.
+**How to apply:** When verifying against live data, transcribe the shape only — "a card with 15 specs / 5 open / +63 churn", not the project's name. Before committing any review, reconciliation, ADR, or design artifact, run `node tools/leak-guard.mjs --all` (it derives the deny-list from the live config). Never copy content out of the config or another project into a tracked file — invent it instead.
+
 ## Code style
 
 > **Deferred — no signal from initial pitch.** Will be filled in as the project
