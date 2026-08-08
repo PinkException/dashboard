@@ -65,4 +65,10 @@ You own the visual design — mood, colour, type, layout, imagery. Keep the Prod
 
 ## Revisions
 
-_(none yet — design-tweaks adds change rounds here, editing the current version's files in place)_
+- **2026-08-07 — "You" state relabelled.** The umbrella "You" tag read as
+  meaningless on the row and was redundant next to its own sub-verb
+  ("YOU · REVIEW" says review twice). Change: on each row and in the action
+  queue, an owner-action item is labelled by its **action verb** — DECIDE /
+  REVIEW / MERGE — which becomes the label and keeps the state's prominence;
+  the header count formerly "You" becomes **"To do"**. Ready / External / Idle
+  unchanged. Colour, finish-first ordering, and layout unchanged.
