@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Public+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e9eaee;}
+  a{color:inherit;text-decoration:none;}
+  a:hover{color:inherit;}
+</style>
+<script src="./dashboard-data.js"></script>
+</helmet>
+
+<div style="padding:72px;background:#e9eaee;font-family:'Public Sans',system-ui,sans-serif;">
+
+<section style="display:flex;flex-direction:column;gap:40px;">
+  <div style="max-width:900px;display:flex;flex-direction:column;gap:10px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8f98;">Turn 1 · dashboard v1.0</div>
+    <h1 style="margin:0;font-size:32px;font-weight:600;color:#20242b;letter-spacing:-0.01em;">Three directions for the project-status dashboard</h1>
+    <p style="margin:0;font-size:15px;line-height:1.6;color:#6b7280;max-width:720px;">Each shows the all-projects Overview and the Aurora detail, both populated. Reference them as <a href="#1a" style="color:#3452c9;border-bottom:1px solid #c3ccec;">1a</a>, <a href="#1b" style="color:#3452c9;border-bottom:1px solid #c3ccec;">1b</a>, <a href="#1c" style="color:#3452c9;border-bottom:1px solid #c3ccec;">1c</a>. Empty states and split HTML pages come once you pick.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:72px;align-items:flex-start;">
+
+    <!-- ============================= 1a — CONSOLE ============================= -->
+    <div id="1a" style="display:flex;flex-direction:column;gap:20px;">
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#fff;background:#16181d;padding:4px 9px;border-radius:5px;">1a</span>
+        <span style="font-size:18px;font-weight:600;color:#20242b;">Console</span>
+        <span style="font-size:13px;color:#8a8f98;">dark, monospace, dense — feels like a dev tool</span>
+      </div>
+
+      <!-- Overview -->
+      <div data-screen-label="1a Overview" style="width:1180px;background:#0d0f12;color:#d7dbe0;border:1px solid #1e2329;border-radius:10px;overflow:hidden;font-family:'IBM Plex Sans',sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;padding:22px 26px;border-bottom:1px solid #1e2329;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;color:#5f6873;">~/projects</span>
+            <span style="font-size:20px;font-weight:600;color:#eef1f4;">Overview</span>
+          </div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5f6873;">all projects</span>
+        </div>
+        <div style="display:flex;gap:1px;background:#1e2329;">
+          <div style="flex:1;background:#0d0f12;padding:18px 26px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;">projects</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;color:#eef1f4;">{{ totalsPad.projects }}</span>
+          </div>
+          <div style="flex:1;background:#0d0f12;padding:18px 26px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;">specs in flight</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;color:#4c9be8;">{{ totalsPad.specs }}</span>
+          </div>
+          <div style="flex:1;background:#0d0f12;padding:18px 26px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;">open bugs</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;color:#e5657a;">{{ totalsPad.bugs }}</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.5fr 1.2fr 1fr 0.9fr 1.2fr 0.8fr;gap:16px;padding:12px 26px;border-top:1px solid #1e2329;border-bottom:1px solid #1e2329;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5f6873;">
+          <span>project</span><span>type</span><span>specs</span><span>bugs</span><span>workstream</span><span>active</span>
+        </div>
+        <sc-for list="{{ A.projects }}" as="p" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:1.5fr 1.2fr 1fr 0.9fr 1.2fr 0.8fr;gap:16px;padding:16px 26px;border-top:1px solid #14181d;align-items:center;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;color:#eef1f4;">{{ p.name }}</span>
+            <span style="font-size:13px;color:#8a929c;">{{ p.type }}</span>
+            <span style="display:flex;flex-direction:column;gap:5px;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#c9d0d8;">{{ p.done }}/{{ p.total }}<span style="color:#5f6873;">{{ p.note }}</span></span>
+              <span style="width:64px;height:4px;background:#1e2329;border-radius:2px;overflow:hidden;"><span style="display:block;height:100%;width:{{ p.pctStr }};background:#4cc38a;"></span></span>
+            </span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{ p.bugColor }};">{{ p.bugs }}</span>
+            <span style="font-size:13px;color:{{ p.workColor }};">{{ p.workstreamDisplay }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a929c;">{{ p.lastActivity }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Detail -->
+      <div data-screen-label="1a Detail" style="width:1180px;background:#0d0f12;color:#d7dbe0;border:1px solid #1e2329;border-radius:10px;overflow:hidden;font-family:'IBM Plex Sans',sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:24px 26px;border-bottom:1px solid #1e2329;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:baseline;gap:12px;">
+              <span style="font-size:24px;font-weight:600;color:#eef1f4;">{{ A.detail.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a929c;border:1px solid #1e2329;padding:3px 8px;border-radius:4px;">{{ A.detail.type }}</span>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5f6873;">{{ A.detail.lastActivity }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#c9d0d8;">{{ A.detail.progressText }}</span>
+            <span style="width:180px;height:5px;background:#1e2329;border-radius:3px;overflow:hidden;"><span style="display:block;height:100%;width:{{ A.detail.pctStr }};background:#4cc38a;"></span></span>
+          </div>
+        </div>
+        <div style="padding:20px 26px;border-bottom:1px solid #14181d;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;margin-bottom:12px;">specs</div>
+          <sc-for list="{{ A.detail.specs }}" as="s" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:9px 0;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#5f6873;">{{ s.n }}</span>
+              <span style="font-size:14px;color:#eef1f4;">{{ s.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a929c;">{{ s.slices }}</span>
+              <span style="display:inline-flex;align-items:center;gap:8px;min-width:120px;justify-content:flex-end;">
+                <span style="width:7px;height:7px;border-radius:50%;background:{{ s.color }};"></span>
+                <span style="font-size:13px;color:{{ s.color }};">{{ s.status }}</span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:20px 26px;border-bottom:1px solid #14181d;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;margin-bottom:12px;">open bugs</div>
+          <sc-for list="{{ A.detail.bugs }}" as="b" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:96px 1fr auto auto;gap:16px;align-items:center;padding:9px 0;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#c9d0d8;">{{ b.id }}</span>
+              <span style="font-size:14px;color:#eef1f4;">{{ b.title }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:{{ b.sevColor }};">{{ b.severity }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a929c;min-width:96px;text-align:right;">{{ b.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:20px 26px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5f6873;margin-bottom:12px;">recent activity</div>
+          <sc-for list="{{ A.detail.activity }}" as="line" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:7px 0;">
+              <span style="width:5px;height:5px;border-radius:50%;background:#3d4550;flex:none;"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#a7afb9;">{{ line }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================= 1b — EDITORIAL ============================= -->
+    <div id="1b" style="display:flex;flex-direction:column;gap:20px;">
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#fff;background:#16181d;padding:4px 9px;border-radius:5px;">1b</span>
+        <span style="font-size:18px;font-weight:600;color:#20242b;">Editorial</span>
+        <span style="font-size:13px;color:#8a8f98;">warm paper, serif, generous whitespace — calm</span>
+      </div>
+
+      <!-- Overview -->
+      <div data-screen-label="1b Overview" style="width:1180px;background:#faf8f4;color:#23201b;border:1px solid #e6e1d8;border-radius:3px;padding:40px 48px;font-family:'Public Sans',sans-serif;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:28px;border-bottom:1px solid #e6e1d8;">
+          <h2 style="margin:0;font-family:'Newsreader',serif;font-size:36px;font-weight:500;letter-spacing:-0.01em;">Projects</h2>
+          <span style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8f887a;">Five active · updated today</span>
+        </div>
+        <div style="display:flex;gap:64px;padding:30px 0;border-bottom:1px solid #e6e1d8;">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'Newsreader',serif;font-size:46px;font-weight:500;line-height:1;">{{ totals.projects }}</span>
+            <span style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8f887a;">Projects</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'Newsreader',serif;font-size:46px;font-weight:500;line-height:1;">{{ totals.specsInFlight }}</span>
+            <span style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8f887a;">Specs in flight</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'Newsreader',serif;font-size:46px;font-weight:500;line-height:1;color:oklch(0.55 0.13 27);">{{ totals.openBugs }}</span>
+            <span style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#8f887a;">Open bugs</span>
+          </div>
+        </div>
+        <sc-for list="{{ B.projects }}" as="p" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:1.7fr 1fr 1fr 1.3fr 0.9fr;gap:24px;align-items:center;padding:22px 0;border-bottom:1px solid #ece7de;">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <span style="font-family:'Newsreader',serif;font-size:22px;font-weight:500;">{{ p.name }}</span>
+              <span style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#a39b8b;">{{ p.type }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#a39b8b;">Specs</span>
+              <span style="font-size:15px;">{{ p.done }} of {{ p.total }}<span style="font-style:italic;color:#8f887a;">{{ p.note }}</span></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#a39b8b;">Bugs</span>
+              <span style="font-size:15px;color:{{ p.bugColor }};">{{ p.bugsDisplay }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#a39b8b;">Workstream</span>
+              <span style="font-size:15px;color:{{ p.workColor }};font-style:{{ p.workStyle }};">{{ p.workstreamDisplay }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#a39b8b;">Active</span>
+              <span style="font-size:15px;">{{ p.lastActivity }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Detail -->
+      <div data-screen-label="1b Detail" style="width:1180px;background:#faf8f4;color:#23201b;border:1px solid #e6e1d8;border-radius:3px;padding:40px 48px;font-family:'Public Sans',sans-serif;">
+        <div style="padding-bottom:26px;border-bottom:1px solid #e6e1d8;">
+          <div style="display:flex;align-items:baseline;gap:16px;">
+            <h2 style="margin:0;font-family:'Newsreader',serif;font-size:42px;font-weight:500;letter-spacing:-0.01em;">{{ B.detail.name }}</h2>
+            <span style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#a39b8b;">{{ B.detail.type }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;">
+            <span style="font-size:13px;color:#8f887a;">{{ B.detail.lastActivity }}</span>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;width:280px;">
+              <span style="font-size:14px;">{{ B.detail.progressText }} complete</span>
+              <span style="width:100%;height:3px;background:#e6e1d8;overflow:hidden;"><span style="display:block;height:100%;width:{{ B.detail.pctStr }};background:oklch(0.58 0.09 150);"></span></span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:26px 0;border-bottom:1px solid #e6e1d8;">
+          <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#a39b8b;margin-bottom:16px;">Specs</div>
+          <sc-for list="{{ B.detail.specs }}" as="s" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:52px 1fr auto auto;gap:20px;align-items:baseline;padding:12px 0;border-bottom:1px solid #ece7de;">
+              <span style="font-size:12px;letter-spacing:0.1em;color:#a39b8b;">{{ s.n }}</span>
+              <span style="font-family:'Newsreader',serif;font-size:20px;">{{ s.name }}</span>
+              <span style="font-size:13px;font-style:italic;color:#8f887a;">{{ s.slices }}</span>
+              <span style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:{{ s.color }};min-width:130px;text-align:right;">{{ s.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:26px 0;border-bottom:1px solid #e6e1d8;">
+          <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#a39b8b;margin-bottom:16px;">Open bugs</div>
+          <sc-for list="{{ B.detail.bugs }}" as="b" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:104px 1fr auto auto;gap:20px;align-items:baseline;padding:12px 0;border-bottom:1px solid #ece7de;">
+              <span style="font-size:13px;letter-spacing:0.06em;color:#8f887a;">{{ b.id }}</span>
+              <span style="font-family:'Newsreader',serif;font-size:18px;">{{ b.title }}</span>
+              <span style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:{{ b.sevColor }};">{{ b.severity }}</span>
+              <span style="font-size:13px;font-style:italic;color:#8f887a;min-width:100px;text-align:right;">{{ b.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding-top:26px;">
+          <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#a39b8b;margin-bottom:16px;">Recent activity</div>
+          <sc-for list="{{ B.detail.activity }}" as="line" hint-placeholder-count="4">
+            <div style="padding:9px 0;border-bottom:1px solid #ece7de;font-size:15px;color:#4a463d;">{{ line }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================= 1c — PRODUCT ============================= -->
+    <div id="1c" style="display:flex;flex-direction:column;gap:20px;">
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#fff;background:#16181d;padding:4px 9px;border-radius:5px;">1c</span>
+        <span style="font-size:18px;font-weight:600;color:#20242b;">Product</span>
+        <span style="font-size:13px;color:#8a8f98;">cool slate, cards, status pills — modern SaaS</span>
+      </div>
+
+      <!-- Overview -->
+      <div data-screen-label="1c Overview" style="width:1180px;background:#f4f6f9;border:1px solid #e4e9f0;border-radius:16px;padding:32px;font-family:'Instrument Sans',sans-serif;color:#1b2230;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:600;">Projects</h2>
+          <span style="font-size:13px;color:#64708a;">All projects · updated today</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:24px;">
+          <div style="flex:1;background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,30,55,0.04);display:flex;flex-direction:column;gap:10px;">
+            <span style="width:30px;height:30px;border-radius:9px;background:#eef0fe;"></span>
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:600;line-height:1;">{{ totals.projects }}</span>
+            <span style="font-size:13px;color:#64708a;">Projects</span>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,30,55,0.04);display:flex;flex-direction:column;gap:10px;">
+            <span style="width:30px;height:30px;border-radius:9px;background:#e6f0fe;"></span>
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:600;line-height:1;">{{ totals.specsInFlight }}</span>
+            <span style="font-size:13px;color:#64708a;">Specs in flight</span>
+          </div>
+          <div style="flex:1;background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,30,55,0.04);display:flex;flex-direction:column;gap:10px;">
+            <span style="width:30px;height:30px;border-radius:9px;background:#fdeaea;"></span>
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:600;line-height:1;color:#dc2626;">{{ totals.openBugs }}</span>
+            <span style="font-size:13px;color:#64708a;">Open bugs</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <sc-for list="{{ C.projects }}" as="p" hint-placeholder-count="5">
+            <div style="background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,30,55,0.04);display:grid;grid-template-columns:1.5fr 1.4fr 1fr 1.1fr 0.7fr;gap:20px;align-items:center;">
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:600;">{{ p.name }}</span>
+                <span style="align-self:flex-start;font-size:12px;color:#64708a;background:#f1f4f8;padding:3px 9px;border-radius:20px;">{{ p.type }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <span style="font-size:13px;color:#3a445a;">{{ p.done }}/{{ p.total }} specs<span style="color:#8a93a8;">{{ p.note }}</span></span>
+                <span style="width:100%;height:6px;background:#eef1f5;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:{{ p.pctStr }};background:#4f46e5;"></span></span>
+              </div>
+              <span style="justify-self:start;font-size:12px;font-weight:500;padding:5px 11px;border-radius:20px;color:{{ p.bugColor }};background:{{ p.bugBg }};">{{ p.bugsDisplay }}</span>
+              <span style="font-size:13px;color:{{ p.workColor }};">{{ p.workstreamDisplay }}</span>
+              <span style="font-size:12px;color:#8a93a8;text-align:right;">{{ p.lastActivity }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- Detail -->
+      <div data-screen-label="1c Detail" style="width:1180px;background:#f4f6f9;border:1px solid #e4e9f0;border-radius:16px;padding:32px;font-family:'Instrument Sans',sans-serif;color:#1b2230;display:flex;flex-direction:column;gap:16px;">
+        <div style="background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:24px 26px;box-shadow:0 1px 2px rgba(20,30,55,0.04);display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:600;">{{ C.detail.name }}</span>
+              <span style="font-size:12px;color:#64708a;background:#f1f4f8;padding:4px 11px;border-radius:20px;">{{ C.detail.type }}</span>
+            </div>
+            <span style="font-size:13px;color:#8a93a8;">{{ C.detail.lastActivity }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;width:300px;">
+            <div style="display:flex;justify-content:space-between;width:100%;">
+              <span style="font-size:13px;color:#3a445a;">{{ C.detail.progressText }}</span>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:#4f46e5;">{{ C.detail.pctStr }}</span>
+            </div>
+            <span style="width:100%;height:8px;background:#eef1f5;border-radius:5px;overflow:hidden;"><span style="display:block;height:100%;width:{{ C.detail.pctStr }};background:#4f46e5;"></span></span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:22px 26px;box-shadow:0 1px 2px rgba(20,30,55,0.04);">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#3a445a;margin-bottom:14px;">Specs</div>
+          <sc-for list="{{ C.detail.specs }}" as="s" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:52px 1fr auto auto;gap:16px;align-items:center;padding:11px 0;border-top:1px solid #f0f3f7;">
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;color:#8a93a8;">{{ s.n }}</span>
+              <span style="font-size:15px;">{{ s.name }}</span>
+              <span style="font-size:12px;color:#8a93a8;">{{ s.slices }}</span>
+              <span style="justify-self:end;font-size:12px;font-weight:500;padding:4px 11px;border-radius:20px;color:{{ s.color }};background:{{ s.bg }};">{{ s.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:22px 26px;box-shadow:0 1px 2px rgba(20,30,55,0.04);">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#3a445a;margin-bottom:14px;">Open bugs</div>
+          <sc-for list="{{ C.detail.bugs }}" as="b" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:96px 1fr auto auto;gap:16px;align-items:center;padding:11px 0;border-top:1px solid #f0f3f7;">
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;color:#4f46e5;">{{ b.id }}</span>
+              <span style="font-size:15px;">{{ b.title }}</span>
+              <span style="font-size:12px;font-weight:500;padding:4px 11px;border-radius:20px;color:{{ b.sevColor }};background:{{ b.sevBg }};">{{ b.severity }}</span>
+              <span style="font-size:13px;color:#8a93a8;min-width:90px;text-align:right;">{{ b.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:22px 26px;box-shadow:0 1px 2px rgba(20,30,55,0.04);">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:#3a445a;margin-bottom:14px;">Recent activity</div>
+          <sc-for list="{{ C.detail.activity }}" as="line" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid #f0f3f7;">
+              <span style="width:7px;height:7px;border-radius:50%;background:#c6ccda;flex:none;"></span>
+              <span style="font-size:14px;color:#3a445a;">{{ line }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { data: null };
+
+  componentDidMount() {
+    const load = () => {
+      if (window.DASHBOARD_DATA) this.setState({ data: window.DASHBOARD_DATA });
+      else setTimeout(load, 30);
+    };
+    load();
+  }
+
+  maps() {
+    return {
+      A: { accent: '#4cc38a', muted: '#8a929c', bug: '#e5657a', work: '#c9d0d8', workNone: '#5f6873',
+        'Done': '#4cc38a', 'In progress': '#4c9be8', 'In review': '#b48ce8', 'Ready to build': '#3fb6b6', 'Draft': '#8b93a0',
+        high: '#e5657a', low: '#c9a15a', bgFn: null },
+      B: { accent: 'oklch(0.58 0.09 150)', muted: '#8f887a', bug: 'oklch(0.55 0.13 27)', work: '#4a463d', workNone: '#a39b8b',
+        'Done': 'oklch(0.52 0.09 150)', 'In progress': 'oklch(0.53 0.09 250)', 'In review': 'oklch(0.5 0.11 300)', 'Ready to build': 'oklch(0.53 0.08 195)', 'Draft': '#a39b8b',
+        high: 'oklch(0.55 0.14 27)', low: 'oklch(0.6 0.09 70)' },
+      C: { accent: '#4f46e5', muted: '#8a93a8', bug: '#dc2626', bugBg: '#fdeaea', work: '#3a445a', workNone: '#8a93a8',
+        'Done': '#16a34a', 'In progress': '#2563eb', 'In review': '#7c3aed', 'Ready to build': '#0d9488', 'Draft': '#94a3b8',
+        high: '#dc2626', low: '#d97706', highBg: '#fdeaea', lowBg: '#fdf1e3',
+        bg: { 'Done': '#e8f6ed', 'In progress': '#e7f0fe', 'In review': '#f2ebfd', 'Ready to build': '#e3f4f2', 'Draft': '#eef1f5' } }
+    };
+  }
+
+  enrich(m, d, dir) {
+    const pct = (x, y) => (y ? Math.round((x / y) * 100) : 0);
+    const projects = d.projects.map((p) => {
+      const hasWork = !!p.workstream;
+      return {
+        ...p,
+        pctStr: pct(p.done, p.total) + '%',
+        note: p.note ? ', ' + p.note : '',
+        bugsDisplay: p.bugs > 0 ? p.bugs + (p.bugs === 1 ? ' bug' : ' bugs') : 'no bugs',
+        bugColor: p.bugs > 0 ? m.bug : m.muted,
+        bugBg: p.bugs > 0 ? (m.bugBg || '#fdeaea') : '#eef1f5',
+        workstreamDisplay: hasWork ? p.workstream : 'None',
+        workColor: hasWork ? m.work : m.workNone,
+        workStyle: hasWork ? 'normal' : 'italic'
+      };
+    });
+    const specs = d.aurora.specs.map((s) => ({
+      ...s,
+      color: m[s.status] || m.muted,
+      bg: m.bg ? (m.bg[s.status] || '#eef1f5') : 'transparent',
+      slices: s.slices || ''
+    }));
+    const bugs = d.aurora.bugs.map((b) => ({
+      ...b,
+      sevColor: b.severity === 'high' ? m.high : m.low,
+      sevBg: b.severity === 'high' ? (m.highBg || 'transparent') : (m.lowBg || 'transparent')
+    }));
+    const a = d.projects[0];
+    const detail = {
+      name: a.name, type: a.type, lastActivity: 'active ' + a.lastActivity,
+      progressText: a.done + ' of ' + a.total + ' specs', pctStr: pct(a.done, a.total) + '%',
+      accent: m.accent, specs, bugs, activity: d.aurora.activity
+    };
+    return { projects, detail };
+  }
+
+  renderVals() {
+    const d = this.state.data;
+    if (!d) return {};
+    const M = this.maps();
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+      A: this.enrich(M.A, d, 'A'),
+      B: this.enrich(M.B, d, 'B'),
+      C: this.enrich(M.C, d, 'C'),
+      totals: d.totals,
+      totalsPad: { projects: pad(d.totals.projects), specs: pad(d.totals.specsInFlight), bugs: pad(d.totals.openBugs) }
+    };
+  }
+}
+</script>
+</body>
+</html>
