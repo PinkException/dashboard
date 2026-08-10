@@ -7,6 +7,9 @@ dashboard.config.json
 /.claude/
 /.jig/
 
+# macOS Finder artifacts (any directory).
+.DS_Store
+
 # Machine-local working notes that must never be committed or shipped — e.g.
 # audit evidence naming real surveyed projects. Root-anchored, same as above.
 /.private/
