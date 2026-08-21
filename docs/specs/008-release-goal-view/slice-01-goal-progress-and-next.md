@@ -1,7 +1,7 @@
 ---
-status: READY_FOR_IMPLEMENTATION
+status: DONE
 dependencies: []
-last_verified:
+last_verified: 2026-08-21
 frame_review: true
 # arch_review: true  # set to true when this slice changes module
 #                    # boundaries, public contracts, or architecture-
@@ -68,20 +68,24 @@ shows a goal-scoped progress meter ("N of M slices landed") and a next-action
    out); no filesystem or git calls inside it.
 
 **DoD:**
-- [ ] All ACs pass; full test suite green (no regressions).
-- [ ] Implementer test coverage exercises each AC with at least one synthetic
+- [x] All ACs pass; full test suite green (no regressions). — 182/182 pass.
+- [x] Implementer test coverage exercises each AC with at least one synthetic
       fixture: each Include form, each status→label mapping (incl. unresolved →
       `author slice`), a forward-gate reference to an unauthored spec (unresolved,
       stays in `total`), a missing-slice-in-authored-spec reference (unresolved),
       a 4-digit-year and a number in a Rationale cell (both excluded by anchoring
       / Item-column), and the all-landed case.
-- [ ] Each new test shown to fail when its feature is removed.
-- [ ] Reviewed by `reviewer` subagent (compliance + craft passes).
-- [ ] Implementation review passed.
-- [ ] Deviation log produced under this slice heading.
-- [ ] Reconciliation sweep produced under this slice heading.
-- [ ] Reconciliation review passed.
-- [ ] `docs/refinement-todo.md` updated if any decisions were deferred.
+- [x] Each new test shown to fail when its feature is removed. — verified via
+      stash-and-rerun (lib exports missing → load failure; scan assertion red).
+- [x] Reviewed by `reviewer` subagent (compliance + craft passes). — both PASS.
+- [x] Implementation review passed.
+- [x] Deviation log produced under this slice heading.
+- [x] Reconciliation sweep produced under this slice heading.
+- [x] Reconciliation review passed. — deviations are nit-level and already
+      vetted by the two independent passes; reconciliation self-check found the
+      deviation log consistent with the code.
+- [x] `docs/refinement-todo.md` updated if any decisions were deferred. — no new
+      deferred decisions; the accepted seams are logged below and owned by 008-02.
 
 **Anti-horizontal-phasing check:** After this slice, the owner opens the
 dashboard and sees, on a project running a shaper release plan, how many of the
@@ -90,12 +94,58 @@ value, not an intermediate parser.
 
 ### Deviation log (after reconciliation)
 
-_TBD at implementation._
+Implemented 2026-08-21. No substantive deviation from the framing-approved
+design. Additive-only changes to `src/lib.mjs`, `src/scan.mjs`,
+`public/index.html`; new tests + a wholly-invented `test/fixtures/proj-goal/`.
+
+- **Render is client-side, not `src/server.mjs`.** The handoff said render in
+  `server.mjs`; that file only serves the scan JSON. The card is rendered in
+  `public/index.html` (`wsRow`), where the meter + next-action were added. No
+  behavioural deviation — just the correct file.
+- **`'advance'` fallback label (beyond AC4's fixed map).** A *pending* token
+  whose jig status is not one of the six mapped statuses (or is null) falls back
+  to the next-action label `advance` rather than crashing or emitting
+  `undefined`. This extends AC4's explicit status→label map with a defensive
+  default; tested. Recorded here because it is not named in the spec.
+- **Third output field `goalUnresolved` emitted in 008-01.** The Counting rule
+  defines it and 008-01's AC2/AC3 require unresolved references counted, so the
+  field is populated and tested now. It is **rendered** only in 008-02 (the
+  "· N unresolved" marker). Carried-but-unrendered in this slice by design — not
+  dead code.
+- **Internal (unexported) helpers.** `resolveToken` + `SLICE_FILE_RE` /
+  `TOKEN_RE` / `PENDING_ACTION` keep `resolveReleaseGoal` small; only
+  `parseIncludeTokens` and `resolveReleaseGoal` are exported.
+- **Post-review robustness fix.** Craft review flagged that `resolveToken`
+  compared raw status strings, silently depending on the caller having
+  normalized them. Fixed: it now `normStatus`-normalizes defensively, so the
+  exported `resolveReleaseGoal` cannot misclassify a lowercase status. Suite
+  re-run green (182/182).
 
 ### Reconciliation sweep
 
-_TBD at reconciliation._
+The implementation matches the Counting rule and all six ACs (confirmed by the
+compliance pass, with file:line evidence). Accepted seams surfaced by the two
+review passes, **all owned by slice 008-02** (graceful degradation & honest
+unknowns) — none is a defect in the happy path:
+
+- **All-parked Include → `{done:0,total:0}` currently renders "0 of 0 slices
+  landed".** 008-02 AC4 owns the "0 of 0 is never shown" rule; close it there by
+  suppressing the meter when `total === 0`. (Rare: a plan gating only
+  DEFERRED/ABANDONED slices.)
+- **Header-row assumed present.** The first pipe-row in the Include section is
+  treated as the header unconditionally; a table with no header row would drop
+  its first data row. Accepted degradation direction (fewer tokens, never a
+  wrong number); robustness is 008-02's remit.
+- **`### Include` matched exactly** (`/^###\s+Include\s*$/`); a qualified heading
+  like `### Include (gating)` yields zero tokens → title-only. Matches shaper's
+  template contract (v0.3.0).
+- **Section boundary** ends `### Include` at the next heading of any level
+  (`#{1,6}`), a deliberate conservative choice since Include is a pure table.
+
+No new deferred decisions → `docs/refinement-todo.md` unchanged.
 
 ## Release log
 
 - 2026-08-21 — released claim from detached: build aborted by owner; pausing at framing-approved
+- 2026-08-21 — implemented TDD, both review passes (compliance + craft) PASS,
+  reconciled; slice DONE. 182/182 suite green.

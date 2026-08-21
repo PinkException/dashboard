@@ -25,6 +25,8 @@ import {
   foldTranscriptLine,
   resolveSessionTitle,
   compareSessionOrder,
+  parseIncludeTokens,
+  resolveReleaseGoal,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -267,7 +269,7 @@ function gitInfo(root) {
   }
 }
 
-function scanWorkstreams(root, projectCfg) {
+function scanWorkstreams(root, projectCfg, specs) {
   const workstreams = [];
   const discovered = [];
   const pinned = new Set(projectCfg.pinnedWorkstreams);
@@ -280,8 +282,24 @@ function scanWorkstreams(root, projectCfg) {
       if (!f.endsWith('.md') || f.toLowerCase() === 'readme.md') continue;
       const rel = path.join('docs', 'releases', f);
       if (hidden.has(rel)) continue;
-      const rb = parseRunbook(readIf(path.join(releasesDir, f)) || '');
-      workstreams.push({ kind: 'release', path: rel, ...rb });
+      const body = readIf(path.join(releasesDir, f)) || '';
+      const rb = parseRunbook(body);
+      const ws = { kind: 'release', path: rel, ...rb };
+      // Spec 008-01: a shaper release plan's Cutline `### Include` names its
+      // gating slices — a meter is shown iff at least one token is extracted
+      // (Counting rule); zero tokens leaves today's title-only render intact.
+      // Spec 008-02 AC4: tokens can still resolve to an honest total of zero
+      // when every reference is parked (DEFERRED/ABANDONED, excluded from the
+      // Counting rule's denominator) — that must ALSO degrade to title-only,
+      // since "0 of 0 landed" is never a meaningful meter to show.
+      const tokens = parseIncludeTokens(body);
+      if (tokens.length >= 1) {
+        const goal = resolveReleaseGoal(tokens, specs || []);
+        if (goal.goalProgress.total >= 1) {
+          Object.assign(ws, goal);
+        }
+      }
+      workstreams.push(ws);
     }
   }
 
@@ -398,7 +416,7 @@ export function scanProject(projectCfg) {
       ? fs.readdirSync(path.join(root, 'docs', 'decisions')).filter((f) => /^adr-\d+.*\.md$/.test(f)).length
       : 0,
   };
-  Object.assign(result, scanWorkstreams(root, projectCfg));
+  Object.assign(result, scanWorkstreams(root, projectCfg, specs));
   result.worktreeOnlyDocs = scanWorktreeOnlyDocs(root);
   const compass = scanCompass(root);
   result.compass = compass.latest

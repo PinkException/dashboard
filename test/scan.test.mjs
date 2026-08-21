@@ -102,6 +102,51 @@ test('compass: latest valid snapshot surfaces, malformed line warns (002-03 AC2)
   assert.ok(p.warnings.some((w) => w.includes('malformed')));
 });
 
+// --- slice 008-01: release-goal view (happy path) ---
+
+test('workstreams: shaper release plan Include table yields goalProgress/goalNext/goalUnresolved (008-01 AC1-AC4)', () => {
+  const p = scanProject({
+    path: path.join(FIXTURES, 'proj-goal'),
+    label: 'goal fixture',
+    pinnedWorkstreams: [],
+    hiddenWorkstreams: [],
+  });
+  const release = p.workstreams.find((w) => w.kind === 'release');
+  assert.ok(release, 'release workstream present');
+  assert.equal(release.title, 'Goal launch plan');
+  // 002-01 landed, 002-02 pending, 002-05 unresolved (missing slice),
+  // 003-01 parked (excluded), 005-01 unresolved (forward gate to unauthored spec)
+  assert.deepEqual(release.goalProgress, { done: 1, total: 4 });
+  assert.deepEqual(release.goalNext, { id: '002-02', action: 'draft' });
+  assert.deepEqual(release.goalUnresolved, ['002-05', '005-01']);
+});
+
+test('workstreams: v1-launch.md checklist fixture is unchanged — zero Include tokens means no goal fields (regression)', () => {
+  const p = jig();
+  const release = p.workstreams.find((w) => w.kind === 'release');
+  assert.deepEqual(release.steps, { done: 1, total: 3 }); // unchanged checklist path
+  assert.equal(release.goalProgress, undefined);
+  assert.equal(release.goalNext, undefined);
+  assert.equal(release.goalUnresolved, undefined);
+});
+
+// --- slice 008-02: graceful degradation & honest unknowns ---
+
+test('workstreams: ≥1 Include token but ALL references park → goal fields are NOT attached (title-only, "0 of 0" never shown) (008-02 AC4)', () => {
+  const p = scanProject({
+    path: path.join(FIXTURES, 'proj-goal-parked'),
+    label: 'parked-goal fixture',
+    pinnedWorkstreams: [],
+    hiddenWorkstreams: [],
+  });
+  const release = p.workstreams.find((w) => w.kind === 'release');
+  assert.ok(release, 'release workstream present');
+  assert.equal(release.title, 'Parked launch plan');
+  assert.equal(release.goalProgress, undefined, 'total===0 must degrade to title-only, never {done:0,total:0}');
+  assert.equal(release.goalNext, undefined);
+  assert.equal(release.goalUnresolved, undefined);
+});
+
 // --- slice 007-01: graceful config-missing message ---
 // Always against a throwaway temp dir, never the developer's real
 // ~/.claude/my-dashboard/config.json.

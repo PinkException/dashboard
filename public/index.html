@@ -106,12 +106,26 @@ function statusCounts(p) {
   return parts.join(' · ') + ' — ' + p.progress.total + ' specs';
 }
 
+// Spec 008-01: a release workstream carrying goalProgress (its Cutline
+// Include section yielded ≥1 gating-slice token) gets a scoped "N of M
+// slices landed" meter — distinct wording from the checklist "N/M steps"
+// path below — plus a "Next: {id} — {action}" line when a gate is not yet
+// landed. Non-goal workstreams keep the existing checklist/steps render.
+// Spec 008-02 AC3: when goalUnresolved carries ≥1 entry (a gating reference
+// that never resolved to a landed slice — a missing slice file or a
+// not-yet-authored spec), the meter appends "· K unresolved" so the count is
+// surfaced, never silently folded into — or dropped from — the denominator.
 function wsRow(w) {
-  const prog = w.steps && w.steps.total
-    ? `${w.steps.done}/${w.steps.total}` + (w.currentPhase ? ' · ' + esc(shorten(w.currentPhase, 26)) : '')
-    : (w.kind !== 'release' && w.phases && w.phases.length ? w.phases.length + ' phases' : '');
+  const prog = w.goalProgress
+    ? `${w.goalProgress.done} of ${w.goalProgress.total} slices landed`
+      + (w.goalUnresolved && w.goalUnresolved.length ? ` · ${w.goalUnresolved.length} unresolved` : '')
+    : (w.steps && w.steps.total
+      ? `${w.steps.done}/${w.steps.total}` + (w.currentPhase ? ' · ' + esc(shorten(w.currentPhase, 26)) : '')
+      : (w.kind !== 'release' && w.phases && w.phases.length ? w.phases.length + ' phases' : ''));
   const owner = w.next && w.next.owner ? `<span class="owner ${w.next.owner}">${w.next.owner === 'you' ? 'waiting on you' : 'ready for claude'}</span>` : '';
-  const next = w.next ? `<p class="next">Next: ${esc(shorten(w.next.text, 90))}${owner}</p>` : '';
+  const next = w.goalNext
+    ? `<p class="next">Next: ${esc(w.goalNext.id)} — ${esc(w.goalNext.action)}</p>`
+    : (w.next ? `<p class="next">Next: ${esc(shorten(w.next.text, 90))}${owner}</p>` : '');
   return `<div class="ws"><div class="t"><b>${esc(w.title || w.path)}</b><span>${esc(w.kind)}${prog ? ' · ' + prog : ''}</span></div>${next}</div>`;
 }
 
