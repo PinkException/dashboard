@@ -31,6 +31,8 @@
 | [006-routine-installer](006-routine-installer/spec.md) | 006-02 — the owner-gated install path | **DONE** |  |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | **DONE** |  |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | **DONE** |  |
+| [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | DONE |  |
+| [008-release-goal-view](008-release-goal-view/spec.md) | 008-02 — graceful degradation & honest unknowns | DONE |  |
 
 ## Deferred slices
 

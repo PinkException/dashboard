@@ -21,6 +21,8 @@ import {
   compareSessionOrder,
   relativeTime,
   sessionCounts,
+  parseIncludeTokens,
+  resolveReleaseGoal,
 } from '../src/lib.mjs';
 
 test('parseFrontmatter: flat keys, arrays, quotes, comments', () => {
@@ -353,4 +355,244 @@ test('sessionCounts: zero sessions — all counts zero (003-02 AC4)', () => {
 test('sessionCounts: missing sessionsTotal falls back to emitted length — overflow=0 (003-02 AC6)', () => {
   const p = { sessions: [{ active: true }, { active: false }] };
   assert.deepEqual(sessionCounts(p), { activeCount: 1, olderCount: 1, overflowCount: 0 });
+});
+
+// --- Spec 008-01: release-goal view — Include parse + join ---
+
+test('parseIncludeTokens: comma list, id+name, and compressed runs all extracted from the Item cell (008-01 AC1)', () => {
+  const body = [
+    '## Cutline',
+    '',
+    '### Include',
+    '',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 002-01, 002-02 | DONE | core |',
+    '| 002-03 foo, 002-04 bar | READY | named form |',
+    '| 003-01/02/03 | n/a | compressed run |',
+    '| 004-01/02 | n/a | two-item compressed run |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), [
+    '002-01', '002-02', '002-03', '002-04', '003-01', '003-02', '003-03', '004-01', '004-02',
+  ]);
+});
+
+test('parseIncludeTokens: de-duplicates preserving first-seen order (008-01 AC1)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 002-01, 002-02 | n/a | n/a |',
+    '| 002-01 | n/a | repeated |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), ['002-01', '002-02']);
+});
+
+test('parseIncludeTokens: only the Include section is read — a Defer table and a Rationale cell are ignored (008-01 AC1)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 002-01 | DONE | see 099-99 for context |',
+    '',
+    '### Defer',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 010-01 | n/a | deferred, not a gate |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), ['002-01']);
+});
+
+test('parseIncludeTokens: a 4-digit year is not a token (word-boundary anchoring) (008-01 AC1)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 2020-01, 002-05 | n/a | year fragment must not match |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), ['002-05']);
+});
+
+test('parseIncludeTokens: no Include heading → zero tokens, no crash (008-01 AC1)', () => {
+  assert.deepEqual(parseIncludeTokens('# Plan\n\n## Cutline\n\n### Defer\nsome text\n'), []);
+});
+
+test('parseIncludeTokens: malformed rows (stray pipes, blank lines, empty cell) are skipped, never fatal (008-01 AC1)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '',
+    '| |',
+    'not a table row at all',
+    '| 002-01 | DONE | fine |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), ['002-01']);
+});
+
+// Synthetic specs shaped exactly like scanSpecs output — never real project data.
+const GOAL_SPECS = [
+  {
+    id: '002-alpha',
+    title: 'Alpha',
+    status: 'IN_PROGRESS',
+    slices: [
+      { file: 'slice-01-a.md', status: 'DONE' },
+      { file: 'slice-02-b.md', status: 'DRAFT' },
+    ],
+  },
+  {
+    id: '003-beta',
+    title: 'Beta',
+    status: 'DRAFT',
+    slices: [
+      { file: 'slice-003-01-c.md', status: 'DEFERRED' }, // spec-qualified filename convention
+    ],
+  },
+];
+
+test('resolveReleaseGoal: landed/pending/parked classification + honest total (008-01 AC2/AC3)', () => {
+  // 002-01 landed, 002-02 pending, 003-01 parked (excluded), 002-05 unresolved (missing slice)
+  const tokens = ['002-01', '002-02', '003-01', '002-05'];
+  const r = resolveReleaseGoal(tokens, GOAL_SPECS);
+  assert.deepEqual(r.goalProgress, { done: 1, total: 3 }); // parked excluded from total
+  assert.deepEqual(r.goalUnresolved, ['002-05']);
+});
+
+test('resolveReleaseGoal: missing-slice-in-authored-spec is unresolved and counted (008-01 AC2/AC3)', () => {
+  const r = resolveReleaseGoal(['002-09'], GOAL_SPECS);
+  assert.deepEqual(r.goalProgress, { done: 0, total: 1 });
+  assert.deepEqual(r.goalUnresolved, ['002-09']);
+  assert.deepEqual(r.goalNext, { id: '002-09', action: 'author slice' });
+});
+
+test('resolveReleaseGoal: forward gate to an unauthored spec is unresolved and counted (008-01 AC2/AC3)', () => {
+  const r = resolveReleaseGoal(['010-01'], GOAL_SPECS);
+  assert.deepEqual(r.goalProgress, { done: 0, total: 1 });
+  assert.deepEqual(r.goalUnresolved, ['010-01']);
+  assert.deepEqual(r.goalNext, { id: '010-01', action: 'author slice' });
+});
+
+test('resolveReleaseGoal: goalNext is the first non-landed, non-parked token in Include order (008-01 AC4)', () => {
+  const r = resolveReleaseGoal(['002-01', '003-01', '002-02'], GOAL_SPECS);
+  assert.deepEqual(r.goalNext, { id: '002-02', action: 'draft' });
+});
+
+test('resolveReleaseGoal: all-landed → goalNext is null, done === total (008-01 AC4)', () => {
+  const specs = [
+    { id: '002-alpha', title: 'Alpha', status: 'DONE', slices: [{ file: 'slice-01-a.md', status: 'DONE' }] },
+  ];
+  const r = resolveReleaseGoal(['002-01'], specs);
+  assert.equal(r.goalNext, null);
+  assert.deepEqual(r.goalProgress, { done: 1, total: 1 });
+});
+
+test('resolveReleaseGoal: all-landed-plus-parked also yields goalNext null (parked excluded from the finish line) (008-01 AC4)', () => {
+  const r = resolveReleaseGoal(['002-01', '003-01'], GOAL_SPECS);
+  assert.equal(r.goalNext, null);
+  assert.deepEqual(r.goalProgress, { done: 1, total: 1 });
+});
+
+test('resolveReleaseGoal: every pending status maps to its next-action label; unmapped/null falls back to advance (008-01 AC4)', () => {
+  const cases = [
+    ['DRAFT', 'draft'],
+    ['READY_FOR_REVIEW', 'review spec'],
+    ['READY_FOR_IMPLEMENTATION', 'implement'],
+    ['IN_PROGRESS', 'finish implementation'],
+    ['REVIEWED', 'reconcile'],
+    ['RECONCILED', 'land'],
+    ['SOME_UNKNOWN_STATUS', 'advance'],
+    [null, 'advance'],
+  ];
+  for (const [status, action] of cases) {
+    const specs = [{ id: '002-x', title: 'X', status: 'IN_PROGRESS', slices: [{ file: 'slice-01-a.md', status }] }];
+    const r = resolveReleaseGoal(['002-01'], specs);
+    assert.deepEqual(r.goalNext, { id: '002-01', action }, `status ${status}`);
+  }
+});
+
+test('resolveReleaseGoal: spec-qualified slice filename convention (slice-NNN-NN-*.md) resolves correctly (A1)', () => {
+  const r = resolveReleaseGoal(['003-01'], GOAL_SPECS);
+  assert.deepEqual(r.goalProgress, { done: 0, total: 0 }); // parked, excluded entirely
+});
+
+// --- Spec 008-02: graceful degradation & honest unknowns ---
+
+test('parseIncludeTokens: Include heading present but table has zero data rows → [] (008-02 AC2)', () => {
+  const body = ['### Include', '| Item | Evidence | Rationale |', '|---|---|---|'].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), []);
+});
+
+test('parseIncludeTokens: Include restyled as a bullet list (no pipes) is unreadable as a table → [] (008-02 AC2)', () => {
+  const body = ['### Include', '', '- 002-01 core gate', '- 002-02 second gate', ''].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), []);
+});
+
+test('parseIncludeTokens: Item cells with no ID-shaped token yield [] (008-02 AC2)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| TBD | n/a | not yet named |',
+    '| see notes | n/a | prose only |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), []);
+});
+
+test('parseIncludeTokens: a number in a Rationale cell inside Include itself is never read as a token (008-02 AC2)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| TBD | n/a | mentions 002-01 only in passing |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), []);
+});
+
+test('parseIncludeTokens: a 4-digit year inside Include (not just at top level) still yields no token (008-02 AC2)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| 2031-07 | n/a | version-looking fragment, not a slice id |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), []);
+});
+
+test('parseIncludeTokens: extraction is purely structural — an ID-shaped token embedded in Item-cell prose, referencing an unauthored spec, is never dropped as "noise" (008-02 AC2)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |',
+    '|---|---|---|',
+    '| spec 099-99 (not authored yet, looks unlikely) | n/a | still a genuine gate |',
+  ].join('\n');
+  // The parser never judges plausibility — it extracts by structural position only.
+  assert.deepEqual(parseIncludeTokens(body), ['099-99']);
+});
+
+test('resolveReleaseGoal: all references unresolved → meter still shows "0 of N", never suppressed (008-02 AC4)', () => {
+  const r = resolveReleaseGoal(['010-01', '011-01', '002-09'], GOAL_SPECS);
+  assert.deepEqual(r.goalProgress, { done: 0, total: 3 });
+  assert.deepEqual(r.goalUnresolved, ['010-01', '011-01', '002-09']);
+  assert.deepEqual(r.goalNext, { id: '010-01', action: 'author slice' });
+});
+
+test('resolveReleaseGoal: all references parked → {done:0,total:0} is the honest data result ("0 of 0" suppression is scan.mjs\'s job, not this pure helper) (008-02 AC4)', () => {
+  const r = resolveReleaseGoal(['003-01'], GOAL_SPECS); // 003-01 is DEFERRED in GOAL_SPECS
+  assert.deepEqual(r.goalProgress, { done: 0, total: 0 });
+});
+
+test('parseIncludeTokens: malformed rows (missing leading pipe, doubled trailing pipe, empty Item cell, header/separator rows) are skipped without aborting the remaining valid rows (008-02 AC5)', () => {
+  const body = [
+    '### Include',
+    '| Item | Evidence | Rationale |', // header, skipped
+    '|---|---|---|', // separator, skipped
+    '002-01 | DONE | missing leading pipe, still readable |',
+    '| 002-02 | DONE | doubled trailing pipe |extra||',
+    '|  | n/a | empty Item cell, skipped |',
+    '',
+    'not a table row at all',
+    '| 002-03 | DONE | fine |',
+  ].join('\n');
+  assert.deepEqual(parseIncludeTokens(body), ['002-01', '002-02', '002-03']);
 });

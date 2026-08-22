@@ -450,3 +450,143 @@ export function sessionCounts(project) {
   const overflowCount = Math.max(0, total - sessions.length);
   return { activeCount, olderCount, overflowCount };
 }
+
+// --- Spec 008-01: release-goal view — Cutline "Include" join (Counting rule) ---
+
+const INCLUDE_HEADING_RE = /^###\s+Include\s*$/;
+const CUTLINE_HEADING_RE = /^#{1,6}\s/;
+// Word-boundary-anchored so a 4-digit year (2020-01) can never match — a
+// digit run longer than 3 has no internal word boundary to anchor on (spec
+// 008 Counting rule / A2). Compressed runs (003-01/02/03) captured in group 3.
+const TOKEN_RE = /\b(\d{3})-(\d{2})((?:\/\d{2})*)\b/g;
+const SEPARATOR_CELL_RE = /^:?-{2,}:?$/;
+
+// Extracts gating slice-ID tokens from ONLY the `### Include` section's table
+// Item cells (first cell per data row) — Evidence/Rationale cells and every
+// other Cutline heading (Defer/Split/Risk-First/...) are never read. Ordered,
+// de-duplicated (first-seen order). Malformed rows (missing cells, stray
+// pipes, blank lines) are skipped, never fatal — a section that fails to
+// parse as a table simply yields fewer/zero tokens (spec 008 A2).
+export function parseIncludeTokens(body) {
+  const lines = body.split('\n');
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (INCLUDE_HEADING_RE.test(lines[i].trim())) {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start === -1) return [];
+  let end = lines.length;
+  for (let i = start; i < lines.length; i++) {
+    if (CUTLINE_HEADING_RE.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  const tokens = [];
+  const seen = new Set();
+  let pipeRowNum = 0;
+  for (const line of lines.slice(start, end)) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.includes('|')) continue;
+    pipeRowNum++;
+    if (pipeRowNum === 1) continue; // header row
+    const stripped = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+    const cells = stripped.split('|');
+    if (pipeRowNum === 2 && cells.every((c) => SEPARATOR_CELL_RE.test(c.trim()))) {
+      continue; // `|---|---|---|` separator row
+    }
+    const itemCell = (cells[0] || '').trim();
+    if (!itemCell) continue;
+    TOKEN_RE.lastIndex = 0;
+    let m;
+    while ((m = TOKEN_RE.exec(itemCell))) {
+      const [, specDigits, sliceDigits, runs] = m;
+      const emit = (nn) => {
+        const id = `${specDigits}-${nn}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          tokens.push(id);
+        }
+      };
+      emit(sliceDigits);
+      for (const run of runs.split('/').filter(Boolean)) emit(run);
+    }
+  }
+  return tokens;
+}
+
+// Next-action label for a *pending* token (any live slice status that is
+// neither DONE nor DEFERRED/ABANDONED), keyed by jig lifecycle status. An
+// unmapped or null pending status falls back to 'advance' rather than
+// crashing or guessing (spec 008-01 AC4).
+const PENDING_ACTION = {
+  DRAFT: 'draft',
+  READY_FOR_REVIEW: 'review spec',
+  READY_FOR_IMPLEMENTATION: 'implement',
+  IN_PROGRESS: 'finish implementation',
+  REVIEWED: 'reconcile',
+  RECONCILED: 'land',
+};
+
+const SLICE_FILE_RE = /^slice-(\d+)(?:-(\d+))?-/;
+
+// A1's identity rule: a token `NNN-MM` resolves via integer comparison
+// against the scanned spec whose id begins `NNN` and, within it, the slice
+// file whose own number is `MM` — handling both spec-relative
+// (`slice-NN-*.md`) and spec-qualified (`slice-NNN-NN-*.md`) filenames.
+function resolveToken(token, specs) {
+  const [, specDigits, sliceDigits] = token.match(/^(\d{3})-(\d{2})$/) || [];
+  const specNum = parseInt(specDigits, 10);
+  const sliceNum = parseInt(sliceDigits, 10);
+  const spec = specs.find((s) => {
+    const m = s.id.match(/^(\d+)/);
+    return m && parseInt(m[1], 10) === specNum;
+  });
+  if (!spec) return { cls: 'unresolved' };
+  const slice = spec.slices.find((sl) => {
+    const m = sl.file.match(SLICE_FILE_RE);
+    if (!m) return false;
+    if (m[2] === undefined) return parseInt(m[1], 10) === sliceNum;
+    return parseInt(m[2], 10) === sliceNum && parseInt(m[1], 10) === specNum;
+  });
+  if (!slice) return { cls: 'unresolved' };
+  // Normalize defensively: scanSpecs already stores normStatus'd values, but
+  // resolveReleaseGoal is an exported helper — a caller passing a raw lowercase
+  // status must not misclassify a landed slice as pending.
+  const status = normStatus(slice.status);
+  if (status === 'DONE') return { cls: 'landed', slice };
+  if (status === 'DEFERRED' || status === 'ABANDONED') return { cls: 'parked', slice };
+  return { cls: 'pending', slice, status };
+}
+
+// Joins Include-extracted tokens to scanned spec/slice statuses (Counting
+// rule): landed slices count as done, parked (DEFERRED/ABANDONED) slices are
+// excluded from the denominator, and every unresolved token (missing slice
+// file OR a not-yet-authored spec — a forward gate) stays in the total as
+// honest not-yet-landed work. Pure — no filesystem or git calls.
+export function resolveReleaseGoal(tokens, specs) {
+  let done = 0;
+  let total = 0;
+  const goalUnresolved = [];
+  let goalNext = null;
+  for (const token of tokens) {
+    const r = resolveToken(token, specs);
+    if (r.cls === 'parked') continue;
+    total++;
+    if (r.cls === 'landed') {
+      done++;
+      continue;
+    }
+    if (r.cls === 'unresolved') goalUnresolved.push(token);
+    if (!goalNext) {
+      if (r.cls === 'unresolved') {
+        goalNext = { id: token, action: 'author slice' };
+      } else {
+        goalNext = { id: token, action: PENDING_ACTION[r.status] || 'advance' };
+      }
+    }
+  }
+  return { goalProgress: { done, total }, goalNext, goalUnresolved };
+}
