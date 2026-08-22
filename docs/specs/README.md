@@ -31,8 +31,12 @@
 | [006-routine-installer](006-routine-installer/spec.md) | 006-02 — the owner-gated install path | **DONE** |  |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | **DONE** |  |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | **DONE** |  |
-| [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | DONE |  |
-| [008-release-goal-view](008-release-goal-view/spec.md) | 008-02 — graceful degradation & honest unknowns | DONE |  |
+| [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | **DONE** |  |
+| [008-release-goal-view](008-release-goal-view/spec.md) | 008-02 — graceful degradation & honest unknowns | **DONE** |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage cards + project detail view (the split) | DRAFT |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | DRAFT |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | DRAFT |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | DRAFT |  |
 
 ## Deferred slices
 
