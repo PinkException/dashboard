@@ -88,6 +88,9 @@ from session files, evolution graphs from snapshot history, cross-project
   recently active (and which are running now) and what each is about — so she
   knows where she is working on what, without re-opening opaquely-named
   sessions (spec 003).
+- UC-6: the owner can triage across all projects at once — see which project
+  is waiting on them and for what, ordered nearest-to-done first — to decide
+  where to act next, instead of reading each project's card in full (spec 009).
 
 ## Stack
 
