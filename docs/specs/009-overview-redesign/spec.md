@@ -1,7 +1,7 @@
 ---
 status: DRAFT
 skill:
-use_cases: [UC-1, UC-2, UC-3, UC-4, UC-5]
+use_cases: [UC-1, UC-2, UC-3, UC-4, UC-5, UC-6]
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only): expand each acronym on first use and link the term to docs/memory/glossary.md (or jig's lexicon). See docs/workflow.md "Self-defining vocabulary". -->
