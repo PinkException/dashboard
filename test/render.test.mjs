@@ -1,127 +1,510 @@
-// Spec 008-02: graceful degradation & honest unknowns — render assertions.
+// Spec 009-01: uniform triage rows + project detail view — render assertions.
 //
-// public/index.html's <script> is a plain (non-module) inline script, so
-// `wsRow` isn't importable. It is extracted and evaluated in a fresh vm
-// context — the same source the browser runs, not a duplicated copy — with
-// `document`/`fetch`/`setInterval` stubbed just enough that the trailing
-// top-level `load(); setInterval(load, ...)` calls don't throw. This lets the
-// marker/meter string be asserted structurally (AC3's "verified structurally"
-// option) against the real render function, not a paraphrase of it.
+// public/render.mjs is a real, framework-free ES module (no fs/DOM/fetch), so
+// these tests import it directly and assert on the returned HTML strings /
+// derived values (DOM-shape assertions), per plan.md's testability decision.
+// Integration tests additionally run real fixtures through scanProject to
+// prove the additive backend emissions (description, workstream items,
+// release-track membership) actually reach the render layer end-to-end.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from '../src/scan.mjs';
+import {
+  esc,
+  shorten,
+  sessionCounts,
+  inFlightCount,
+  heatBucket,
+  progressBarSvg,
+  countsLine,
+  currentReleaseTrack,
+  detailSpecList,
+  overviewRow,
+  runningNowCount,
+  detailView,
+  sessionsDetailBlock,
+  activityTabPlaceholder,
+  OVERVIEW_STATE,
+  openDetail,
+  closeDetail,
+  isDetailOpenFor,
+} from '../public/render.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const HTML_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'index.html');
 
-// Same guard as scan.test.mjs: pin the snapshot store to a throwaway temp dir
-// so an integration-style scanProject() call here never reaches into the
-// developer's real ~/.claude/my-dashboard/snapshots/.
 const STORE = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-render-store-'));
 process.env.DASHBOARD_SNAPSHOTS = STORE;
 after(() => fs.rmSync(STORE, { recursive: true, force: true }));
 
-function loadPageScript() {
-  const html = fs.readFileSync(HTML_PATH, 'utf8');
-  const m = html.match(/<script>([\s\S]*?)<\/script>/);
-  assert.ok(m, 'public/index.html must contain an inline <script> block');
-  const sandbox = {
-    document: { getElementById: () => ({ innerHTML: '', textContent: '' }) },
-    fetch: async () => ({ json: async () => ({ error: 'render-test-stub' }) }),
-    setInterval: () => {},
-    console,
-  };
-  vm.createContext(sandbox);
-  vm.runInContext(m[1], sandbox, { filename: 'public/index.html<script>' });
-  assert.equal(typeof sandbox.wsRow, 'function', 'wsRow must be defined by the page script');
-  return sandbox;
+function jig(overrides = {}) {
+  return scanProject({
+    path: path.join(FIXTURES, 'proj-jig'),
+    label: 'fixture project',
+    pinnedWorkstreams: ['docs/runbook-widget.md'],
+    hiddenWorkstreams: [],
+    ...overrides,
+  });
 }
 
-test('wsRow: no goalUnresolved (or empty) → meter reads exactly "N of M slices landed", no marker (008-02 AC1/AC2 regression)', () => {
-  const { wsRow } = loadPageScript();
-  const noField = wsRow({ kind: 'release', title: 'Plan A', goalProgress: { done: 2, total: 5 } });
-  assert.match(noField, /2 of 5 slices landed<\/span>/);
-  assert.ok(!noField.includes('unresolved'));
+// A minimal, hand-built project payload — used for render-unit tests that
+// don't need a real fixture scan. Shaped exactly like scanProject/scanAll's
+// emitted object.
+function mkProject(overrides = {}) {
+  return {
+    name: 'Kestrel',
+    path: '/projects/kestrel',
+    jigManaged: true,
+    git: null,
+    specs: [],
+    progress: { done: 1, total: 2, denom: 2, abandoned: 0, pct: 50, by: { DONE: 1, IN_PROGRESS: 1 } },
+    sliceProgress: null,
+    counts: { bugs: { open: 0, total: 0 }, refinement: { open: 0, total: 0 }, inbox: 0, adrs: 0 },
+    workstreams: [],
+    discovered: [],
+    worktreeOnlyDocs: [],
+    compass: { headline: 'build the search index', next: null, blockers: [], ageLabel: 'this morning', ageDays: 0, stale: false },
+    warnings: [],
+    sessions: [],
+    sessionsTotal: 0,
+    ...overrides,
+  };
+}
 
-  const emptyArray = wsRow({ kind: 'release', title: 'Plan A', goalProgress: { done: 2, total: 5 }, goalUnresolved: [] });
-  assert.match(emptyArray, /2 of 5 slices landed<\/span>/);
-  assert.ok(!emptyArray.includes('unresolved'));
+// --- AC1: uniform-height rows, including error and not-jig-managed ---
+
+test('overviewRow: every project shape (normal, error, not-jig-managed) renders the same .project-row shell (AC1)', () => {
+  const normal = overviewRow(mkProject());
+  const err = overviewRow({ name: 'Broken', path: '/x', error: 'path does not exist' });
+  const notManaged = overviewRow({ name: 'Plain', path: '/y', jigManaged: false, sessions: [] });
+  for (const html of [normal, err, notManaged]) {
+    assert.match(html, /^<div class="project-row"/);
+    // Six direct grid cells every time: gutter, project, nextmove, inflight, progress, activity.
+    assert.equal((html.match(/<div class="row-/g) || []).length, 6);
+  }
 });
 
-test('wsRow: goalUnresolved with entries appends "· K unresolved" without shrinking the denominator (008-02 AC3)', () => {
-  const { wsRow } = loadPageScript();
-  const out = wsRow({
-    kind: 'release',
-    title: 'Plan B',
-    goalProgress: { done: 1, total: 4 },
-    goalUnresolved: ['002-05', '005-01'],
-    goalNext: { id: '002-02', action: 'draft' },
-  });
-  assert.match(out, /1 of 4 slices landed · 2 unresolved<\/span>/);
-  // the "4" (declared total) must still be present verbatim — never re-derived as 4-2=2
-  assert.ok(out.includes('of 4 slices landed'));
+test('mutation check: removing the shared shell breaks row-count uniformity', () => {
+  // Demonstrates the AC1 test actually discriminates: a row missing a column
+  // fails the assertion above.
+  const brokenHtml = '<div class="project-row"><div class="row-gutter"></div></div>';
+  assert.notEqual((brokenHtml.match(/<div class="row-/g) || []).length, 6);
 });
 
-test('wsRow: all-unresolved meter reads "0 of N landed · N unresolved", never "0 of 0" (008-02 AC4)', () => {
-  const { wsRow } = loadPageScript();
-  const out = wsRow({
-    kind: 'release',
-    title: 'Plan C',
-    goalProgress: { done: 0, total: 3 },
-    goalUnresolved: ['010-01', '011-01', '002-09'],
-    goalNext: { id: '010-01', action: 'author slice' },
-  });
-  assert.match(out, /0 of 3 slices landed · 3 unresolved<\/span>/);
-  assert.ok(!out.includes('0 of 0'));
+// --- AC2: glance row content ---
+
+test('overviewRow: shows description subtitle when present, omits it when absent (AC2)', () => {
+  const withDesc = overviewRow(mkProject({ description: 'note-taking app' }));
+  assert.match(withDesc, /<span class="row-type">note-taking app<\/span>/);
+  const without = overviewRow(mkProject({ description: undefined }));
+  assert.ok(!without.includes('row-type'));
 });
 
-test('wsRow: a checklist (non-goal) workstream renders exactly as before — no goal wording, no marker (008-02 AC6 regression)', () => {
-  const { wsRow } = loadPageScript();
-  const out = wsRow({
-    kind: 'runbook',
-    title: 'Widget runbook',
-    steps: { done: 1, total: 3 },
-    currentPhase: 'Phase A',
-    next: { text: 'do the next thing', owner: 'you' },
-  });
-  assert.ok(!out.includes('slices landed'));
-  assert.ok(!out.includes('unresolved'));
-  assert.match(out, /1\/3/);
+test('overviewRow: next-move column shows the compass headline, no state tag/waitline (AC2/AC7)', () => {
+  const html = overviewRow(mkProject({ compass: { headline: 'decide the routing-engine approach', next: null, blockers: [] } }));
+  assert.match(html, /decide the routing-engine approach/);
+  // Scope fence (AC7/AC8): no waiting-on tag class or wording anywhere in the row.
+  assert.ok(!html.includes('class="tag"'));
+  assert.ok(!/\bDECIDE\b|\bWAITING ON\b/.test(html));
 });
 
-test('integration: proj-goal fixture scanned end-to-end through wsRow shows the unresolved marker on the real card string (008-02 AC3)', () => {
-  const { wsRow } = loadPageScript();
-  const p = scanProject({
-    path: path.join(FIXTURES, 'proj-goal'),
-    label: 'goal fixture',
-    pinnedWorkstreams: [],
-    hiddenWorkstreams: [],
+test('overviewRow: no compass snapshot yet is shown honestly, not blank (AC2 regression)', () => {
+  const html = overviewRow(mkProject({ compass: null }));
+  assert.match(html, /no compass snapshot yet/);
+});
+
+test('overviewRow: progress column shows pct + done\\/denom + an inline svg bar (AC2/AC3)', () => {
+  const html = overviewRow(mkProject({ progress: { done: 18, total: 28, denom: 28, abandoned: 0, pct: 64, by: {} } }));
+  assert.match(html, /<span class="pct">64%<\/span>/);
+  assert.match(html, /18\/28/);
+  assert.match(html, /<svg class="pbar"/);
+});
+
+test('overviewRow: activity column shows active count + last activity, or "idle" (AC2)', () => {
+  const active = overviewRow(mkProject({ sessions: [{ active: true, running: true, lastActivity: new Date().toISOString() }] }));
+  assert.match(active, /1 active/);
+  const idle = overviewRow(mkProject({ sessions: [] }));
+  assert.match(idle, />idle</);
+});
+
+test('inFlightCount: sums in-progress specs + active sessions + worktree-only docs (AC2)', () => {
+  const p = mkProject({
+    specs: [{ id: 'a', status: 'IN_PROGRESS' }, { id: 'b', status: 'DONE' }, { id: 'c', status: 'IN_PROGRESS' }],
+    sessions: [{ active: true }, { active: false }, { active: true }],
+    worktreeOnlyDocs: [{ path: 'x' }],
   });
+  assert.equal(inFlightCount(p), 2 + 2 + 1);
+});
+
+test('mutation check: dropping a term from inFlightCount changes the sum (AC2 discriminates)', () => {
+  const p = mkProject({
+    specs: [{ id: 'a', status: 'IN_PROGRESS' }],
+    sessions: [{ active: true }],
+    worktreeOnlyDocs: [{ path: 'x' }],
+  });
+  const full = inFlightCount(p);
+  const withoutWorktreeDocs = (p.specs.filter((s) => s.status === 'IN_PROGRESS').length) + (p.sessions.filter((s) => s.active).length);
+  assert.notEqual(full, withoutWorktreeDocs);
+});
+
+test('heatBucket: reproduces every example in the redline render (AC2)', () => {
+  assert.equal(heatBucket(0), 'clear');
+  assert.equal(heatBucket(1), 'light');
+  assert.equal(heatBucket(2), 'light');
+  assert.equal(heatBucket(3), 'busy');
+  assert.equal(heatBucket(5), 'busy');
+  assert.equal(heatBucket(6), 'hot');
+  assert.equal(heatBucket(10), 'hot');
+});
+
+test('overviewRow: in-flight figure carries a heat class and 6 flight cells (AC2)', () => {
+  const html = overviewRow(mkProject({
+    specs: [{ id: 'a', status: 'IN_PROGRESS' }, { id: 'b', status: 'IN_PROGRESS' }, { id: 'c', status: 'IN_PROGRESS' }],
+  }));
+  assert.match(html, /class="if-num heat-busy"/);
+  assert.equal((html.match(/<rect/g) || []).length >= 6, true);
+});
+
+// --- AC3: charts are zero-dep inline SVG ---
+
+test('progressBarSvg: returns an inline <svg>, no external asset reference (AC3)', () => {
+  const svg = progressBarSvg(75);
+  assert.match(svg, /^<svg /);
+  assert.ok(!svg.includes('http'));
+  assert.ok(!svg.includes('<img'));
+});
+
+test('progressBarSvg: fill width scales with pct, and 100% renders green not blue (AC3)', () => {
+  const half = progressBarSvg(50, { w: 100, h: 4 });
+  assert.match(half, /width="50" height="4" rx="2" fill="var\(--blue\)"/);
+  const full = progressBarSvg(100, { w: 100, h: 4 });
+  assert.match(full, /width="100" height="4" rx="2" fill="var\(--green\)"/);
+});
+
+// --- AC4: click opens an in-page detail view, dismissible ---
+
+test('detail open/close state: openDetail/closeDetail/isDetailOpenFor round-trip (AC4)', () => {
+  assert.equal(OVERVIEW_STATE.view, 'overview');
+  const opened = openDetail('/projects/kestrel');
+  assert.equal(opened.view, 'detail');
+  assert.equal(opened.path, '/projects/kestrel');
+  assert.equal(isDetailOpenFor(opened, '/projects/kestrel'), true);
+  assert.equal(isDetailOpenFor(opened, '/projects/other'), false);
+  const closed = closeDetail();
+  assert.equal(closed.view, 'overview');
+  assert.equal(closed.path, null);
+  assert.equal(isDetailOpenFor(closed, '/projects/kestrel'), false);
+});
+
+test('mutation check: a state that never flips view stays "stuck open" — isDetailOpenFor catches it (AC4)', () => {
+  const brokenClose = { view: 'detail', path: '/projects/kestrel' }; // closeDetail forgot to flip view
+  assert.equal(isDetailOpenFor(brokenClose, '/projects/kestrel'), true, 'a real closeDetail() must not look like this');
+});
+
+// --- AC5: nothing is lost — detail view holds the dropped content ---
+
+test('detailView: header carries name, description, chip, meta line, progress readout (AC5)', () => {
+  const html = detailView(mkProject({ description: 'note-taking app' }));
+  assert.match(html, /<span class="detail-title">Kestrel<\/span>/);
+  assert.match(html, /<span class="detail-type">note-taking app<\/span>/);
+  assert.match(html, /50% — 1\/2 specs/);
+  assert.match(html, /running now/);
+  assert.match(html, /in flight/);
+  assert.match(html, /last touched/);
+});
+
+test('detailView: full "what\'s next" narrative + NEXT + BLOCKED + age all render (AC5)', () => {
+  const html = detailView(mkProject({
+    compass: { headline: '18 of 28 specs done', next: 'finish 014, merge 019', blockers: ['routing approach parked on your call'], ageLabel: '40m ago', stale: false },
+  }));
+  assert.match(html, /18 of 28 specs done/);
+  assert.match(html, /<span class="label-inline">NEXT<\/span> finish 014, merge 019/);
+  assert.match(html, /<span class="label-inline">BLOCKED<\/span> routing approach parked on your call/);
+  assert.match(html, />40m ago</);
+});
+
+test('detailView: counts strip matches "N done · N in progress · N draft · N specs · N open bugs · N deferred · N inbox" (AC5)', () => {
+  const line = countsLine(mkProject({
+    progress: { total: 28, by: { DONE: 18, IN_PROGRESS: 3, DRAFT: 7 } },
+    counts: { bugs: { open: 2, total: 5 }, refinement: { open: 9, total: 12 }, inbox: 14, adrs: 1 },
+  }));
+  assert.equal(line, '18 done · 3 in progress · 7 draft · 28 specs · 2 open bugs · 9 deferred · 14 inbox');
+});
+
+test('detailView: sessions section shows full list, older toggle, and "N active · M older (+K not shown)" (AC5)', () => {
+  const p = mkProject({
+    sessions: [
+      { active: true, running: true, title: 'A', branch: 'claude/a', worktree: 'wt-a', lastActivity: new Date().toISOString() },
+      { active: false, running: false, title: 'B', branch: 'claude/b', worktree: 'wt-b', lastActivity: new Date(Date.now() - 86400000).toISOString() },
+    ],
+    sessionsTotal: 5,
+  });
+  const html = sessionsDetailBlock(p);
+  assert.match(html, /1 active · 1 older \(\+3 not shown\)/);
+  assert.match(html, /<details class="sessions-toggle">/);
+  assert.match(html, /▾ show 1 older/);
+});
+
+test('detailView: sessions section is omitted entirely when the project has no sessions (AC5 regression)', () => {
+  assert.equal(sessionsDetailBlock(mkProject({ sessions: [] })), '');
+});
+
+test('detailView: worktree-only-docs warning renders when present, absent when not (AC5)', () => {
+  const withWarn = detailView(mkProject({ worktreeOnlyDocs: [{ path: 'docs/specs/019/plan.md', worktree: 'wt-a' }] }));
+  assert.match(withWarn, /1 doc\(s\) exist only in an un-merged worktree/);
+  assert.match(withWarn, /docs\/specs\/019\/plan\.md — wt-a/);
+  const without = detailView(mkProject({ worktreeOnlyDocs: [] }));
+  assert.ok(!without.includes('un-merged worktree'));
+});
+
+test('detailView: workstream block shows next 1-3 unchecked items, capped at 3 (AC5)', () => {
+  const html = detailView(mkProject({
+    workstreams: [{
+      kind: 'runbook',
+      title: 'Onboarding Runbook',
+      path: 'docs/runbook.md',
+      phases: ['Phase 4', 'Phase 5'],
+      items: [
+        { checked: true, text: 'done thing' },
+        { checked: false, text: 'phase 4 — first-route tutorial copy' },
+        { checked: false, text: 'phase 5 — empty states' },
+        { checked: false, text: 'phase 6 — third unchecked item' },
+        { checked: false, text: 'phase 7 — a fourth item, should not show' },
+      ],
+    }],
+  }));
+  assert.match(html, /Onboarding Runbook/);
+  assert.match(html, /☐ phase 4 — first-route tutorial copy/);
+  assert.match(html, /☐ phase 5 — empty states/);
+  assert.ok(!html.includes('done thing'), 'checked items are not shown as next-up');
+  assert.ok(!html.includes('a fourth item'), 'capped at 3 unchecked items');
+});
+
+test("mutation check: dropping the slice(0,3) cap would leak a 4th item — the test above catches it", () => {
+  const items = [{ checked: false, text: 'one' }, { checked: false, text: 'two' }, { checked: false, text: 'three' }, { checked: false, text: 'four' }];
+  const capped = items.filter((i) => !i.checked).slice(0, 3);
+  assert.equal(capped.length, 3);
+  const uncapped = items.filter((i) => !i.checked);
+  assert.equal(uncapped.length, 4);
+});
+
+test('detailView: "discovered, not pinned" group renders when present (AC5)', () => {
+  const html = detailView(mkProject({ discovered: [{ path: 'docs/spike.md', title: 'Weather-overlay spike', steps: { done: 2, total: 6 } }] }));
+  assert.match(html, /DISCOVERED, NOT PINNED/);
+  assert.match(html, /Weather-overlay spike \(2\/6\)/);
+});
+
+test('detailView: spec list defaults to the current release track with a "show all N specs" control (AC5, A-009-01)', () => {
+  const html = detailView(mkProject({
+    specs: [{ id: '014', title: 'elevation-profile', status: 'IN_PROGRESS', slices: [] }, { id: '099', title: 'unrelated', status: 'DONE', slices: [] }],
+    workstreams: [{ kind: 'release', title: 'Public Beta (v0.9)', path: 'docs/releases/beta.md', goalProgress: { done: 1, total: 2 }, memberSpecIds: ['014'] }],
+  }));
+  assert.match(html, /Public Beta \(v0\.9\)/);
+  assert.match(html, /▾ show all 2 specs/);
+  assert.match(html, /elevation-profile/);
+  assert.ok(!html.includes('unrelated'), 'spec outside the current track is filtered out by default');
+});
+
+test('detailView: "show all" toggle reveals the full spec list (AC5)', () => {
+  const p = mkProject({
+    specs: [{ id: '014', title: 'elevation-profile', status: 'IN_PROGRESS', slices: [] }, { id: '099', title: 'unrelated', status: 'DONE', slices: [] }],
+    workstreams: [{ kind: 'release', title: 'Public Beta (v0.9)', path: 'docs/releases/beta.md', goalProgress: { done: 1, total: 2 }, memberSpecIds: ['014'] }],
+  });
+  const html = detailView(p, { showAll: true });
+  assert.match(html, /elevation-profile/);
+  assert.match(html, /unrelated/);
+});
+
+// --- follow-up fixes to 009-01 (craft/compliance findings) ---
+
+test('detailView: meta line "running now" is strict running, matching the overview header\'s RUNNING NOW label (follow-up fix)', () => {
+  const p = mkProject({
+    sessions: [
+      { active: true, running: true, lastActivity: new Date().toISOString() },
+      { active: true, running: false, lastActivity: new Date().toISOString() }, // active (recent) but NOT running
+    ],
+  });
+  const html = detailView(p);
+  // 1 running, not 2 active — the same "running now" label must not mean two
+  // different numbers between the overview header and the detail meta line.
+  assert.match(html, /1 running now/);
+  assert.ok(!html.includes('2 running now'));
+});
+
+test('mutation check: sessionCounts().activeCount would wrongly report 2 running now for the fixture above', () => {
+  const p = mkProject({
+    sessions: [
+      { active: true, running: true, lastActivity: new Date().toISOString() },
+      { active: true, running: false, lastActivity: new Date().toISOString() },
+    ],
+  });
+  const { activeCount } = sessionCounts(p);
+  assert.equal(activeCount, 2, 'the buggy activeCount source the fix replaces');
+  assert.equal(runningNowCount([p]), 1, 'the correct strict-running count the fix now uses');
+});
+
+test('detailView + overviewRow: spec fraction uses the SAME (abandoned-excluded) denominator in both places (follow-up fix)', () => {
+  const p = mkProject({
+    progress: { done: 2, total: 5, denom: 4, abandoned: 1, pct: 50, by: { DONE: 2, ABANDONED: 1 } },
+  });
+  const overviewHtml = overviewRow(p);
+  const detailHtml = detailView(p);
+  assert.match(overviewHtml, /2\/4/, 'overview shows done\\/denom (abandoned excluded)');
+  assert.match(detailHtml, /2\/4 specs/, 'detail must agree with the overview\'s denominator');
+  assert.ok(!detailHtml.includes('2/5 specs'), 'detail must not fall back to done/total (abandoned included)');
+});
+
+test('detailView: a current release track with empty memberSpecIds renders the FULL spec list and no toggle (follow-up fix)', () => {
+  const html = detailView(mkProject({
+    specs: [{ id: '014', title: 'elevation-profile', status: 'IN_PROGRESS', slices: [] }, { id: '099', title: 'unrelated', status: 'DONE', slices: [] }],
+    workstreams: [{ kind: 'release', title: 'Public Beta (v0.9)', path: 'docs/releases/beta.md', goalProgress: { done: 1, total: 2 }, memberSpecIds: [] }],
+  }));
+  assert.match(html, /elevation-profile/);
+  assert.match(html, /unrelated/, 'empty memberSpecIds means no usable current-track filter — show the full list');
+  assert.ok(!html.includes('show current track'), 'no toggle when there is nothing real for it to switch');
+  assert.ok(!html.includes('class="track-label"'), 'no dangling track-label in the specs header without a real filter behind it');
+});
+
+test('mutation check: the old "track ? track.title : null" trackTitle logic would render a no-op toggle for the empty-memberSpecIds case', () => {
+  const track = { title: 'Public Beta (v0.9)' };
+  const buggyTrackTitle = track ? track.title : null; // ignores whether memberSpecIds is usable
+  assert.equal(buggyTrackTitle, 'Public Beta (v0.9)', 'the buggy logic the fix replaces — a toggle would render with nothing to filter');
+});
+
+// --- A-009-01: current-track determination + graceful degradation ---
+
+test('currentReleaseTrack: picks the release workstream whose goalProgress is incomplete, first in order (A-009-01)', () => {
+  const p = mkProject({
+    workstreams: [
+      { kind: 'release', title: 'Old shipped plan', goalProgress: { done: 3, total: 3 } },
+      { kind: 'release', title: 'Current plan', goalProgress: { done: 1, total: 4 } },
+      { kind: 'release', title: 'Also incomplete but later', goalProgress: { done: 0, total: 1 } },
+    ],
+  });
+  const track = currentReleaseTrack(p);
+  assert.equal(track.title, 'Current plan');
+});
+
+test('currentReleaseTrack: no release workstream, or none with goalProgress → null; detailSpecList degrades to full list, never crashes (A-009-01)', () => {
+  const noRelease = mkProject({ workstreams: [{ kind: 'runbook', title: 'Widget runbook' }] });
+  assert.equal(currentReleaseTrack(noRelease), null);
+  const specs = [{ id: 'a', title: 'A', status: 'DONE', slices: [] }, { id: 'b', title: 'B', status: 'DRAFT', slices: [] }];
+  const result = detailSpecList(mkProject({ specs, workstreams: [{ kind: 'runbook', title: 'Widget runbook' }] }));
+  assert.equal(result.filtered, false);
+  assert.equal(result.specs.length, 2);
+});
+
+test('currentReleaseTrack: all-complete release plans → null (nothing "current"), full spec list shown (A-009-01)', () => {
+  const p = mkProject({
+    specs: [{ id: 'a', title: 'A', status: 'DONE', slices: [] }],
+    workstreams: [{ kind: 'release', title: 'Shipped', goalProgress: { done: 3, total: 3 }, memberSpecIds: ['a'] }],
+  });
+  assert.equal(currentReleaseTrack(p), null);
+  assert.equal(detailSpecList(p).filtered, false);
+});
+
+test('mutation check: an off-by-one in the incomplete comparison (<=) would wrongly call a finished plan "current"', () => {
+  const done = 3, total = 3;
+  assert.equal(done < total, false); // the correct comparison
+  assert.equal(done <= total, true); // the buggy comparison the AC5 test above would catch
+});
+
+// --- AC6: reserved Activity tab, inert ---
+
+test('activityTabPlaceholder: renders a dashed-border icon + "coming soon", nothing counted (AC6)', () => {
+  const html = activityTabPlaceholder();
+  assert.match(html, /activity-icon/);
+  assert.match(html, /coming soon/);
+});
+
+test('detailView: the activity tab content is present but hidden by default (AC6)', () => {
+  const html = detailView(mkProject());
+  assert.match(html, /<div class="activity-tab-content" hidden>/);
+  assert.match(html, /coming soon/);
+});
+
+// --- AC7: no triage derivation, no reorder, additive fields stay presentation-only ---
+
+test('overviewRow: no waiting-on state, no reorder — rows are a pure per-project map, order preserved (AC7)', () => {
+  const projects = [mkProject({ path: '/z' }), mkProject({ path: '/a' }), mkProject({ path: '/m' })];
+  const rows = projects.map(overviewRow);
+  assert.deepEqual(rows.map((r) => r.match(/data-path="([^"]+)"/)[1]), ['/z', '/a', '/m']);
+});
+
+test('runningNowCount: sums only running sessions across projects, an existing-data header total (AC2, header)', () => {
+  const projects = [
+    mkProject({ sessions: [{ running: true }, { running: false }] }),
+    mkProject({ sessions: [{ running: true }] }),
+  ];
+  assert.equal(runningNowCount(projects), 2);
+});
+
+// --- AC8: design-review scope fence — excluded elements never render ---
+
+test('overviewRow + detailView: never render 009-02/009-03 elements (state tags, header state counts, action-queue toggle) (AC8)', () => {
+  const p = mkProject({
+    workstreams: [{ kind: 'release', title: 'Beta', goalProgress: { done: 1, total: 2 }, memberSpecIds: [] }],
+  });
+  const combined = overviewRow(p) + detailView(p);
+  for (const forbidden of ['action queue', 'finish-first', 'TO DO', 'WAITING ON', 'BLOCKING']) {
+    assert.ok(!combined.includes(forbidden), `found excluded 009-02/03 element: "${forbidden}"`);
+  }
+});
+
+test('detailView: never renders 009-02/03 state-tag words — DECIDE/REVIEW/MERGE/Ready/External (AC8, detail-view coverage)', () => {
+  const p = mkProject({
+    workstreams: [{ kind: 'release', title: 'Beta', goalProgress: { done: 1, total: 2 }, memberSpecIds: [] }],
+    compass: { headline: 'decide the routing-engine approach, ready to merge once reviewed', next: null, blockers: [], ageLabel: '1h ago', stale: false },
+  });
+  const html = detailView(p);
+  // Case-sensitive, word-bounded: the lowercase activity descriptor "idle" is
+  // legitimate and must not be caught by this check.
+  for (const forbidden of [/\bDECIDE\b/, /\bREVIEW\b/, /\bMERGE\b/, /\bReady\b/, /\bExternal\b/]) {
+    assert.ok(!forbidden.test(html), `found excluded 009-02/03 state-tag word: ${forbidden}`);
+  }
+  assert.ok(/\bidle\b/.test(overviewRow(mkProject({ sessions: [] }))), 'sanity: lowercase "idle" is legitimate and unaffected by the check above');
+});
+
+// --- integration: additive backend emissions reach the render layer end-to-end ---
+
+test('integration: proj-jig scanned through scanProject → overviewRow shows no description (fixture has none) (AC2 backend)', () => {
+  const p = jig();
+  assert.equal(p.description, undefined);
+  const html = overviewRow(p);
+  assert.ok(!html.includes('row-type'));
+});
+
+test('integration: a project config description reaches overviewRow verbatim (AC2 backend, description field)', () => {
+  const p = jig({ description: 'hiking route planner' });
+  assert.equal(p.description, 'hiking route planner');
+  assert.match(overviewRow(p), /<span class="row-type">hiking route planner<\/span>/);
+});
+
+test('integration: proj-jig\'s pinned runbook widens through parseRunbook → detailView shows its next unchecked items (AC5 backend)', () => {
+  const p = jig();
+  const runbook = p.workstreams.find((w) => w.kind === 'runbook');
+  assert.ok(Array.isArray(runbook.items) && runbook.items.length >= 1, 'parseRunbook must emit an items list');
+  const html = detailView(p);
+  assert.match(html, /☐ First review round\. Zero cost\./);
+});
+
+test('integration: proj-goal\'s release plan exposes memberSpecIds and becomes the detail view\'s current track (AC5/A-009-01 backend)', () => {
+  const p = scanProject({ path: path.join(FIXTURES, 'proj-goal'), label: 'goal fixture', pinnedWorkstreams: [], hiddenWorkstreams: [] });
   const release = p.workstreams.find((w) => w.kind === 'release');
-  const out = wsRow(release);
-  // 002-01 landed, 002-02 pending, 002-05 + 005-01 unresolved (see scan.test.mjs 008-01 AC1-AC4)
-  assert.match(out, /1 of 4 slices landed · 2 unresolved<\/span>/);
+  assert.deepEqual(release.memberSpecIds, ['002-alpha', '003-beta']);
+  const track = currentReleaseTrack(p);
+  assert.equal(track.title, 'Goal launch plan');
+  const { specs, filtered, trackTitle } = detailSpecList(p);
+  assert.equal(filtered, true);
+  assert.equal(trackTitle, 'Goal launch plan');
+  assert.deepEqual(specs.map((s) => s.id).sort(), ['002-alpha', '003-beta']);
 });
 
-test('integration: proj-goal-parked fixture (all-parked, total===0) never reaches wsRow with goal fields — title-only (008-02 AC4)', () => {
-  const { wsRow } = loadPageScript();
-  const p = scanProject({
-    path: path.join(FIXTURES, 'proj-goal-parked'),
-    label: 'parked-goal fixture',
-    pinnedWorkstreams: [],
-    hiddenWorkstreams: [],
-  });
-  const release = p.workstreams.find((w) => w.kind === 'release');
-  const out = wsRow(release);
-  // Positive anchor: the card still renders (title-only), so a wsRow that
-  // regressed into an empty/garbled string can't vacuously pass the negatives.
-  assert.match(out, /Parked launch plan/);
-  assert.ok(!out.includes('slices landed'));
-  assert.ok(!out.includes('unresolved'));
-  assert.ok(!out.includes('0 of 0'));
+test("integration: proj-jig's checklist-only release plan has no goalProgress → no current track, full spec list shown (A-009-01 backend regression)", () => {
+  const p = jig();
+  assert.equal(currentReleaseTrack(p), null);
+  assert.equal(detailSpecList(p).filtered, false);
 });

@@ -33,7 +33,7 @@
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | **DONE** |  |
 | [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | **DONE** |  |
 | [008-release-goal-view](008-release-goal-view/spec.md) | 008-02 — graceful degradation & honest unknowns | **DONE** |  |
-| [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage cards + project detail view (the split) | DRAFT |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage rows + project detail view (the split) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | DRAFT |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | DRAFT |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | DRAFT |  |
@@ -45,3 +45,11 @@
 | Spec | Slice | Resolution trigger |
 |------|-------|--------------------|
 | [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | when PR state is wanted on session rows, AND the |
+
+## Richer-skill selection audit (spec 096-05)
+
+Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/slice-*.md` `substrate:` fields.
+
+- **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
+- **0** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
+- **0** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):

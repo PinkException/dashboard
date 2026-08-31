@@ -9,6 +9,13 @@ import { loadConfig, resolveConfigPath, scanAll } from './scan.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG_PATH = resolveConfigPath();
 const INDEX = path.join(ROOT, 'public', 'index.html');
+// Spec 009-01: the overview/detail render helpers are a real ES module
+// (public/render.mjs), imported both by the browser (<script type="module">)
+// and directly by node:test — the "shared, not duplicated" testability
+// decision (plan.md) needs the browser to actually be able to fetch it.
+// One explicit route, not a generic static-file server (no path-traversal
+// surface to reason about, ADR-0001 stays zero-dep).
+const RENDER_MJS = path.join(ROOT, 'public', 'render.mjs');
 
 let config;
 try {
@@ -28,6 +35,9 @@ const server = http.createServer((req, res) => {
   if (url === '/' || url === '/index.html') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(fs.readFileSync(INDEX));
+  } else if (url === '/render.mjs') {
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+    res.end(fs.readFileSync(RENDER_MJS));
   } else if (url === '/api/data') {
     try {
       const data = scanAll(loadConfig(CONFIG_PATH));

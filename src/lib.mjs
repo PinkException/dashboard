@@ -122,6 +122,12 @@ export function parseRunbook(text) {
     phases,
     currentPhase: firstOpen ? firstOpen.phase : null,
     next: firstOpen ? { text: firstOpen.text, owner: firstOpen.owner } : null,
+    // Spec 009-01 AC5: the full step list (already computed above as `steps`),
+    // widened out so a caller (the detail view's workstream block) can show
+    // the next 1-3 UNCHECKED item texts, not just the single `next`. Kept as
+    // {checked,text,owner} triples — the same shape `next` already exposes —
+    // so no caller needs a second parsing path.
+    items: steps.map(({ checked, text, owner }) => ({ checked, text, owner })),
   };
 }
 
@@ -544,21 +550,25 @@ function resolveToken(token, specs) {
     const m = s.id.match(/^(\d+)/);
     return m && parseInt(m[1], 10) === specNum;
   });
-  if (!spec) return { cls: 'unresolved' };
+  // `spec` (when found) is carried on every branch below, even an unresolved
+  // one (missing slice file) — spec 009-01's memberSpecIds (resolveReleaseGoal)
+  // needs it to know which spec a token names even when its slice can't be
+  // located, distinct from a forward gate to a spec that doesn't exist yet.
+  if (!spec) return { cls: 'unresolved', spec: null };
   const slice = spec.slices.find((sl) => {
     const m = sl.file.match(SLICE_FILE_RE);
     if (!m) return false;
     if (m[2] === undefined) return parseInt(m[1], 10) === sliceNum;
     return parseInt(m[2], 10) === sliceNum && parseInt(m[1], 10) === specNum;
   });
-  if (!slice) return { cls: 'unresolved' };
+  if (!slice) return { cls: 'unresolved', spec };
   // Normalize defensively: scanSpecs already stores normStatus'd values, but
   // resolveReleaseGoal is an exported helper — a caller passing a raw lowercase
   // status must not misclassify a landed slice as pending.
   const status = normStatus(slice.status);
-  if (status === 'DONE') return { cls: 'landed', slice };
-  if (status === 'DEFERRED' || status === 'ABANDONED') return { cls: 'parked', slice };
-  return { cls: 'pending', slice, status };
+  if (status === 'DONE') return { cls: 'landed', slice, spec };
+  if (status === 'DEFERRED' || status === 'ABANDONED') return { cls: 'parked', slice, spec };
+  return { cls: 'pending', slice, status, spec };
 }
 
 // Joins Include-extracted tokens to scanned spec/slice statuses (Counting
@@ -571,8 +581,23 @@ export function resolveReleaseGoal(tokens, specs) {
   let total = 0;
   const goalUnresolved = [];
   let goalNext = null;
+  // Spec 009-01: the release track's member spec IDs — every spec a token
+  // names, in first-seen order, deduplicated. Included regardless of the
+  // token's landed/pending/parked class (it is still literally named in the
+  // Include table, so it is part of the track's scope) — excluded only when
+  // no such spec exists on disk yet (a forward gate to an unauthored spec has
+  // no id to add). Consumed by the detail view to default its spec list to
+  // "the current track" (A-009-01) — the fallback-current-track rule itself
+  // lives client-side (public/render.mjs), this only supplies the raw
+  // membership a scan-time-only parse can resolve.
+  const memberSpecIds = [];
+  const seenSpecIds = new Set();
   for (const token of tokens) {
     const r = resolveToken(token, specs);
+    if (r.spec && !seenSpecIds.has(r.spec.id)) {
+      seenSpecIds.add(r.spec.id);
+      memberSpecIds.push(r.spec.id);
+    }
     if (r.cls === 'parked') continue;
     total++;
     if (r.cls === 'landed') {
@@ -588,5 +613,5 @@ export function resolveReleaseGoal(tokens, specs) {
       }
     }
   }
-  return { goalProgress: { done, total }, goalNext, goalUnresolved };
+  return { goalProgress: { done, total }, goalNext, goalUnresolved, memberSpecIds };
 }

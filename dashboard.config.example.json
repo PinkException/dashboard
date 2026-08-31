@@ -3,7 +3,8 @@
   "projects": [
     {
       "path": "~/code/project-a",
-      "label": "project-a — short description"
+      "label": "project-a — short description",
+      "description": "one-line subtitle shown under the name on the overview row (optional)"
     },
     {
       "path": "~/code/project-b",

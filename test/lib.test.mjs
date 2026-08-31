@@ -101,6 +101,29 @@ test('parseRunbook: no checkboxes → phases from headings, no next', () => {
   assert.deepEqual(rb.phases, ['Phase 1 — beta', 'Phase 2 — GA']);
 });
 
+// --- spec 009-01: parseRunbook widened to return the full item list ---
+
+test('parseRunbook: items exposes the full step list (checked + unchecked) with text/owner (009-01 AC5)', () => {
+  const text = [
+    '# Widget runbook',
+    '1. [x] first done step.',
+    '2. [ ] **(you)** second step needs you.',
+    '3. [ ] third step.',
+  ].join('\n');
+  const rb = parseRunbook(text);
+  assert.deepEqual(rb.items, [
+    { checked: true, text: 'first done step.', owner: null },
+    { checked: false, text: 'second step needs you.', owner: 'you' },
+    { checked: false, text: 'third step.', owner: null },
+  ]);
+});
+
+test('mutation check: items must track steps.length exactly — a caller slicing to "next 3 unchecked" needs the full list, not just `next`', () => {
+  const rb = parseRunbook('# Plan\n- [x] one\n- [ ] two\n- [ ] three\n- [ ] four\n');
+  assert.equal(rb.items.length, rb.steps.total);
+  assert.equal(rb.items.filter((i) => !i.checked).length, 3);
+});
+
 test('countCheckboxes counts all indent levels', () => {
   assert.deepEqual(countCheckboxes('- [x] a\n  - [ ] b\n1. [ ] c\n'), { done: 1, total: 3 });
 });
@@ -457,6 +480,25 @@ test('resolveReleaseGoal: landed/pending/parked classification + honest total (0
   const r = resolveReleaseGoal(tokens, GOAL_SPECS);
   assert.deepEqual(r.goalProgress, { done: 1, total: 3 }); // parked excluded from total
   assert.deepEqual(r.goalUnresolved, ['002-05']);
+});
+
+// --- spec 009-01: resolveReleaseGoal widened to expose memberSpecIds ---
+
+test('resolveReleaseGoal: memberSpecIds names every spec a token resolves to, deduped, first-seen order — landed/pending/parked all included (009-01 AC5)', () => {
+  const tokens = ['002-01', '002-02', '003-01', '002-05'];
+  const r = resolveReleaseGoal(tokens, GOAL_SPECS);
+  assert.deepEqual(r.memberSpecIds, ['002-alpha', '003-beta']);
+});
+
+test('resolveReleaseGoal: a forward gate to an unauthored spec contributes no memberSpecIds entry (009-01 AC5)', () => {
+  const r = resolveReleaseGoal(['010-01'], GOAL_SPECS); // spec 010 does not exist in GOAL_SPECS
+  assert.deepEqual(r.memberSpecIds, []);
+});
+
+test('mutation check: removing the spec-found dedup would either miss repeats or admit forward-gate ghosts', () => {
+  const tokens = ['002-01', '002-02']; // both resolve to the SAME spec (002-alpha)
+  const r = resolveReleaseGoal(tokens, GOAL_SPECS);
+  assert.equal(r.memberSpecIds.length, 1, 'two tokens on the same spec must not duplicate its id');
 });
 
 test('resolveReleaseGoal: missing-slice-in-authored-spec is unresolved and counted (008-01 AC2/AC3)', () => {
