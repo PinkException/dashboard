@@ -60,6 +60,36 @@ test('scanProject: missing path is an error entry, not a crash', () => {
   assert.ok(p.error);
 });
 
+// --- spec 009-01: optional per-project description subtitle ---
+
+test('scanProject: description is surfaced verbatim when present in config (009-01 AC2)', () => {
+  const p = scanProject({
+    path: path.join(FIXTURES, 'proj-jig'),
+    label: 'fixture project',
+    description: 'hiking route planner',
+    pinnedWorkstreams: [],
+    hiddenWorkstreams: [],
+  });
+  assert.equal(p.description, 'hiking route planner');
+});
+
+test('scanProject: description is omitted (not null/empty), no error, when absent (009-01 AC2)', () => {
+  const p = jig();
+  assert.equal(p.description, undefined);
+  assert.ok(!('description' in p), 'absent description must be omitted, not a null/empty key');
+});
+
+test('scanProject: description surfaces even for a missing-path error entry (009-01 AC2)', () => {
+  const p = scanProject({
+    path: path.join(FIXTURES, 'does-not-exist'),
+    description: 'still shown',
+    pinnedWorkstreams: [],
+    hiddenWorkstreams: [],
+  });
+  assert.ok(p.error);
+  assert.equal(p.description, 'still shown');
+});
+
 test('workstreams: releases + pinned runbook parsed, README excluded (002-02 AC1+AC2)', () => {
   const p = jig();
   const release = p.workstreams.find((w) => w.kind === 'release');

@@ -135,8 +135,10 @@ One-directional, read-only coupling:
   `readAllSessions` (called from `scanAll`), not `scanProject`, because the
   longest-root tie-break needs every configured root at once.
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
-  `public/index.html` and `/api/data` (a fresh `scanAll` per request, no
-  cache). Imports scan.
+  `public/index.html`, `/render.mjs` (the client render module, one explicit
+  fixed-path route — no static-file server, no path-traversal surface; spec
+  009-01), and `/api/data` (a fresh `scanAll` per request, no cache). Imports
+  scan.
 - **`scripts/snapshot.mjs`** — the one writer
   ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)): validates a
   snapshot and appends it to the dashboard-owned store in the user's home data
@@ -167,8 +169,15 @@ One-directional, read-only coupling:
   `snapshot.mjs`). Run via Bash, so the Write/Edit-only guardrail does not
   intercept it (spec 006 A1). **Enabling/scheduling the cron stays a separate owner
   action** — the installer only manages the SKILL.md content.
-- **`public/index.html`** — renders the `/api/data` JSON; all display
-  logic is client-side in the single page.
+- **`public/index.html`** — the single page: fetches `/api/data`, owns the
+  theming (light default + dark via `prefers-color-scheme`) and the thin
+  click/tab interaction glue; imports the render module.
+- **`public/render.mjs`** — pure client render helpers (spec 009-01): row +
+  detail-view HTML builders and derivations (`overviewRow`, `detailView`,
+  `inFlightCount`/`heatBucket`, `progressBarSvg`, `currentReleaseTrack`/
+  `detailSpecList`, `sessionsDetailBlock`) returning strings/values with no DOM
+  dependency, so `node:test` imports them directly (browser-and-node shared ES
+  module). No filesystem/network access; charts are inline SVG (ADR-0001).
 
 ## Data model
 

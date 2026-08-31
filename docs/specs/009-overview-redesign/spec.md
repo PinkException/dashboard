@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: IN_PROGRESS
 skill:
 use_cases: [UC-1, UC-2, UC-3, UC-4, UC-5, UC-6]
 ---
@@ -125,6 +125,21 @@ Probed this repo directly:
   ESCALATED field. Any use of ESCALATED in the taxonomy is new derivation, not a
   field already emitted (ADR-0006 Assumptions).
 
+> **Correction (frame critique, 2026-08-31) — the payload does _not_ carry
+> everything.** The audit above enumerated emitted fields but did not check them
+> against three redline-demanded detail-view data, which the payload does **not**
+> emit today: (a) a per-project **description subtitle** (`loadConfig`,
+> `src/scan.mjs:168`, defines only `path`/`label`/`pinnedWorkstreams`/
+> `hiddenWorkstreams`; `label` is the name, not a subtitle); (b) the **member
+> spec IDs of a release track** and a **"current track" flag** (`resolveReleaseGoal`,
+> `src/lib.mjs:569`, emits only `{done,total}` and discards the IDs
+> `parseIncludeTokens` found); (c) each workstream's **next 1–3 item texts**
+> (`parseRunbook` computes them at `src/lib.mjs:113` but returns only
+> `{done,total}` + a single `next`). Slice 009-01 adds all three (small,
+> additive, non-triage). **009-02 and 009-04 grounding probes must not inherit
+> this "already carries everything" assumption** — re-check each render element
+> against emitted fields.
+
 ## Assumptions
 
 Load-bearing, unverified-across-the-real-project-set claims. The derivation
@@ -203,14 +218,17 @@ horizontal phasing.
   half shows the user a regression, not value. So the minimal vertical unit is
   card **and** detail view together (009-01).
 - **009-01 (Interface — minimal legible surface):** the glance/detail split.
-  Uniform fixed-size cards in a real grid (name, description, status, one big
-  progress number + inline-SVG trend mark, first "what's next" line,
-  active-session count + last activity, an "in flight" heat figure) + an in-page
-  per-project detail view holding everything the card dropped (full spec list,
-  sessions, workstreams, full narrative + history, warnings, deferred/inbox
-  counts, reserved empty "Activity" tab). **No triage derivation** — cards keep
-  today's order. Delivers ADR-0006's legibility win, which the ADR says stands
-  on its own regardless of the badge. Reads only fields already in the payload.
+  Uniform-height **rows** in one scannable table (the built v1.2 design realises
+  ADR-0006's "uniform card" as an equal-height row per project — name,
+  description, status, "what's next" first line, an "in flight" heat figure,
+  progress % + inline-SVG bar, active-session count + last activity) + an in-page
+  per-project detail view holding everything the row dropped (full spec list
+  defaulting to the current release track, sessions, workstreams with their next
+  unchecked items, full narrative + history, warnings, deferred/inbox counts,
+  reserved "activity" tab). **No triage derivation** — rows keep today's order
+  and carry no state badge. Delivers ADR-0006's legibility win, which the ADR
+  says stands on its own regardless of the badge. Reads only fields already in
+  the payload.
 - **009-02 (Path — the triage signal):** derive each project's single
   **waiting-on state** (DECIDE / REVIEW / MERGE / Ready / External / Idle),
   intent-scoped per ADR-0006, render it as the card's headline with its named
@@ -231,7 +249,7 @@ horizontal phasing.
 
 ## Slices
 
-- [009-01 — uniform triage cards + project detail view (the split)](slice-01-uniform-cards-and-detail.md)
+- [009-01 — uniform triage rows + project detail view (the split)](slice-01-uniform-cards-and-detail.md)
 - [009-02 — waiting-on state + finish-first ordering (the triage signal)](slice-02-waiting-on-state-and-ordering.md)
 - [009-03 — cross-project action-queue lens](slice-03-action-queue-lens.md)
 - [009-04 — gh-optional PR enrichment (un-defers 003-03)](slice-04-gh-pr-enrichment.md)

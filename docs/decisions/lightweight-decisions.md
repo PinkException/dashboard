@@ -96,3 +96,19 @@ fields), so the documented shape and the helper output agree.
 **Context:** 003-01 landed on main under 0.4.0 without its own release; the owner chose to batch its plugin release with 003-02 rather than ship an interim version with the known title-wrap roughness. Distribution unchanged: marketplace is the Kyarha/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache. Privacy-checked before publish (public noreply emails only; no personal email / real home path / other-project names; leak gate green — it caught and blocked a real-project name accidentally written into the 003-02 docs, twice, both redacted).
 
 **Scope:** .claude-plugin/plugin.json, package.json
+
+### 2026-08-31 — Overview redesign theming: light default + dark, light derived by HSL-mirror
+
+**Decision:** The 009 redesign ships both themes via prefers-color-scheme. Dark uses the base.md v1.2 Console redline tokens verbatim; light is derived by mirroring each token's HSL lightness (L'=100-L, hue/saturation preserved) so contrast distances are preserved by construction and accent hues stay identical.
+
+**Context:** Owner asked to keep light mode (the pre-redesign page was light-default); the v1.2 mockup specifies dark only, so the light palette had to be derived rather than authored.
+
+**Scope:** public/index.html (overview + detail); spec 009-01
+
+### 2026-08-31 — Overview 'in flight' heat-bucket thresholds
+
+**Decision:** Open-fronts heat buckets: 0=clear, 1-2=light, 3-5=busy, >=6=hot. The v1.2 redline names the four buckets but gives no cutoffs; these reproduce every example in console-overview.render.png.
+
+**Context:** Implementer judgment call needed because the design authority left the numeric thresholds unspecified.
+
+**Scope:** public/render.mjs heatBucket(); spec 009-01

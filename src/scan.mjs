@@ -391,8 +391,16 @@ function scanCompass(root) {
 export function scanProject(projectCfg) {
   const root = projectCfg.path;
   const name = projectCfg.label || path.basename(root);
+  // Spec 009-01 AC2: an optional one-line project description, surfaced
+  // unchanged from config — omitted (not `null`) when absent, no error.
+  const description = projectCfg.description || null;
   if (!isDir(root)) {
-    return { name, path: root, error: 'path does not exist' };
+    return {
+      name,
+      path: root,
+      error: 'path does not exist',
+      ...(description ? { description } : {}),
+    };
   }
   const specs = scanSpecs(root);
   const jigManaged = specs !== null;
@@ -401,6 +409,7 @@ export function scanProject(projectCfg) {
     path: root,
     jigManaged,
     git: gitInfo(root),
+    ...(description ? { description } : {}),
   };
   if (!jigManaged) return result;
 
