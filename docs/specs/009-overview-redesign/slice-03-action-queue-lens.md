@@ -1,9 +1,8 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [009-02]
 last_verified: 2026-09-01
 frame_review: true
-claimed_by: claude/jig-orient-b70f85
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
