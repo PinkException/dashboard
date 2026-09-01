@@ -70,7 +70,25 @@
   .summary-band { display: flex; justify-content: space-between; align-items: center; padding: 22px 26px; border-bottom: 1px solid var(--border); }
   .summary-path { font: 11px var(--mono); color: var(--text-label); letter-spacing: 0.04em; }
   .summary-title { font: 600 21px/1.2 var(--sans); color: var(--text-hi); margin-top: 4px; }
+  .summary-right { display: flex; align-items: center; gap: 18px; }
   .summary-stats { display: flex; align-items: center; }
+
+  /* --- 009-03: lens toggle (overview grid <-> action queue) --- */
+  .lens-toggle { display: flex; gap: 4px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 3px; }
+  .lens-btn { border: none; border-radius: 5px; background: none; color: var(--text-dim); font: 11.5px var(--mono); padding: 6px 12px; cursor: pointer; }
+  .lens-btn:hover { background: var(--hover); color: var(--text-bright); }
+  .lens-btn.active { background: var(--hover); color: var(--text-hi); }
+
+  /* --- 009-03: action-queue rows, grouped by pipeline stage --- */
+  .queue-list { display: flex; flex-direction: column; }
+  .queue-group { border-top: 1px solid var(--border-soft); }
+  .queue-group:first-child { border-top: none; }
+  .queue-group-header { padding: 12px 26px 4px; font: 10px var(--mono); letter-spacing: 0.13em; color: var(--text-label); text-transform: uppercase; }
+  .queue-row { display: flex; align-items: center; gap: 14px; padding: 12px 26px; border-top: 1px solid var(--border-faint); cursor: pointer; }
+  .queue-row:first-of-type { border-top: none; }
+  .queue-row:hover { background: var(--hover); }
+  .queue-project { font: 600 13.5px var(--mono); color: var(--text-hi); }
+  .queue-action { font: 13.5px var(--sans); color: var(--text-bright); }
   .stat-cell { padding: 0 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .stat-cell .stat-count { font: 600 26px/0.9 var(--mono); color: var(--text-hi); }
   .stat-cell .stat-label { font: 10px var(--mono); letter-spacing: 0.13em; color: var(--text-label); text-transform: uppercase; }
@@ -238,8 +256,11 @@ function overviewHtml() {
         <div class="summary-path">~/projects</div>
         <div class="summary-title">Overview</div>
       </div>
-      <div class="summary-stats">
-        <div class="stat-cell"><span class="stat-count"><span class="running-dot"></span>${running}</span><span class="stat-label">RUNNING NOW</span></div>
+      <div class="summary-right">
+        <div class="summary-stats">
+          <div class="stat-cell"><span class="stat-count"><span class="running-dot"></span>${running}</span><span class="stat-label">RUNNING NOW</span></div>
+        </div>
+        ${R.lensToggleHtml('overview')}
       </div>
     </div>
     <div class="col-header"><span></span><span>PROJECT</span><span>NEXT MOVE</span><span>IN FLIGHT</span><span>PROGRESS</span><span>ACTIVITY</span></div>
@@ -251,7 +272,12 @@ function render() {
   if (state.view === 'detail') {
     const p = projects.find((pr) => pr.path === state.path);
     app.innerHTML = p ? R.detailView(p, { showAll: state.showAll }) : overviewHtml();
-    if (!p) state = R.closeDetail();
+    if (!p) state = R.closeDetail(state.lens);
+  } else if (state.lens === 'queue') {
+    // Spec 009-03: the cross-project action-queue lens — flattens each
+    // project's waitingStages (finish-first, capped) into stage rows, the
+    // "empty the pipeline" screen alongside the projects-as-rows grid.
+    app.innerHTML = R.actionQueueHtml(projects);
   } else {
     app.innerHTML = overviewHtml();
   }
@@ -259,7 +285,16 @@ function render() {
 
 app.addEventListener('click', (e) => {
   const back = e.target.closest('[data-action="back"]');
-  if (back) { state = R.closeDetail(); render(); return; }
+  // Preserve the active lens across the detail round-trip (openDetail/
+  // closeDetail carry it through the pure layer) so closing a project opened
+  // from the queue returns to the queue, not silently back to the grid.
+  if (back) { state = R.closeDetail(state.lens); render(); return; }
+  const lensToggle = e.target.closest('[data-action="set-lens-queue"], [data-action="set-lens-overview"]');
+  if (lensToggle) {
+    state = R.setLens(state, lensToggle.dataset.action === 'set-lens-queue' ? 'queue' : 'overview');
+    render();
+    return;
+  }
   const toggle = e.target.closest('[data-action="show-all-specs"], [data-action="show-track-specs"]');
   if (toggle) { state = { ...state, showAll: toggle.dataset.action === 'show-all-specs' }; render(); return; }
   const activityTab = e.target.closest('[data-action="show-activity-tab"]');
@@ -284,8 +319,8 @@ app.addEventListener('click', (e) => {
     }
     return;
   }
-  const row = e.target.closest('.project-row');
-  if (row) { state = R.openDetail(row.dataset.path); render(); return; }
+  const row = e.target.closest('.project-row, .queue-row');
+  if (row) { state = R.openDetail(row.dataset.path, state.lens); render(); return; }
 });
 
 async function load() {

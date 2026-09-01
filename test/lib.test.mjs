@@ -24,6 +24,7 @@ import {
   parseIncludeTokens,
   resolveReleaseGoal,
   deriveWaitingOn,
+  deriveWaitingStages,
 } from '../src/lib.mjs';
 
 test('parseFrontmatter: flat keys, arrays, quotes, comments', () => {
@@ -868,4 +869,106 @@ test('mutation check: absent the marker, the same project derives its own signal
     specs: [{ id: '022-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }],
   });
   assert.equal(deriveWaitingOn(p).state, 'Ready', 'no marker present — falls through to the derived signal, not DECIDE');
+});
+
+// --- spec 009-03: deriveWaitingStages — the full rank-ordered candidate list ---
+// deriveWaitingOn is re-expressed as deriveWaitingStages(...)[0] ?? IDLE, so
+// the tests below both exercise the new list AND pin non-regression: every
+// 009-02 fixture above must still see deriveWaitingOn produce the SAME head.
+
+test('deriveWaitingStages: a project with every candidate present returns them ALL, rank-ordered, not just the highest-precedence one (009-03 AC2/AC3)', () => {
+  const p = proj({
+    specs: [
+      { id: '040-a', title: 'A', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] },
+      { id: '041-b', title: 'B', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'REVIEWED')] },
+      { id: '042-c', title: 'C', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] },
+      { id: '043-d', title: 'D', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] },
+    ],
+    workstreams: [{ kind: 'runbook', items: [{ checked: false, text: 'decide something', owner: 'you' }], next: { text: 'decide something', owner: 'you' } }],
+  });
+  const stages = deriveWaitingStages(p);
+  assert.deepEqual(stages, [
+    { state: 'MERGE', verb: 'MERGE', action: 'land 1 reconciled slice', rank: 1 },
+    { state: 'REVIEW', verb: 'REVIEW', action: 'review 1 finished slice', rank: 2 },
+    { state: 'DECIDE', verb: 'DECIDE', action: 'decide something', rank: 3 },
+    { state: 'Ready', verb: 'READY', action: 'resume 042-01', rank: 4 },
+    { state: 'Ready', verb: 'READY', action: 'start 043-01', rank: 5 },
+  ]);
+});
+
+test('deriveWaitingStages: a forced marker returns a SINGLE-element list, the forced state (009-03 AC1)', () => {
+  const p = proj({ specs: [{ id: '044-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }] });
+  const stages = deriveWaitingStages(p, 'waiting on the vendor contract to be signed');
+  assert.deepEqual(stages, [{ state: 'DECIDE', verb: 'DECIDE', action: 'waiting on the vendor contract to be signed', rank: 3 }]);
+});
+
+test('deriveWaitingStages: Idle (no candidate present) yields an empty list, not [Idle] (009-03 AC4)', () => {
+  const p = proj({
+    specs: [{ id: '045-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE')] }],
+    compass: { headline: 'all shipped', blockers: [] },
+  });
+  assert.deepEqual(deriveWaitingStages(p), []);
+});
+
+test('mutation check: dropping the "collect every candidate" refactor (returning on first match) would truncate the multi-stage list above to just [MERGE]', () => {
+  const p = proj({
+    specs: [
+      { id: '040-a', title: 'A', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] },
+      { id: '041-b', title: 'B', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'REVIEWED')] },
+    ],
+  });
+  const stages = deriveWaitingStages(p);
+  assert.equal(stages.length, 2, 'both MERGE and REVIEW candidates must be present, not just the first-found MERGE');
+});
+
+// Non-regression (DoD): deriveWaitingOn must be byte-identical to its
+// pre-refactor output for every 009-02 state — re-run each fixture above
+// through deriveWaitingStages(...)[0] and assert it deepEquals deriveWaitingOn's
+// own return for the SAME payload.
+const IDLE_STAGE = { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
+
+function assertHeadMatchesDeriveWaitingOn(p, marker) {
+  const stages = deriveWaitingStages(p, marker);
+  assert.deepEqual(stages[0] ?? IDLE_STAGE, deriveWaitingOn(p, marker));
+}
+
+test('deriveWaitingOn non-regression: MERGE fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({ specs: [{ id: '011-owner-queue', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }] });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: REVIEW fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({ specs: [{ id: '012-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'REVIEWED')] }] });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: DECIDE fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({
+    specs: [{ id: '013-x', title: 'X', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }],
+    workstreams: [{ kind: 'runbook', items: [{ checked: false, text: 'decide the currency-rounding rule', owner: 'you' }], next: { text: 'decide the currency-rounding rule', owner: 'you' } }],
+  });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: Ready(resume) fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({ specs: [{ id: '014-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-02-b.md', 'IN_PROGRESS')] }] });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: Ready(start) fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({ specs: [{ id: '016-z', title: 'Z', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }] });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: Idle fixture head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({
+    specs: [{ id: '017-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE'), slice('slice-02-b.md', 'DEFERRED'), slice('slice-03-c.md', 'ABANDONED')] }],
+    compass: { headline: 'all shipped', blockers: [] },
+  });
+  assertHeadMatchesDeriveWaitingOn(p);
+});
+
+test('deriveWaitingOn non-regression: forced marker head is byte-identical via deriveWaitingStages (009-03 DoD)', () => {
+  const p = proj({ specs: [{ id: '022-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }] });
+  assertHeadMatchesDeriveWaitingOn(p, 'waiting on the vendor contract to be signed');
 });

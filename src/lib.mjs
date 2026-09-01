@@ -709,36 +709,45 @@ function forcedWaitingOn(marker) {
   return { state, verb: WAITING_ON_VERB[state], action, rank: FORCED_STATE_RANK[state] };
 }
 
-// The single derived waiting-on state for one scanned project (AC1/AC2): the
-// highest-precedence candidate present, chosen from the pinned total order
-// MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) > External > Idle.
-// `project` is shaped exactly as scanProject emits it (specs[].slices[]
-// carrying status/dependencies/file, workstreams[].{items,next}, compass);
-// `marker` is the project's optional `needsYou` config field (AC3).
-export function deriveWaitingOn(project, marker) {
-  if (marker) return forcedWaitingOn(marker);
+// The Idle sentinel (rank 7): not a "stage" (deriveWaitingStages never
+// includes it in its list — Idle means the list is empty), but still
+// deriveWaitingOn's fallback head when no stage is present (009-02 AC1).
+const IDLE_WAITING_ON = { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
 
+// The full rank-ordered list of a project's PRESENT non-Idle pipeline stages
+// (009-03 AC2/AC3): every candidate the taxonomy recognizes, in the pinned
+// total order MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) >
+// External > Idle — not just the highest-precedence one. `deriveWaitingOn`
+// (below) is this list's head; extracting the collection here is what lets
+// the action-queue lens (public/render.mjs's actionQueue) surface every open
+// stage instead of just the one the grid shows (single-source refactor, no
+// parallel re-derivation — see slice-03-action-queue-lens.md's design frame).
+// `project`/`marker` are shaped exactly as deriveWaitingOn documents them.
+export function deriveWaitingStages(project, marker) {
+  if (marker) return [forcedWaitingOn(marker)];
+
+  const stages = [];
   const specs = project.specs || [];
   const allSlices = specs.flatMap((s) => (s.slices || []).map((sl) => ({ ...sl, specId: s.id })));
 
   const reconciled = allSlices.filter((sl) => sl.status === 'RECONCILED');
   if (reconciled.length) {
-    return {
+    stages.push({
       state: 'MERGE',
       verb: 'MERGE',
       action: `land ${reconciled.length} reconciled slice${reconciled.length === 1 ? '' : 's'}`,
       rank: 1,
-    };
+    });
   }
 
   const reviewed = allSlices.filter((sl) => sl.status === 'REVIEWED');
   if (reviewed.length) {
-    return {
+    stages.push({
       state: 'REVIEW',
       verb: 'REVIEW',
       action: `review ${reviewed.length} finished slice${reviewed.length === 1 ? '' : 's'}`,
       rank: 2,
-    };
+    });
   }
 
   const youText = findYouNextStep(project.workstreams);
@@ -750,12 +759,12 @@ export function deriveWaitingOn(project, marker) {
   const blockers = (project.compass && project.compass.blockers) || [];
   const youBlocker = blockers.find((b) => ownerOf(String(b)) === 'you');
   if (youText || youBlocker) {
-    return { state: 'DECIDE', verb: 'DECIDE', action: fewWords(youText || cleanStepText(String(youBlocker))), rank: 3 };
+    stages.push({ state: 'DECIDE', verb: 'DECIDE', action: fewWords(youText || cleanStepText(String(youBlocker))), rank: 3 });
   }
 
   const resumable = allSlices.find((sl) => sl.status === 'IN_PROGRESS');
   if (resumable) {
-    return { state: 'Ready', verb: 'READY', action: `resume ${sliceToken(resumable.specId, resumable.file)}`, rank: 4 };
+    stages.push({ state: 'Ready', verb: 'READY', action: `resume ${sliceToken(resumable.specId, resumable.file)}`, rank: 4 });
   }
 
   // AC4 taxonomy fix: READY_FOR_REVIEW (review passes not yet run) is
@@ -768,12 +777,25 @@ export function deriveWaitingOn(project, marker) {
       depsSatisfied(sl.dependencies, specs)
   );
   if (startable) {
-    return { state: 'Ready', verb: 'READY', action: `start ${sliceToken(startable.specId, startable.file)}`, rank: 5 };
+    stages.push({ state: 'Ready', verb: 'READY', action: `start ${sliceToken(startable.specId, startable.file)}`, rank: 5 });
   }
 
   // External (rank 6) is deferred to 009-04 (gh PR enrichment): no on-disk
   // signal exists yet to reach this branch. Left unreachable on purpose
   // rather than fabricating a signal, per the taxonomy's explicit note.
 
-  return { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
+  return stages;
+}
+
+// The single derived waiting-on state for one scanned project (AC1/AC2): the
+// highest-precedence candidate present, chosen from the pinned total order
+// MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) > External > Idle.
+// `project` is shaped exactly as scanProject emits it (specs[].slices[]
+// carrying status/dependencies/file, workstreams[].{items,next}, compass);
+// `marker` is the project's optional `needsYou` config field (AC3).
+// 009-03: re-expressed as deriveWaitingStages(...)[0] ?? Idle — the grid
+// still gets exactly one state, byte-identical to the pre-refactor behaviour
+// (a non-regression test pins this in test/lib.test.mjs).
+export function deriveWaitingOn(project, marker) {
+  return deriveWaitingStages(project, marker)[0] ?? IDLE_WAITING_ON;
 }

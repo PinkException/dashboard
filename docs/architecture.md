@@ -118,10 +118,14 @@ One-directional, read-only coupling:
 
 - **`src/lib.mjs`** — pure functions (parsing, progress math, age labels).
   No filesystem access; everything else imports from here. Includes
-  `deriveWaitingOn` (spec 009-02): the intent-scoped triage derivation that
-  reduces a project to one `waitingOn: { state, verb, action, rank }` from its
-  slice statuses, owner (`**(you)**`) tags, compass blockers, and an optional
-  owner-set `needsYou` marker.
+  `deriveWaitingStages` (spec 009-03): the single triage derivation — it returns
+  a project's **rank-ordered list** of open pipeline stages
+  (`[{ state, verb, action, rank }, …]`) from its slice statuses, owner
+  (`**(you)**`) tags, compass blockers, and an optional owner-set `needsYou`
+  marker. `deriveWaitingOn` (spec 009-02) is re-expressed as its head
+  (`deriveWaitingStages(…)[0] ?? Idle`) — the one collapsed `waitingOn` state the
+  grid shows — so the grid headline and the action-queue rows read from one
+  source and cannot disagree.
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
@@ -138,9 +142,10 @@ One-directional, read-only coupling:
   `warnings` entry, never a throw. Attribution + emit are batched in
   `readAllSessions` (called from `scanAll`), not `scanProject`, because the
   longest-root tie-break needs every configured root at once. Each scanned
-  project also carries a derived `waitingOn` field (spec 009-02, via
-  `deriveWaitingOn`); it is omitted for error / non-jig payloads (the page treats
-  an absent field as Idle-equivalent).
+  project also carries the derived `waitingOn` field (spec 009-02, via
+  `deriveWaitingOn`) and the full `waitingStages` list (spec 009-03, via
+  `deriveWaitingStages`); both are omitted for error / non-jig payloads (the page
+  treats an absent field as Idle-equivalent).
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html`, `/render.mjs` (the client render module, one explicit
   fixed-path route — no static-file server, no path-traversal surface; spec
@@ -186,9 +191,11 @@ One-directional, read-only coupling:
   ordering helpers `nextMoveCell`, `sortProjectsByWaitingOn`, `waitingOnRank`)
   returning strings/values with no DOM dependency, so `node:test` imports them
   directly (browser-and-node shared ES module). It **reads** the scan-derived
-  `waitingOn` field but performs no derivation itself and imports nothing —
-  keeping all domain logic scan-side (the 009-02 boundary). No filesystem/network
-  access; charts are inline SVG (ADR-0001).
+  `waitingOn` field (grid) and the `waitingStages` list (the cross-project
+  action-queue lens, spec 009-03 — `actionQueue`, `actionQueueHtml`, `setLens`)
+  but performs no derivation itself and imports nothing — keeping all domain
+  logic scan-side (the 009-02 boundary). No filesystem/network access; charts are
+  inline SVG (ADR-0001).
 
 ## Data model
 
@@ -249,7 +256,10 @@ Stateless by design — same disk state → same page (vision principle 2):
   fields, per spec 003's plan). Spec 009-02 adds a per-project derived
   `waitingOn: { state, verb, action, rank }` (state ∈ DECIDE/REVIEW/MERGE/Ready/
   External/Idle; the triage headline + finish-first sort key); omitted for
-  error / non-jig projects, which the page treats as Idle-equivalent.
+  error / non-jig projects, which the page treats as Idle-equivalent. Spec 009-03
+  adds the sibling `waitingStages: [{ state, verb, action, rank }, …]` — the
+  rank-ordered list of all open stages (`waitingOn === waitingStages[0]`), read by
+  the cross-project action-queue lens; an empty list is Idle.
 
 ## Open questions
 
