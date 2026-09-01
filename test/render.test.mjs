@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from '../src/scan.mjs';
+import { deriveWaitingOn, deriveWaitingStages } from '../src/lib.mjs';
 import {
   esc,
   shorten,
@@ -35,6 +36,11 @@ import {
   openDetail,
   closeDetail,
   isDetailOpenFor,
+  setLens,
+  actionQueue,
+  actionQueueRow,
+  actionQueueGroup,
+  actionQueueHtml,
 } from '../public/render.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -200,6 +206,21 @@ test('detail open/close state: openDetail/closeDetail/isDetailOpenFor round-trip
   assert.equal(closed.view, 'overview');
   assert.equal(closed.path, null);
   assert.equal(isDetailOpenFor(closed, '/projects/kestrel'), false);
+});
+
+test('detail round-trip preserves the active lens: open a project FROM the queue, close, land back on the queue (009-03)', () => {
+  // The exact interaction the DOM glue performs: openDetail(path, state.lens)
+  // then closeDetail(state.lens). A queue-opened project must return to the
+  // queue, not the overview grid.
+  const fromQueue = openDetail('/projects/kestrel', 'queue');
+  assert.equal(fromQueue.view, 'detail');
+  assert.equal(fromQueue.lens, 'queue', 'the lens rides along into the detail view');
+  const back = closeDetail(fromQueue.lens);
+  assert.equal(back.view, 'overview');
+  assert.equal(back.lens, 'queue', 'closing returns to the queue lens, not the grid');
+  // The 009-01/009-02 default path is unchanged: no lens arg => overview.
+  assert.equal(openDetail('/x').lens, 'overview');
+  assert.equal(closeDetail().lens, 'overview');
 });
 
 test('mutation check: a state that never flips view stays "stuck open" — isDetailOpenFor catches it (AC4)', () => {
@@ -640,4 +661,180 @@ test('waitingOnRank: reads p.waitingOn.rank, defaults to 7 (Idle-equivalent) whe
   assert.equal(waitingOnRank(withWaitingOn('MERGE', 'MERGE', 'x', 1)), 1);
   assert.equal(waitingOnRank(mkProject()), 7);
   assert.equal(waitingOnRank({}), 7);
+});
+
+// --- spec 009-03: cross-project action-queue lens ---
+// actionQueue/actionQueueRow/actionQueueGroup/actionQueueHtml only READ the
+// `p.waitingStages` field scan-side deriveWaitingStages emits (src/lib.mjs) —
+// these tests hand-build that field on mkProject payloads exactly as
+// scanProject emits it, same idiom as withWaitingOn above.
+
+function withStages(overrides, stages) {
+  return mkProject({ ...overrides, waitingStages: stages });
+}
+
+test('actionQueue: flattens waitingStages across multiple projects into stage rows (009-03 AC2)', () => {
+  const projects = [
+    withStages({ name: 'Alpha', path: '/a' }, [{ state: 'MERGE', verb: 'MERGE', action: 'land 1 reconciled slice', rank: 1 }]),
+    withStages({ name: 'Beta', path: '/b' }, [{ state: 'DECIDE', verb: 'DECIDE', action: 'decide the rounding rule', rank: 3 }]),
+  ];
+  const groups = actionQueue(projects);
+  const allRows = groups.flatMap((g) => g.rows);
+  assert.equal(allRows.length, 2);
+  assert.deepEqual(allRows.map((r) => r.name), ['Alpha', 'Beta']);
+  assert.deepEqual(allRows.map((r) => r.path), ['/a', '/b']);
+});
+
+test('mutation check: the flatten includes EVERY project\'s rows, not just the first (009-03 AC2)', () => {
+  // Exercises actionQueue directly: a "read only projects[0]" regression would
+  // drop Gamma (the last project) — this fails unless every project is flattened.
+  const projects = [
+    withStages({ name: 'Alpha', path: '/a' }, [{ state: 'MERGE', verb: 'MERGE', action: 'x', rank: 1 }]),
+    withStages({ name: 'Beta', path: '/b' }, [{ state: 'DECIDE', verb: 'DECIDE', action: 'y', rank: 3 }]),
+    withStages({ name: 'Gamma', path: '/g' }, [{ state: 'Ready', verb: 'READY', action: 'z', rank: 5 }]),
+  ];
+  const names = actionQueue(projects).flatMap((g) => g.rows).map((r) => r.name);
+  assert.deepEqual(names.sort(), ['Alpha', 'Beta', 'Gamma'], 'a first-project-only read would drop Gamma');
+});
+
+test('actionQueue: caps each project at its top 3 stages, finish-first (009-03 AC2)', () => {
+  const stages = [
+    { state: 'MERGE', verb: 'MERGE', action: 'a', rank: 1 },
+    { state: 'REVIEW', verb: 'REVIEW', action: 'b', rank: 2 },
+    { state: 'DECIDE', verb: 'DECIDE', action: 'c', rank: 3 },
+    { state: 'Ready', verb: 'READY', action: 'd', rank: 4 },
+    { state: 'Ready', verb: 'READY', action: 'e', rank: 5 },
+  ];
+  const p = withStages({ name: 'Loaded', path: '/loaded' }, stages);
+  const rows = actionQueue([p]).flatMap((g) => g.rows);
+  assert.equal(rows.length, 3, 'a 5-stage project is capped to its top 3, not all 5');
+  assert.deepEqual(rows.map((r) => r.rank), [1, 2, 3]);
+});
+
+test('actionQueue: caps at a custom capPerProject when given (009-03 AC2)', () => {
+  const stages = [
+    { state: 'MERGE', verb: 'MERGE', action: 'a', rank: 1 },
+    { state: 'REVIEW', verb: 'REVIEW', action: 'b', rank: 2 },
+  ];
+  const p = withStages({ name: 'Loaded', path: '/loaded' }, stages);
+  const rows = actionQueue([p], { capPerProject: 1 }).flatMap((g) => g.rows);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].rank, 1);
+});
+
+test('actionQueue: groups rows by pipeline stage, ordered Land -> Review -> Decide -> Finish -> Start (009-03 AC3)', () => {
+  const p1 = withStages({ name: 'P1', path: '/p1' }, [{ state: 'DECIDE', verb: 'DECIDE', action: 'x', rank: 3 }]);
+  const p2 = withStages({ name: 'P2', path: '/p2' }, [{ state: 'MERGE', verb: 'MERGE', action: 'y', rank: 1 }]);
+  const p3 = withStages({ name: 'P3', path: '/p3' }, [{ state: 'Ready', verb: 'READY', action: 'z', rank: 5 }]);
+  const groups = actionQueue([p1, p2, p3]);
+  assert.deepEqual(groups.map((g) => g.label), ['Land', 'Decide', 'Start']);
+  assert.deepEqual(groups.map((g) => g.rank), [1, 3, 5]);
+});
+
+test('mutation check: groups come out rank-ascending even when input project order is the reverse (009-03 AC3)', () => {
+  // Exercises actionQueue directly: projects are supplied in descending-rank
+  // order, so an "emit groups in insertion order" regression would yield
+  // Start -> Decide -> Land. Passing proves the sort is by rank, not arrival.
+  const p1 = withStages({ name: 'P1', path: '/p1' }, [{ state: 'Ready', verb: 'READY', action: 'z', rank: 5 }]);
+  const p2 = withStages({ name: 'P2', path: '/p2' }, [{ state: 'DECIDE', verb: 'DECIDE', action: 'x', rank: 3 }]);
+  const p3 = withStages({ name: 'P3', path: '/p3' }, [{ state: 'MERGE', verb: 'MERGE', action: 'y', rank: 1 }]);
+  const groups = actionQueue([p1, p2, p3]);
+  assert.deepEqual(groups.map((g) => g.label), ['Land', 'Decide', 'Start']);
+});
+
+test('actionQueue: stable project order within a group (009-03 AC3)', () => {
+  const p1 = withStages({ name: 'First', path: '/1' }, [{ state: 'REVIEW', verb: 'REVIEW', action: 'x', rank: 2 }]);
+  const p2 = withStages({ name: 'Second', path: '/2' }, [{ state: 'REVIEW', verb: 'REVIEW', action: 'y', rank: 2 }]);
+  const groups = actionQueue([p1, p2]);
+  const reviewGroup = groups.find((g) => g.rank === 2);
+  assert.deepEqual(reviewGroup.rows.map((r) => r.name), ['First', 'Second']);
+});
+
+test('actionQueue: a project with empty waitingStages (Idle) contributes no row (009-03 AC4)', () => {
+  const idle = withStages({ name: 'Idle Co', path: '/idle' }, []);
+  const decide = withStages({ name: 'Busy Co', path: '/busy' }, [{ state: 'DECIDE', verb: 'DECIDE', action: 'x', rank: 3 }]);
+  const groups = actionQueue([idle, decide]);
+  const allRows = groups.flatMap((g) => g.rows);
+  assert.equal(allRows.length, 1);
+  assert.equal(allRows[0].name, 'Busy Co');
+});
+
+test('actionQueue: a project with no waitingStages field at all contributes nothing, never crashes (009-03 AC4 backward compat)', () => {
+  const bare = mkProject({ name: 'Bare', path: '/bare' });
+  delete bare.waitingStages;
+  assert.deepEqual(actionQueue([bare]), []);
+});
+
+test('actionQueue: an all-idle portfolio returns no groups at all (009-03 AC4)', () => {
+  const idleOnly = [withStages({ name: 'A', path: '/a' }, []), withStages({ name: 'B', path: '/b' }, [])];
+  assert.deepEqual(actionQueue(idleOnly), []);
+});
+
+test('AC5: for a multi-stage fixture, a project\'s waitingOn.state (grid) equals its first queue row\'s state (head-consistency, by construction)', () => {
+  const raw = {
+    specs: [
+      { id: '050-a', title: 'A', status: 'IN_PROGRESS', slices: [{ file: 'slice-01-a.md', status: 'RECONCILED', dependencies: [] }] },
+      { id: '051-b', title: 'B', status: 'DRAFT', slices: [{ file: 'slice-01-a.md', status: 'DRAFT', dependencies: [] }] },
+    ],
+    workstreams: [],
+    compass: null,
+  };
+  const waitingOn = deriveWaitingOn(raw);
+  const waitingStages = deriveWaitingStages(raw);
+  assert.ok(waitingStages.length > 1, 'sanity: this fixture really is multi-stage (MERGE + Ready-start)');
+  const p = mkProject({ name: 'Multi', path: '/multi', waitingOn, waitingStages });
+  const groups = actionQueue([p]);
+  assert.equal(groups[0].rows[0].state, p.waitingOn.state, 'grid state and the queue\'s top row must agree');
+});
+
+test('mutation check: a fixture with only ONE stage would trivially "pass" head-consistency without exercising anything — this fixture is genuinely multi-stage', () => {
+  const raw = { specs: [{ id: '052-a', title: 'A', status: 'DONE', slices: [{ file: 'slice-01-a.md', status: 'DONE', dependencies: [] }] }], workstreams: [], compass: null };
+  const stages = deriveWaitingStages(raw);
+  assert.equal(stages.length, 0, 'this Idle fixture is the negative control the multi-stage fixture above is contrasted against');
+});
+
+test('actionQueueRow: renders verb badge, project name, action text, and data-path for click-to-open (009-03)', () => {
+  const html = actionQueueRow({ name: 'Kestrel', path: '/projects/kestrel', state: 'DECIDE', verb: 'DECIDE', action: 'decide the rounding rule', rank: 3 });
+  assert.match(html, /data-path="\/projects\/kestrel"/);
+  assert.match(html, /<span class="row-verb rv-DECIDE">DECIDE<\/span>/);
+  assert.match(html, /Kestrel/);
+  assert.match(html, /decide the rounding rule/);
+});
+
+test('actionQueueGroup: renders the group label and all its rows (009-03 AC3)', () => {
+  const group = { rank: 1, label: 'Land', verb: 'MERGE', rows: [{ name: 'A', path: '/a', state: 'MERGE', verb: 'MERGE', action: 'land 1 reconciled slice', rank: 1 }] };
+  const html = actionQueueGroup(group);
+  assert.match(html, /Land/);
+  assert.match(html, /land 1 reconciled slice/);
+});
+
+test('actionQueueHtml: composes groups under a sheet; empty queue shows honest empty-state text, not a blank sheet (009-03)', () => {
+  const p = withStages({ name: 'Busy', path: '/busy' }, [{ state: 'MERGE', verb: 'MERGE', action: 'land 1 reconciled slice', rank: 1 }]);
+  const html = actionQueueHtml([p]);
+  assert.match(html, /class="sheet"/);
+  assert.match(html, /land 1 reconciled slice/);
+  const empty = actionQueueHtml([mkProject({ name: 'Idle Co', path: '/idle', waitingStages: [] })]);
+  assert.ok(!empty.includes('land 1 reconciled slice'));
+  assert.match(empty, /nothing|no.*waiting/i, 'empty-state text is shown, not a blank sheet');
+});
+
+// --- spec 009-03 AC1: lens toggle state (overview <-> action queue) ---
+
+test('setLens: pure toggle between overview and queue lenses, resetting to overview view (009-03 AC1)', () => {
+  const toQueue = setLens(OVERVIEW_STATE, 'queue');
+  assert.equal(toQueue.lens, 'queue');
+  assert.equal(toQueue.view, 'overview');
+  const backToOverview = setLens(toQueue, 'overview');
+  assert.equal(backToOverview.lens, 'overview');
+  assert.equal(backToOverview.view, 'overview');
+});
+
+test('setLens: does not mutate the input state (pure)', () => {
+  const initial = { ...OVERVIEW_STATE };
+  setLens(initial, 'queue');
+  assert.deepEqual(initial, OVERVIEW_STATE);
+});
+
+test('OVERVIEW_STATE: default lens is overview (009-03 AC1)', () => {
+  assert.equal(OVERVIEW_STATE.lens, 'overview');
 });

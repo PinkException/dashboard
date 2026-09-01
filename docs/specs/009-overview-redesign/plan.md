@@ -66,3 +66,61 @@ compliance + craft review; (7) reconcile → DONE.
 **Guardrails:** no new npm dependency (ADR-0001); charts are inline SVG; no
 derived waiting-on state / reorder / header state-counts / action-queue toggle
 (those are 009-02 / 009-03); full existing suite stays green.
+
+## 009-03 — cross-project action-queue lens
+
+**Shape of the change.** A single-source refactor on the scan side plus a new
+pure render lens and a thin toggle in the page glue. No new data is scanned; the
+one existing derived signal is widened from its collapsed head to the full list.
+
+**Scan side (`src/lib.mjs` + `src/scan.mjs`).**
+1. Extract the candidate-collection inside `deriveWaitingOn` (`src/lib.mjs:718`)
+   into **`deriveWaitingStages(project, marker)`** → returns the rank-ordered
+   `[{state, verb, action, rank}, …]` of the project's present **non-Idle**
+   stages. The forced-marker path returns a single-element list (the forced
+   You-state). The derived path collects every present candidate (MERGE, REVIEW,
+   DECIDE, Ready-resume, Ready-start) instead of returning on the first match;
+   External stays unreachable pre-009-04; Idle yields `[]`.
+2. Re-express **`deriveWaitingOn`** as `deriveWaitingStages(…)[0] ?? IDLE` where
+   `IDLE = {state:'Idle', verb:'IDLE', action:'', rank:7}`. Behaviour must be
+   **byte-identical** to today for every 009-02 fixture — a regression test pins
+   this (DoD).
+3. `scanProject` (`src/scan.mjs:451`) emits **`result.waitingStages`** alongside
+   the unchanged `result.waitingOn`.
+
+**Render side (`public/render.mjs`, pure, node:test-imported).**
+- **`actionQueue(projects, { capPerProject = 3 } = {})`** — flattens each
+  project's `waitingStages` (capped to its top `capPerProject`, finish-first)
+  into rows `{project, name, path, state, verb, action, rank}`, drops Idle/empty
+  projects, and returns them grouped by the pinned stage map, groups ordered by
+  rank, stable within a group. This is the one function the tests hammer for
+  AC2/AC3/AC4/AC5.
+- **`actionQueueRow(row)`** / **`actionQueueGroup(group)`** — HTML-string
+  builders mirroring `overviewRow`'s shell discipline (uniform row shape).
+- Extend the toggle-state helpers next to `OVERVIEW_STATE`: add a `lens`
+  dimension (`'overview' | 'queue'`) with pure `setLens(state, lens)` so the
+  page glue stays a thin dispatcher (AC1). Keep `view`/`path`/`showAll` intact —
+  detail view still works from either lens's project rows if surfaced, but the
+  queue's rows link to the same `openDetail(path)`.
+
+**Page glue (`public/index.html`).** Add a lens toggle control in the
+`summary-band` (overview ⇄ action queue). `render()` branches on `state.lens`:
+`queue` → `R.actionQueueHtml(projects)` (a thin wrapper composing the groups
+under a `sheet`), else the existing `overviewHtml()`. A queue row click reuses
+the existing `openDetail` path dispatch. One thin state-function test covers the
+lens flip; no browser driver.
+
+**Consistency guarantee (AC5).** Because `waitingOn === waitingStages[0]` by
+construction, a regression test builds a multi-stage fixture and asserts, per
+project, that `deriveWaitingOn(p).state === actionQueue([p]) first row state`.
+
+**Order of work:** (1) extract `deriveWaitingStages` + the no-regression test for
+`deriveWaitingOn` (red→green); (2) emit `waitingStages` from `scanProject`;
+(3) `actionQueue` pure builder + AC2–AC5 tests (red→green); (4) row/group HTML
+builders + lens toggle state; (5) wire the page glue + toggle control; (6)
+compliance + craft review; (7) reconcile → DONE.
+
+**Guardrails:** no new npm dependency (ADR-0001); the grid/detail behaviour of
+009-01/009-02 is unchanged (byte-identical `deriveWaitingOn`); `public/render.mjs`
+never imports `src/lib.mjs` (scan-side derivation only, read the emitted field);
+full existing suite stays green.

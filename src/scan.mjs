@@ -28,6 +28,7 @@ import {
   parseIncludeTokens,
   resolveReleaseGoal,
   deriveWaitingOn,
+  deriveWaitingStages,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -502,7 +503,14 @@ export function scanProject(projectCfg, gh) {
       // not-a-git-repo, no GitHub remote, timeout, bad JSON → no PR signal.
     }
   }
-  result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou, gh && gh.ownerLogin);
+  const ownerLogin = gh && gh.ownerLogin;
+  result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou, ownerLogin);
+  // Spec 009-03: the full rank-ordered stage list `waitingOn` collapses to
+  // its head — the action-queue lens (public/render.mjs's actionQueue) reads
+  // this instead of re-deriving, so the two lenses cannot disagree (AC5:
+  // waitingOn === waitingStages[0] by construction). Spec 009-04 threads the
+  // owner login through so PR stages surface in the queue too.
+  result.waitingStages = deriveWaitingStages(result, projectCfg.needsYou, ownerLogin);
   return result;
 }
 

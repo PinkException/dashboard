@@ -128,3 +128,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** The AC4 discrimination probe over the 8 real projects showed treating any blocker as DECIDE saturated the You signal (5/7=63%, over ADR-0006's half-of-cards line); intent-scoping retightened it to 2/7=29%. Empirically no surveyed project uses the (you) tag today, so DECIDE surfaces owner decisions via the needsYou marker until the convention is adopted.
 
 **Scope:** src/lib.mjs deriveWaitingOn; spec 009-02 taxonomy DECIDE bullet
+
+### 2026-09-01 — Action-queue lens: capped-rich shape + single-source refactor (009-03)
+
+**Decision:** The cross-project action queue lists one row per open pipeline STAGE per project (not one per project, not one per slice), capped at each project's top 3 stages, grouped Land->Review->Decide->Finish->Start (ascending waitingOn rank), finish-first. It is built on a single-source refactor: deriveWaitingStages(project, marker) returns the full rank-ordered list of present non-Idle stages, and deriveWaitingOn is re-expressed as its head (stages[0] ?? Idle). scanProject emits waitingStages alongside the unchanged waitingOn. Because waitingOn === waitingStages[0] by construction, the grid and queue cannot disagree.
+
+**Context:** Owner design call 2026-09-01 after the frame-critique found the drafted 'one row per action, every open item' was unbuildable from 009-02's collapsed single-state emission. Rejected: (a) per-slice enumeration (needs a new derivation 009-02 doesn't provide; floods); (b) lean one-per-project (just the grid re-sorted). Chosen middle: capped-rich, which 009-02's within-stage aggregation makes naturally bounded (<=5 stages/project), so the top-3 cap is a safety floor. Refinement within ADR-0006's delegated taxonomy, not a new load-bearing decision.
+
+**Scope:** src/lib.mjs deriveWaitingStages/deriveWaitingOn; src/scan.mjs waitingStages emit; public/render.mjs actionQueue/actionQueueHtml/setLens; public/index.html lens toggle; spec 009-03
