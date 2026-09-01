@@ -17,7 +17,12 @@
 // (sortProjectsByWaitingOn). It still never DERIVES the state itself and
 // still never imports src/lib.mjs — the browser has no route there; that
 // boundary is the reason 009-02 carries `arch_review: true`.
-// The action-queue toggle (009-03) remains out of scope here.
+// 009-03 (cross-project action-queue lens) widens the same discipline: it
+// READS the sibling `waitingStages` field (the full rank-ordered list
+// `waitingOn` collapses to its head) and renders the grouped queue
+// (actionQueue/actionQueueRow/actionQueueGroup/actionQueueHtml) plus the
+// lens-toggle state (setLens) — still never deriving, still never importing
+// src/lib.mjs.
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -470,16 +475,125 @@ export function detailView(p, opts = {}) {
 // A thin, pure state machine — the interaction glue itself (attaching DOM
 // listeners) stays in index.html; this is what makes the open/close
 // transitions unit-testable without a browser driver (plan.md).
-export const OVERVIEW_STATE = { view: 'overview', path: null, showAll: false };
+export const OVERVIEW_STATE = { view: 'overview', path: null, showAll: false, lens: 'overview' };
 
-export function openDetail(path) {
-  return { view: 'detail', path, showAll: false };
+// `lens` is carried through the open/close round-trip (009-03) so a project
+// opened FROM the action-queue lens returns to the queue on close, not to the
+// overview grid. Defaults to 'overview' so 009-01/009-02 callers are unchanged.
+export function openDetail(path, lens = 'overview') {
+  return { view: 'detail', path, showAll: false, lens };
 }
 
-export function closeDetail() {
-  return { view: 'overview', path: null, showAll: false };
+export function closeDetail(lens = 'overview') {
+  return { view: 'overview', path: null, showAll: false, lens };
 }
 
 export function isDetailOpenFor(state, path) {
   return !!state && state.view === 'detail' && state.path === path;
+}
+
+// --- 009-03: lens toggle (overview grid <-> cross-project action queue) ---
+// A pure sibling to openDetail/closeDetail (AC1) — the page glue stays a thin
+// dispatcher over tested state transitions, not ad hoc DOM bookkeeping.
+export function setLens(state, lens) {
+  return { ...state, lens, view: 'overview' };
+}
+
+// --- 009-03: cross-project action-queue lens ---
+// Reads ONLY the `waitingStages` field scan-side deriveWaitingStages
+// (src/lib.mjs) emits — this module never imports src/lib.mjs (the browser
+// has no route there; ADR-0001/plan.md). Because a project's `waitingOn`
+// (the grid's headline) is BY CONSTRUCTION `waitingStages[0]`, the queue's
+// top row for a project always agrees with the grid (AC5) — there is no
+// second derivation to disagree with the first.
+
+// Pinned stage -> emitted-state map (slice-03-action-queue-lens.md AC3),
+// keyed by `rank` since Ready(resume) and Ready(start) share the state label
+// "Ready" but occupy two distinct queue groups (Finish vs Start).
+const QUEUE_GROUPS = {
+  1: { label: 'Land', verb: 'MERGE' },
+  2: { label: 'Review', verb: 'REVIEW' },
+  3: { label: 'Decide', verb: 'DECIDE' },
+  4: { label: 'Finish', verb: 'READY' },
+  5: { label: 'Start', verb: 'READY' },
+};
+const QUEUE_RANKS = Object.keys(QUEUE_GROUPS).map(Number).sort((a, b) => a - b);
+
+// Flattens each project's `waitingStages` (capped to its top `capPerProject`,
+// already rank-ordered so slice(0,cap) is finish-first) into stage rows,
+// drops Idle/empty/missing-field projects (AC4), and groups the remaining
+// rows by the pinned stage map, groups ordered ascending rank (AC3). Stable
+// within a group because Array.prototype.filter preserves the row-build
+// order, which itself follows the input `projects` array order (AC3).
+export function actionQueue(projects, { capPerProject = 3 } = {}) {
+  const rows = [];
+  for (const p of projects || []) {
+    const stages = (p.waitingStages || []).slice(0, capPerProject);
+    for (const s of stages) {
+      rows.push({ name: p.name, path: p.path, state: s.state, verb: s.verb, action: s.action, rank: s.rank });
+    }
+  }
+  const groups = [];
+  for (const rank of QUEUE_RANKS) {
+    const groupRows = rows.filter((r) => r.rank === rank);
+    if (!groupRows.length) continue;
+    groups.push({ rank, label: QUEUE_GROUPS[rank].label, verb: QUEUE_GROUPS[rank].verb, rows: groupRows });
+  }
+  return groups;
+}
+
+// Mirrors overviewRow's uniform-shell discipline (esc() everywhere) and
+// carries data-path so a click reuses the existing openDetail(path) glue —
+// the queue's rows open the same detail view as a grid row.
+export function actionQueueRow(row) {
+  return (
+    `<div class="queue-row" data-path="${esc(row.path)}">` +
+    `<span class="row-verb rv-${esc(row.state)}">${esc(row.verb)}</span>` +
+    `<span class="queue-project">${esc(row.name)}</span>` +
+    `<span class="queue-action">${esc(row.action)}</span>` +
+    `</div>`
+  );
+}
+
+export function actionQueueGroup(group) {
+  return (
+    `<div class="queue-group">` +
+    `<div class="queue-group-header">${esc(group.label)}</div>` +
+    `${group.rows.map(actionQueueRow).join('')}` +
+    `</div>`
+  );
+}
+
+// Composes the groups under a `sheet` header, mirroring overviewHtml's shell
+// (index.html); an honest empty-state string when nothing is waiting,
+// never a blank sheet.
+export function actionQueueHtml(projects) {
+  const groups = actionQueue(projects);
+  const body = groups.length
+    ? groups.map(actionQueueGroup).join('')
+    : '<p style="padding:20px 26px;color:var(--text-muted)">Nothing waiting — the queue is empty.</p>';
+  return (
+    `<div class="sheet">` +
+    `<div class="summary-band"><div>` +
+    `<div class="summary-path">~/projects</div>` +
+    `<div class="summary-title">Action queue</div>` +
+    `</div><div class="summary-right">${lensToggleHtml('queue')}</div></div>` +
+    `<div class="queue-list">${body}</div>` +
+    `</div>`
+  );
+}
+
+// AC1: the toggle itself, mirrored into both lenses' own summary-band (this
+// function's caller is only ever invoked while its own lens is active, so
+// the "active" class here is static per call site, not state-derived).
+// Exported so index.html's overviewHtml() reuses the identical markup for
+// the overview lens rather than a hand-duplicated copy.
+export function lensToggleHtml(activeLens) {
+  const cls = (l) => `lens-btn${activeLens === l ? ' active' : ''}`;
+  return (
+    `<div class="lens-toggle">` +
+    `<button class="${cls('overview')}" data-action="set-lens-overview">overview</button>` +
+    `<button class="${cls('queue')}" data-action="set-lens-queue">action queue</button>` +
+    `</div>`
+  );
 }

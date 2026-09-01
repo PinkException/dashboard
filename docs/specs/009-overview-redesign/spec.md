@@ -236,10 +236,12 @@ horizontal phasing.
   home-folder marker backstop. Carries the derivation risk (A1, A2) → validated
   two-sided (discrimination probe + owner-ground-truth recall) → `frame_review`.
 - **009-03 (Interface — second view):** the cross-project **action-queue lens** —
-  a flat list of every actionable item across all projects, grouped by pipeline
-  stage (land → merge → review → finish → start), finish-first, reached by a
-  toggle from the overview. Re-projects 009-02's per-item derivation
-  cross-project.
+  one row per open pipeline stage per project (Land → Review → Decide → Finish →
+  Start), pooled across all projects and ordered finish-first, capped at each
+  project's top 3 stages, reached by a toggle from the overview. A single-source
+  refactor widens 009-02's collapsed single `waitingOn` into the full ranked
+  `waitingStages` list (grid takes the head, queue takes the top 3), so the two
+  lenses cannot disagree by construction (frame-critique 2026-09-01).
 - **009-04 (Path — optional enrichment):** **`gh`-optional PR state**. When `gh`
   is present and authenticated, fold PR state into the waiting-on states
   (You/MERGE for approved-ready, External for out-for-review) and the detail

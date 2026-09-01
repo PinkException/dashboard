@@ -28,6 +28,7 @@ import {
   parseIncludeTokens,
   resolveReleaseGoal,
   deriveWaitingOn,
+  deriveWaitingStages,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -449,6 +450,11 @@ export function scanProject(projectCfg) {
   // arbitrary config keys through onto projectCfg, so no config-schema change
   // was needed to read it here.
   result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou);
+  // Spec 009-03: the full rank-ordered stage list `waitingOn` collapses to
+  // its head — the action-queue lens (public/render.mjs's actionQueue) reads
+  // this instead of re-deriving, so the two lenses cannot disagree (AC5:
+  // waitingOn === waitingStages[0] by construction).
+  result.waitingStages = deriveWaitingStages(result, projectCfg.needsYou);
   return result;
 }
 
