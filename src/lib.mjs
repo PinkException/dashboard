@@ -615,3 +615,165 @@ export function resolveReleaseGoal(tokens, specs) {
   }
   return { goalProgress: { done, total }, goalNext, goalUnresolved, memberSpecIds };
 }
+
+// --- Spec 009-02: waiting-on state derivation (the triage signal) ---
+// Pure and scan-side ONLY (this module is imported by src/scan.mjs, never by
+// the browser — public/render.mjs may READ the emitted `waitingOn` field but
+// must never import this file). See docs/specs/009-overview-redesign/
+// slice-02-waiting-on-state-and-ordering.md "Taxonomy" for the pinned
+// precedence and exact on-disk signal each state names — this function
+// implements it as written, it does not reinterpret it.
+
+// Only the three You-states forcedWaitingOn can normalize a marker to — the
+// derived path below hardcodes its own verbs inline (Ready/'READY',
+// Idle/'IDLE') since those states never flow through here. Keep this table
+// scoped to what it's actually keyed with (arch/craft nit: no dead entries).
+const WAITING_ON_VERB = { MERGE: 'MERGE', REVIEW: 'REVIEW', DECIDE: 'DECIDE' };
+const FORCED_STATE_RANK = { MERGE: 1, REVIEW: 2, DECIDE: 3 };
+// Default action text when a forced marker sets a state but no/blank action
+// (craft fix): the badge must always render a real headline, never fall
+// silently back to the compass line for a real owner-forced You-state.
+const FORCED_DEFAULT_ACTION = { MERGE: 'land', REVIEW: 'review', DECIDE: 'decide' };
+
+// Trims a next-action string to a handful of words (AC1: "a few-word named
+// next action... never a hollow 'all calm'"), without cutting mid-word.
+function fewWords(text, n = 10) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= n) return words.join(' ');
+  return words.slice(0, n).join(' ') + '…';
+}
+
+// A slice's short, stable display token — "<spec-num>-<slice-num>" (e.g.
+// "009-02") — reusing the exact spec/slice-number extraction resolveToken
+// already performs, so a Ready action's "resume 009-02" names the same slice
+// resolveToken would resolve back from that token.
+function sliceToken(specId, sliceFile) {
+  const specNum = (specId.match(/^(\d+)/) || [null, specId])[1];
+  const m = sliceFile.match(SLICE_FILE_RE);
+  if (!m) return specNum;
+  const sliceNum = m[2] !== undefined ? m[2] : m[1];
+  return `${specNum}-${sliceNum}`;
+}
+
+// Dependency gate for the Ready-start candidate: a dependency shaped like a
+// slice token (NNN-MM) must resolve `landed` via resolveToken; anything else
+// (an ADR reference, free-text) is not a slice-status claim this scanner can
+// evaluate, so it does not block — the "else status-presence" fallback the
+// taxonomy allows when resolveToken isn't cheaply applicable.
+function depsSatisfied(dependencies, specs) {
+  for (const dep of dependencies || []) {
+    if (!/^\d{3}-\d{2}$/.test(dep)) continue;
+    if (resolveToken(dep, specs).cls !== 'landed') return false;
+  }
+  return true;
+}
+
+// Finds the first you-tagged OPEN (unchecked) next step across a project's
+// workstreams — reads only the `owner` field scan.mjs's parseRunbook already
+// attached to each item/`next` (AC1: "via the emitted owner field... NOT by
+// calling ownerOf in the browser"). Checks every workstream's cheap `next`
+// pointer first, then falls back to scanning each workstream's full `items`
+// list (a pinned workstream's `next` may be a Claude item while a later
+// you-item still sits open beneath it).
+function findYouNextStep(workstreams) {
+  for (const w of workstreams || []) {
+    if (w.next && w.next.owner === 'you' && w.next.text) return w.next.text;
+  }
+  for (const w of workstreams || []) {
+    const item = (w.items || []).find((i) => !i.checked && i.owner === 'you');
+    if (item) return item.text;
+  }
+  return null;
+}
+
+// AC3: the owner-settable home-folder marker backstop. `marker` is the
+// project config's `needsYou` field — a string (forces DECIDE, the string is
+// the action text) or `{ state?: 'DECIDE'|'REVIEW'|'MERGE', action }`. Forces
+// a You-state regardless of the derived signal.
+function forcedWaitingOn(marker) {
+  const isObj = marker && typeof marker === 'object';
+  const rawState = isObj ? marker.state : undefined;
+  // An absent or unrecognized state (not one of the You-set) normalizes to
+  // DECIDE, never surfaced verbatim — a raw unknown value here would desync
+  // state/verb/rank (FORCED_STATE_RANK/WAITING_ON_VERB both key off the
+  // SAME normalized state) and would emit an `rv-<unknown>` CSS class with
+  // no matching style rule (compliance fix).
+  const state = FORCED_STATE_RANK[rawState] !== undefined ? rawState : 'DECIDE';
+  const rawAction = isObj ? marker.action : marker;
+  // An empty/missing action (e.g. `{state:'MERGE'}` with no action string)
+  // must NOT render as '' — nextMoveCell (public/render.mjs) treats a falsy
+  // action as "no forced headline" and silently falls back to the compass
+  // line, hiding a real owner-forced You-state (craft fix).
+  const trimmed = rawAction ? String(rawAction).trim() : '';
+  const action = trimmed ? fewWords(trimmed) : FORCED_DEFAULT_ACTION[state];
+  return { state, verb: WAITING_ON_VERB[state], action, rank: FORCED_STATE_RANK[state] };
+}
+
+// The single derived waiting-on state for one scanned project (AC1/AC2): the
+// highest-precedence candidate present, chosen from the pinned total order
+// MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) > External > Idle.
+// `project` is shaped exactly as scanProject emits it (specs[].slices[]
+// carrying status/dependencies/file, workstreams[].{items,next}, compass);
+// `marker` is the project's optional `needsYou` config field (AC3).
+export function deriveWaitingOn(project, marker) {
+  if (marker) return forcedWaitingOn(marker);
+
+  const specs = project.specs || [];
+  const allSlices = specs.flatMap((s) => (s.slices || []).map((sl) => ({ ...sl, specId: s.id })));
+
+  const reconciled = allSlices.filter((sl) => sl.status === 'RECONCILED');
+  if (reconciled.length) {
+    return {
+      state: 'MERGE',
+      verb: 'MERGE',
+      action: `land ${reconciled.length} reconciled slice${reconciled.length === 1 ? '' : 's'}`,
+      rank: 1,
+    };
+  }
+
+  const reviewed = allSlices.filter((sl) => sl.status === 'REVIEWED');
+  if (reviewed.length) {
+    return {
+      state: 'REVIEW',
+      verb: 'REVIEW',
+      action: `review ${reviewed.length} finished slice${reviewed.length === 1 ? '' : 's'}`,
+      rank: 2,
+    };
+  }
+
+  const youText = findYouNextStep(project.workstreams);
+  // AC4 discrimination fix (2026-08-31 probe): a bare compass blocker is a
+  // process/status note ("review not yet passed", "bug still REPORTED"), not
+  // an owner decision — it must NOT fire DECIDE. Only a blocker that ITSELF
+  // carries the **(you)** owner tag counts, same marker convention as
+  // findYouNextStep above (ownerOf, not a plain non-empty check).
+  const blockers = (project.compass && project.compass.blockers) || [];
+  const youBlocker = blockers.find((b) => ownerOf(String(b)) === 'you');
+  if (youText || youBlocker) {
+    return { state: 'DECIDE', verb: 'DECIDE', action: fewWords(youText || cleanStepText(String(youBlocker))), rank: 3 };
+  }
+
+  const resumable = allSlices.find((sl) => sl.status === 'IN_PROGRESS');
+  if (resumable) {
+    return { state: 'Ready', verb: 'READY', action: `resume ${sliceToken(resumable.specId, resumable.file)}`, rank: 4 };
+  }
+
+  // AC4 taxonomy fix: READY_FOR_REVIEW (review passes not yet run) is
+  // Claude-runnable, same as READY_FOR_IMPLEMENTATION/DRAFT — the taxonomy's
+  // REVIEW bullet only covers a slice that has already cleared review
+  // (status REVIEWED, handled above).
+  const startable = allSlices.find(
+    (sl) =>
+      (sl.status === 'READY_FOR_REVIEW' || sl.status === 'READY_FOR_IMPLEMENTATION' || sl.status === 'DRAFT') &&
+      depsSatisfied(sl.dependencies, specs)
+  );
+  if (startable) {
+    return { state: 'Ready', verb: 'READY', action: `start ${sliceToken(startable.specId, startable.file)}`, rank: 5 };
+  }
+
+  // External (rank 6) is deferred to 009-04 (gh PR enrichment): no on-disk
+  // signal exists yet to reach this branch. Left unreachable on purpose
+  // rather than fabricating a signal, per the taxonomy's explicit note.
+
+  return { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
+}

@@ -23,6 +23,7 @@ import {
   sessionCounts,
   parseIncludeTokens,
   resolveReleaseGoal,
+  deriveWaitingOn,
 } from '../src/lib.mjs';
 
 test('parseFrontmatter: flat keys, arrays, quotes, comments', () => {
@@ -637,4 +638,234 @@ test('parseIncludeTokens: malformed rows (missing leading pipe, doubled trailing
     '| 002-03 | DONE | fine |',
   ].join('\n');
   assert.deepEqual(parseIncludeTokens(body), ['002-01', '002-02', '002-03']);
+});
+
+// --- spec 009-02: deriveWaitingOn — the waiting-on state + finish-first rank ---
+// Taxonomy pinned by docs/specs/009-overview-redesign/
+// slice-02-waiting-on-state-and-ordering.md; fixtures below shape the payload
+// exactly as scanProject emits it (specs[].slices[].{status,dependencies,file},
+// workstreams[].{items,next}, compass.blockers) so this exercises the real
+// on-disk signals, not a reinterpretation of them.
+
+function proj({ specs = [], workstreams = [], compass = null, counts, worktreeOnlyDocs } = {}) {
+  return { specs, workstreams, compass, counts, worktreeOnlyDocs };
+}
+
+function slice(file, status, dependencies = []) {
+  return { file, status, dependencies, lastVerified: null };
+}
+
+test('deriveWaitingOn: MERGE — any RECONCILED slice, action names the count (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '011-owner-queue', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'MERGE', verb: 'MERGE', action: 'land 1 reconciled slice', rank: 1 });
+});
+
+test('deriveWaitingOn: MERGE — two RECONCILED slices collapse to ONE state, action pluralizes (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '011-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED'), slice('slice-02-b.md', 'RECONCILED')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.equal(w.state, 'MERGE');
+  assert.equal(w.action, 'land 2 reconciled slices');
+});
+
+test('deriveWaitingOn: REVIEW — any REVIEWED slice (owner sign-off owed, not READY_FOR_REVIEW) (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '012-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'REVIEWED')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'REVIEW', verb: 'REVIEW', action: 'review 1 finished slice', rank: 2 });
+});
+
+test('deriveWaitingOn: READY_FOR_REVIEW (passes not yet run) is Claude-runnable, NOT REVIEW (009-02 taxonomy distinction)', () => {
+  const p = proj({
+    specs: [{ id: '012-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'READY_FOR_REVIEW')] }],
+  });
+  assert.notEqual(deriveWaitingOn(p).state, 'REVIEW');
+});
+
+test('deriveWaitingOn: DECIDE — an open **(you)** next step (owner field, not ownerOf) names the action (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '013-x', title: 'X', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }],
+    workstreams: [{
+      kind: 'runbook',
+      items: [{ checked: false, text: 'decide the currency-rounding rule', owner: 'you' }],
+      next: { text: 'decide the currency-rounding rule', owner: 'you' },
+    }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'DECIDE', verb: 'DECIDE', action: 'decide the currency-rounding rule', rank: 3 });
+});
+
+test('deriveWaitingOn: DECIDE — a compass blocker that ITSELF carries the **(you)** tag also triggers it (009-02 taxonomy, AC4 retightening)', () => {
+  const p = proj({
+    specs: [{ id: '013-x', title: 'X', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }],
+    compass: { headline: 'stuck', blockers: ['**(you)** routing approach parked on your call'] },
+  });
+  const w = deriveWaitingOn(p);
+  assert.equal(w.state, 'DECIDE');
+  assert.equal(w.action, 'routing approach parked on your call', 'the owner tag itself is stripped from the shown action, same as a workstream next-step');
+});
+
+test('deriveWaitingOn: a BARE, untagged compass blocker does NOT fire DECIDE — it is a process/status note, not an owner decision (009-02 AC4 discrimination fix)', () => {
+  const p = proj({
+    // Real data shape from the AC4 probe: process/status notes, not owner
+    // decisions — no **(you)** tag anywhere on them.
+    specs: [{ id: '018-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE')] }],
+    compass: {
+      headline: 'stuck',
+      blockers: ['002-02 reconciliation review not yet passed', 'bug 008 still REPORTED — undiagnosed flaky guard'],
+    },
+  });
+  const w = deriveWaitingOn(p);
+  assert.notEqual(w.state, 'DECIDE');
+  assert.equal(w.state, 'Idle', 'no other candidate exists either, so it falls all the way through to Idle');
+});
+
+test('deriveWaitingOn: Ready(resume) — any IN_PROGRESS slice, no owner tag (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '014-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-02-b.md', 'IN_PROGRESS')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'Ready', verb: 'READY', action: 'resume 014-02', rank: 4 });
+});
+
+test('deriveWaitingOn: Ready(start) — READY_FOR_IMPLEMENTATION with satisfied dependencies (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [
+      { id: '014-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE')] },
+      { id: '015-y', title: 'Y', status: 'DRAFT', slices: [slice('slice-02-b.md', 'READY_FOR_IMPLEMENTATION', ['014-01'])] },
+    ],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'Ready', verb: 'READY', action: 'start 015-02', rank: 5 });
+});
+
+test('deriveWaitingOn: Ready(start) — a DRAFT slice with no dependencies also qualifies (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '016-z', title: 'Z', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.equal(w.state, 'Ready');
+  assert.equal(w.action, 'start 016-01');
+  assert.equal(w.rank, 5);
+});
+
+test('deriveWaitingOn: Ready(start) is withheld when its dependency has not landed (dependency gate)', () => {
+  const p = proj({
+    specs: [
+      // DEFERRED is parked (excluded), never a candidate on its own, and
+      // (not DONE) leaves 015-02's dependency unresolved ("parked" !== "landed").
+      { id: '014-x', title: 'X', status: 'DEFERRED', slices: [slice('slice-01-a.md', 'DEFERRED')] },
+      { id: '015-y', title: 'Y', status: 'DRAFT', slices: [slice('slice-02-b.md', 'READY_FOR_IMPLEMENTATION', ['014-01'])] },
+    ],
+  });
+  const w = deriveWaitingOn(p);
+  assert.equal(w.state, 'Idle', 'the only candidate slice is gated by its unlanded dependency');
+});
+
+test('deriveWaitingOn: Ready(start) — READY_FOR_REVIEW (review passes not yet run) with no owner tag also qualifies (009-02 taxonomy fix)', () => {
+  const p = proj({
+    specs: [{ id: '024-r', title: 'R', status: 'READY_FOR_REVIEW', slices: [slice('slice-01-a.md', 'READY_FOR_REVIEW')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'Ready', verb: 'READY', action: 'start 024-01', rank: 5 }, 'READY_FOR_REVIEW is Claude-runnable — Ready, not Idle and not REVIEW');
+});
+
+test('deriveWaitingOn: Idle — every slice DONE/DEFERRED/ABANDONED, no owner tag, no blocker (009-02 taxonomy)', () => {
+  const p = proj({
+    specs: [{ id: '017-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE'), slice('slice-02-b.md', 'DEFERRED'), slice('slice-03-c.md', 'ABANDONED')] }],
+    compass: { headline: 'all shipped', blockers: [] },
+  });
+  const w = deriveWaitingOn(p);
+  assert.deepEqual(w, { state: 'Idle', verb: 'IDLE', action: '', rank: 7 });
+});
+
+test('deriveWaitingOn: excluded-activity marker — open bugs, a deferred slice, and a worktree-only doc do NOT change the state (activity-excluded rule)', () => {
+  const p = proj({
+    specs: [{ id: '018-x', title: 'X', status: 'DONE', slices: [slice('slice-01-a.md', 'DONE'), slice('slice-02-b.md', 'DEFERRED')] }],
+    counts: { bugs: { open: 6, total: 9 }, refinement: { open: 3, total: 3 }, inbox: 12, adrs: 2 },
+    worktreeOnlyDocs: [{ path: 'docs/specs/018/plan.md', worktree: 'wt-a' }],
+  });
+  assert.equal(deriveWaitingOn(p).state, 'Idle', 'activity counts must never leak into the waiting-on state');
+});
+
+test('deriveWaitingOn: false-Idle regression — an IN_PROGRESS project with NO owner tag derives Ready(resume), never Idle (009-02 regression AC)', () => {
+  const p = proj({
+    specs: [{ id: '019-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }],
+  });
+  const w = deriveWaitingOn(p);
+  assert.notEqual(w.state, 'Idle');
+  assert.equal(w.state, 'Ready');
+  assert.equal(w.rank, 4);
+});
+
+test('deriveWaitingOn: precedence — MERGE beats a simultaneous DECIDE candidate (finish-first total order, AC2)', () => {
+  const p = proj({
+    specs: [{ id: '020-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }],
+    workstreams: [{ kind: 'runbook', items: [{ checked: false, text: 'decide something', owner: 'you' }], next: { text: 'decide something', owner: 'you' } }],
+  });
+  assert.equal(deriveWaitingOn(p).state, 'MERGE', 'a nearly-done You item outranks an earlier-pipeline one');
+});
+
+test('deriveWaitingOn: precedence — Ready(resume) outranks Ready(start) when both are candidates (AC2)', () => {
+  const p = proj({
+    specs: [
+      { id: '021-a', title: 'A', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] },
+      { id: '021-b', title: 'B', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] },
+    ],
+  });
+  const w = deriveWaitingOn(p);
+  assert.equal(w.state, 'Ready');
+  assert.equal(w.rank, 4, 'resume must sort above start even though both are the "Ready" state label');
+  assert.match(w.action, /^resume /);
+});
+
+// --- 009-02 AC3: owner-settable marker backstop (config `needsYou`) ---
+
+test('deriveWaitingOn: owner marker (string) forces DECIDE over a would-be Ready derivation (AC3)', () => {
+  const p = proj({
+    specs: [{ id: '022-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }],
+  });
+  const w = deriveWaitingOn(p, 'waiting on the vendor contract to be signed');
+  assert.deepEqual(w, { state: 'DECIDE', verb: 'DECIDE', action: 'waiting on the vendor contract to be signed', rank: 3 });
+});
+
+test('deriveWaitingOn: owner marker (object) can force MERGE/REVIEW, not just DECIDE (AC3)', () => {
+  const p = proj({ specs: [] }); // would derive Idle unforced
+  const w = deriveWaitingOn(p, { state: 'MERGE', action: 'approved externally, land by hand' });
+  assert.deepEqual(w, { state: 'MERGE', verb: 'MERGE', action: 'approved externally, land by hand', rank: 1 });
+});
+
+test('deriveWaitingOn: owner marker (object) with a bogus/unknown state normalizes to DECIDE — state/verb/rank never desync (compliance fix)', () => {
+  const p = proj({ specs: [] });
+  const w = deriveWaitingOn(p, { state: 'BOGUS', action: 'something is set but the state name is garbage' });
+  assert.deepEqual(w, { state: 'DECIDE', verb: 'DECIDE', action: 'something is set but the state name is garbage', rank: 3 });
+});
+
+test('deriveWaitingOn: owner marker (object) with NO action still yields a non-empty headline — never silently drops back to Idle-quiet rendering (craft fix)', () => {
+  const p = proj({ specs: [] });
+  const w = deriveWaitingOn(p, { state: 'MERGE' });
+  assert.equal(w.state, 'MERGE');
+  assert.equal(w.verb, 'MERGE');
+  assert.ok(w.action && w.action.trim().length > 0, 'action must be non-empty so the render layer never falls back to the compass line');
+});
+
+test('deriveWaitingOn: owner marker overrides even a real MERGE derivation (the marker is a forcing backstop, not a tiebreak) (AC3)', () => {
+  const p = proj({
+    specs: [{ id: '023-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }],
+  });
+  const w = deriveWaitingOn(p, { state: 'REVIEW', action: 'owner override text' });
+  assert.equal(w.state, 'REVIEW');
+  assert.equal(w.action, 'owner override text');
+});
+
+test('mutation check: absent the marker, the same project derives its own signal unchanged (zero-config default) (AC3)', () => {
+  const p = proj({
+    specs: [{ id: '022-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }],
+  });
+  assert.equal(deriveWaitingOn(p).state, 'Ready', 'no marker present — falls through to the derived signal, not DECIDE');
 });

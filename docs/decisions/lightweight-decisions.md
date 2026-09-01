@@ -112,3 +112,19 @@ fields), so the documented shape and the helper output agree.
 **Context:** Implementer judgment call needed because the design authority left the numeric thresholds unspecified.
 
 **Scope:** public/render.mjs heatBucket(); spec 009-01
+
+### 2026-08-31 — Owner-marker config key: needsYou (009-02)
+
+**Decision:** The owner-settable waiting-on backstop (ADR-0006 marker) is a per-project 'needsYou' key in ~/.claude/my-dashboard/config.json — either a string (forces DECIDE; the string is the action text) or an object { state?: DECIDE|REVIEW|MERGE (default DECIDE), action: string }. When present it forces that You-state over the derived signal. No loadConfig change (existing ...p passthrough). A malformed marker (unknown state) normalizes to DECIDE; an empty action on a forced marker defaults per-state (land/review/decide) so the forced headline never silently drops.
+
+**Context:** AC3/A2 left the exact config shape to 009-02; needsYou chosen over reusing the payload field name waitingOn to avoid confusing config-input with derived-output.
+
+**Scope:** ~/.claude/my-dashboard/config.json; src/lib.mjs forcedWaitingOn/deriveWaitingOn; spec 009-02
+
+### 2026-08-31 — DECIDE is intent-scoped: a blocker must carry the (you) tag (009-02)
+
+**Decision:** In deriveWaitingOn, a compass blocker fires the DECIDE (You) state ONLY when it itself carries the **(you)** owner tag (ownerOf(blocker) is 'you'); a bare/untagged blocker is a process/status note and does not fire DECIDE. DECIDE otherwise fires on a **(you)**-tagged next step.
+
+**Context:** The AC4 discrimination probe over the 8 real projects showed treating any blocker as DECIDE saturated the You signal (5/7=63%, over ADR-0006's half-of-cards line); intent-scoping retightened it to 2/7=29%. Empirically no surveyed project uses the (you) tag today, so DECIDE surfaces owner decisions via the needsYou marker until the convention is adopted.
+
+**Scope:** src/lib.mjs deriveWaitingOn; spec 009-02 taxonomy DECIDE bullet
