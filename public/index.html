@@ -97,6 +97,18 @@
   .row-nextmove .row-action { font: 400 14px/1.35 var(--sans); color: var(--text-bright); }
   .row-action.muted { color: var(--text-dim); font-style: italic; }
 
+  /* Spec 009-02 AC1: the waiting-on verb badge — You-states (DECIDE/REVIEW/
+     MERGE) carry the strongest emphasis, Ready calmer; Idle renders no badge
+     at all (nextMoveCell falls back to the plain compass line — the
+     quietest state, per AC1). Selectors below are keyed on the exact state
+     name render.mjs emits as `rv-${state}` — renaming a state in
+     deriveWaitingOn (src/lib.mjs) must rename its selector here too. */
+  .row-verb { display: inline-block; font: 700 10.5px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; margin-right: 9px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
+  .rv-DECIDE, .rv-REVIEW, .rv-MERGE { color: var(--red); background: var(--blocked-bg); border: 1px solid var(--blocked-border); }
+  .rv-REVIEW { color: var(--amber); }
+  .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
+  .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
+
   .row-inflight { display: flex; flex-direction: column; gap: 7px; }
   .if-num { font: 600 26px/0.9 var(--mono); }
   .if-word { font: 10px var(--mono); text-transform: uppercase; margin-left: 4px; }
@@ -215,7 +227,10 @@ let projects = [];
 let generatedAt = null;
 
 function overviewHtml() {
-  const rows = projects.map(R.overviewRow).join('');
+  // Spec 009-02 AC2: finish-first ordering — MERGE > REVIEW > DECIDE >
+  // Ready(resume) > Ready(start) > External > Idle, via each project's
+  // waitingOn.rank (derived scan-side, src/lib.mjs's deriveWaitingOn).
+  const rows = R.sortProjectsByWaitingOn(projects).map(R.overviewRow).join('');
   const running = R.runningNowCount(projects);
   return `<div class="sheet">
     <div class="summary-band">

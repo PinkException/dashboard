@@ -117,7 +117,11 @@ intended (a nudge to refresh prose), not a bug.
 One-directional, read-only coupling:
 
 - **`src/lib.mjs`** — pure functions (parsing, progress math, age labels).
-  No filesystem access; everything else imports from here.
+  No filesystem access; everything else imports from here. Includes
+  `deriveWaitingOn` (spec 009-02): the intent-scoped triage derivation that
+  reduces a project to one `waitingOn: { state, verb, action, rank }` from its
+  slice statuses, owner (`**(you)**`) tags, compass blockers, and an optional
+  owner-set `needsYou` marker.
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
@@ -133,7 +137,10 @@ One-directional, read-only coupling:
   A4): the reader is lenient — malformed/absent data degrades to `[]` + a
   `warnings` entry, never a throw. Attribution + emit are batched in
   `readAllSessions` (called from `scanAll`), not `scanProject`, because the
-  longest-root tie-break needs every configured root at once.
+  longest-root tie-break needs every configured root at once. Each scanned
+  project also carries a derived `waitingOn` field (spec 009-02, via
+  `deriveWaitingOn`); it is omitted for error / non-jig payloads (the page treats
+  an absent field as Idle-equivalent).
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html`, `/render.mjs` (the client render module, one explicit
   fixed-path route — no static-file server, no path-traversal surface; spec
@@ -175,9 +182,13 @@ One-directional, read-only coupling:
 - **`public/render.mjs`** — pure client render helpers (spec 009-01): row +
   detail-view HTML builders and derivations (`overviewRow`, `detailView`,
   `inFlightCount`/`heatBucket`, `progressBarSvg`, `currentReleaseTrack`/
-  `detailSpecList`, `sessionsDetailBlock`) returning strings/values with no DOM
-  dependency, so `node:test` imports them directly (browser-and-node shared ES
-  module). No filesystem/network access; charts are inline SVG (ADR-0001).
+  `detailSpecList`, `sessionsDetailBlock`, plus the spec 009-02 triage-headline +
+  ordering helpers `nextMoveCell`, `sortProjectsByWaitingOn`, `waitingOnRank`)
+  returning strings/values with no DOM dependency, so `node:test` imports them
+  directly (browser-and-node shared ES module). It **reads** the scan-derived
+  `waitingOn` field but performs no derivation itself and imports nothing —
+  keeping all domain logic scan-side (the 009-02 boundary). No filesystem/network
+  access; charts are inline SVG (ADR-0001).
 
 ## Data model
 
@@ -235,7 +246,10 @@ Stateless by design — same disk state → same page (vision principle 2):
   ships publicly (vision principle 6, and the leak gate would reject it).
 - **`GET /api/data`** — localhost-only JSON shape consumed by the page;
   additive evolution preferred (the page degrades gracefully on missing
-  fields, per spec 003's plan).
+  fields, per spec 003's plan). Spec 009-02 adds a per-project derived
+  `waitingOn: { state, verb, action, rank }` (state ∈ DECIDE/REVIEW/MERGE/Ready/
+  External/Idle; the triage headline + finish-first sort key); omitted for
+  error / non-jig projects, which the page treats as Idle-equivalent.
 
 ## Open questions
 

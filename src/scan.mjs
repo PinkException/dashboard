@@ -27,6 +27,7 @@ import {
   compareSessionOrder,
   parseIncludeTokens,
   resolveReleaseGoal,
+  deriveWaitingOn,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -442,6 +443,12 @@ export function scanProject(projectCfg) {
       `compass history (${compass.sources} source(s)): ${compass.malformed} malformed line(s) skipped`,
     );
   }
+  // Spec 009-02: the single derived waiting-on state, scan-side (deriveWaitingOn
+  // lives in src/lib.mjs, never imported by the browser). `projectCfg.needsYou`
+  // is the AC3 owner-settable marker backstop — loadConfig already spreads
+  // arbitrary config keys through onto projectCfg, so no config-schema change
+  // was needed to read it here.
+  result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou);
   return result;
 }
 

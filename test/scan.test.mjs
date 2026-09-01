@@ -55,6 +55,33 @@ test('scanProject: non-jig project degrades gracefully (002-01 AC3)', () => {
   assert.equal(p.specs, undefined);
 });
 
+// --- spec 009-02: waiting-on state emission (deriveWaitingOn wired into scanProject) ---
+
+test('scanProject: emits the waiting-on state derived from the real fixture end-to-end (009-02 integration)', () => {
+  const p = jig();
+  // proj-jig's pinned runbook-widget.md opens on a **(you)**-tagged step
+  // ("First review round. Zero cost.") — DECIDE outranks the fixture's other
+  // candidates (compass blocker, an IN_PROGRESS slice).
+  assert.deepEqual(p.waitingOn, { state: 'DECIDE', verb: 'DECIDE', action: 'First review round. Zero cost.', rank: 3 });
+});
+
+test("scanProject: config needsYou marker overrides the fixture's derived state (009-02 AC3 integration)", () => {
+  const p = scanProject({
+    path: path.join(FIXTURES, 'proj-jig'),
+    pinnedWorkstreams: [],
+    hiddenWorkstreams: [],
+    needsYou: 'waiting on a vendor contract',
+  });
+  assert.deepEqual(p.waitingOn, { state: 'DECIDE', verb: 'DECIDE', action: 'waiting on a vendor contract', rank: 3 });
+});
+
+test('scanProject: no waitingOn field for non-jig-managed or error projects (009-02 scope)', () => {
+  const plain = scanProject({ path: path.join(FIXTURES, 'proj-plain'), label: 'plain', pinnedWorkstreams: [], hiddenWorkstreams: [] });
+  assert.equal(plain.waitingOn, undefined);
+  const missing = scanProject({ path: path.join(FIXTURES, 'does-not-exist'), pinnedWorkstreams: [], hiddenWorkstreams: [] });
+  assert.equal(missing.waitingOn, undefined);
+});
+
 test('scanProject: missing path is an error entry, not a crash', () => {
   const p = scanProject({ path: path.join(FIXTURES, 'does-not-exist'), pinnedWorkstreams: [], hiddenWorkstreams: [] });
   assert.ok(p.error);

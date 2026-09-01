@@ -25,6 +25,8 @@ import {
   detailSpecList,
   overviewRow,
   runningNowCount,
+  sortProjectsByWaitingOn,
+  waitingOnRank,
   detailView,
   sessionsDetailBlock,
   activityTabPlaceholder,
@@ -507,4 +509,87 @@ test("integration: proj-jig's checklist-only release plan has no goalProgress �
   const p = jig();
   assert.equal(currentReleaseTrack(p), null);
   assert.equal(detailSpecList(p).filtered, false);
+});
+
+// --- spec 009-02: waiting-on state headline + finish-first ordering ---
+// render.mjs only READS the `p.waitingOn` field 009-02 adds scan-side
+// (src/lib.mjs's deriveWaitingOn) — these tests hand-build that field on
+// mkProject payloads exactly as scanProject emits it.
+
+function withWaitingOn(state, verb, action, rank) {
+  return mkProject({ waitingOn: { state, verb, action, rank } });
+}
+
+test('overviewRow: a You-state (DECIDE/REVIEW/MERGE) headlines the verb + named action, replacing the old compass-only next-move (009-02 AC1)', () => {
+  const html = overviewRow(withWaitingOn('DECIDE', 'DECIDE', 'decide the currency-rounding rule', 3));
+  assert.match(html, /<span class="row-verb rv-DECIDE">DECIDE<\/span>/);
+  assert.match(html, /<span class="row-action">decide the currency-rounding rule<\/span>/);
+});
+
+test('overviewRow: REVIEW and MERGE headline the same way, each with their own verb (009-02 AC1)', () => {
+  const review = overviewRow(withWaitingOn('REVIEW', 'REVIEW', 'review 2 finished slices', 2));
+  assert.match(review, /<span class="row-verb rv-REVIEW">REVIEW<\/span>/);
+  assert.match(review, /review 2 finished slices/);
+  const merge = overviewRow(withWaitingOn('MERGE', 'MERGE', 'land 1 reconciled slice', 1));
+  assert.match(merge, /<span class="row-verb rv-MERGE">MERGE<\/span>/);
+  assert.match(merge, /land 1 reconciled slice/);
+});
+
+test('overviewRow: Ready headlines calmer than a You-state — still a named action, distinct verb class (009-02 AC1)', () => {
+  const html = overviewRow(withWaitingOn('Ready', 'READY', 'resume 009-02', 4));
+  assert.match(html, /<span class="row-verb rv-Ready">READY<\/span>/);
+  assert.match(html, /resume 009-02/);
+});
+
+test('overviewRow: Idle never shows a verb badge — falls back to the quiet compass-headline display, never a hollow phrase (009-02 AC1)', () => {
+  const html = overviewRow(withWaitingOn('Idle', 'IDLE', '', 7));
+  assert.ok(!html.includes('row-verb'), 'Idle renders quietest — no state badge at all');
+  assert.match(html, /<span class="row-action">build the search index<\/span>/, 'falls back to the existing compass-headline display');
+});
+
+test('overviewRow: no waitingOn field at all (legacy/hand-built payload) degrades to the pre-009-02 compass display, unchanged (backward compat)', () => {
+  const html = overviewRow(mkProject());
+  assert.ok(!html.includes('row-verb'));
+  assert.match(html, /<span class="row-action">build the search index<\/span>/);
+});
+
+test('sortProjectsByWaitingOn: orders finish-first by rank ascending — MERGE > REVIEW > DECIDE > Ready > Idle (009-02 AC2)', () => {
+  const projects = [
+    withWaitingOn('Idle', 'IDLE', '', 7),
+    withWaitingOn('DECIDE', 'DECIDE', 'x', 3),
+    withWaitingOn('MERGE', 'MERGE', 'x', 1),
+    withWaitingOn('REVIEW', 'REVIEW', 'x', 2),
+  ];
+  const ranks = sortProjectsByWaitingOn(projects).map((p) => p.waitingOn.rank);
+  assert.deepEqual(ranks, [1, 2, 3, 7]);
+});
+
+test('sortProjectsByWaitingOn: Ready-resume (rank 4) sorts above Ready-start (rank 5) even though both are the "Ready" state label (009-02 AC2)', () => {
+  const start = withWaitingOn('Ready', 'READY', 'start 015-02', 5);
+  const resume = withWaitingOn('Ready', 'READY', 'resume 014-02', 4);
+  const ordered = sortProjectsByWaitingOn([start, resume]);
+  assert.equal(ordered[0], resume);
+  assert.equal(ordered[1], start);
+});
+
+test('sortProjectsByWaitingOn: a project with no waitingOn field sorts last, like Idle — never crashes, never assumed urgent (009-02 AC2)', () => {
+  const decide = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const bare = mkProject({ path: '/bare' });
+  delete bare.waitingOn;
+  const ordered = sortProjectsByWaitingOn([bare, decide]);
+  assert.equal(ordered[0], decide);
+  assert.equal(ordered[1], bare);
+});
+
+test('sortProjectsByWaitingOn: does not mutate the input array (pure)', () => {
+  const projects = [withWaitingOn('Idle', 'IDLE', '', 7), withWaitingOn('MERGE', 'MERGE', 'x', 1)];
+  const original = [...projects];
+  sortProjectsByWaitingOn(projects);
+  assert.deepEqual(projects, original);
+});
+
+test('waitingOnRank: reads p.waitingOn.rank, defaults to 7 (Idle-equivalent) when absent (009-02 AC2)', () => {
+  assert.equal(waitingOnRank(withWaitingOn('MERGE', 'MERGE', 'x', 1)), 1);
+  assert.equal(waitingOnRank(mkProject()), 7);
+  assert.equal(waitingOnRank({}), 7);
 });

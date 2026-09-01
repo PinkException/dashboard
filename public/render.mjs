@@ -9,9 +9,15 @@
 // under plain node:test with no jsdom (ADR-0001; plan.md "Testability
 // decision").
 //
-// Scope fence (AC7/AC8): nothing here derives a waiting-on state, reorders
-// projects, or renders a state tag/header count/action-queue toggle — that
-// is 009-02/009-03. Rows keep the project order they're given.
+// Scope note (009-02): this file now READS the `waitingOn` field 009-02 adds
+// to the payload (computed scan-side by src/lib.mjs's deriveWaitingOn — see
+// the taxonomy pinned in docs/specs/009-overview-redesign/
+// slice-02-waiting-on-state-and-ordering.md) and renders it as the row
+// headline (overviewRow) plus orders the grid by its rank
+// (sortProjectsByWaitingOn). It still never DERIVES the state itself and
+// still never imports src/lib.mjs — the browser has no route there; that
+// boundary is the reason 009-02 carries `arch_review: true`.
+// The action-queue toggle (009-03) remains out of scope here.
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -171,6 +177,42 @@ export function detailSpecList(p, { showAll = false } = {}) {
   return { specs: all.filter((s) => idSet.has(s.id)), filtered: true, trackTitle: track.title, total: all.length };
 }
 
+// --- 009-02 AC1: waiting-on headline (the next-move column's new content) ---
+// A non-Idle waiting-on state with a real action REPLACES the plain compass
+// line with "<VERB> <action>" — the card's headline (AC1). Idle, or a
+// project with no `waitingOn` at all (a hand-built/legacy payload — real
+// scanProject output always carries it), degrades to the exact pre-009-02
+// compass-headline display: Idle is deliberately the quiet, badge-free state
+// (AC1 "Idle renders quietest"), not a hollow phrase to suppress.
+function nextMoveCell(p) {
+  const w = p.waitingOn;
+  if (w && w.state !== 'Idle' && w.action) {
+    return (
+      // `w.state` doubles as the CSS class suffix here (`rv-${state}`) —
+      // renaming a state (e.g. deriveWaitingOn's 'Ready') must stay in sync
+      // with the matching `.rv-*` selectors in public/index.html.
+      `<span class="row-verb rv-${esc(w.state)}">${esc(w.verb)}</span>` +
+      `<span class="row-action">${esc(w.action)}</span>`
+    );
+  }
+  const nextLine = (p.compass && (p.compass.headline || p.compass.next)) || 'no compass snapshot yet';
+  return `<span class="row-action">${esc(shorten(nextLine, 140))}</span>`;
+}
+
+// --- 009-02 AC2: finish-first grid ordering ---
+// Ascending by `waitingOn.rank` (MERGE=1 ... Idle=7 — see deriveWaitingOn,
+// src/lib.mjs). A payload with no `waitingOn` at all sorts as Idle-equivalent
+// (last) rather than crashing or being assumed urgent.
+export function waitingOnRank(p) {
+  return p && p.waitingOn && typeof p.waitingOn.rank === 'number' ? p.waitingOn.rank : 7;
+}
+
+// Pure (does not mutate its input) — Array.prototype.sort in Node is a
+// stable sort, so projects sharing a rank keep their original relative order.
+export function sortProjectsByWaitingOn(projects) {
+  return [...(projects || [])].sort((a, b) => waitingOnRank(a) - waitingOnRank(b));
+}
+
 // --- overview row (AC1/AC2/AC3/AC7) ---
 function activityCell(p) {
   const { activeCount } = sessionCounts(p);
@@ -223,13 +265,12 @@ export function overviewRow(p) {
     pct === 100
       ? '<span class="chip chip-done">ALL SPECS DONE</span>'
       : '<span class="chip chip-active">ACTIVE</span>';
-  const nextLine = (p.compass && (p.compass.headline || p.compass.next)) || 'no compass snapshot yet';
   const heat = inFlightCount(p);
   const bucket = heatBucket(heat);
   const specFraction = `${p.progress.done}/${p.progress.denom}`;
   return rowShell(p, {
     chip,
-    nextmove: `<span class="row-action">${esc(shorten(nextLine, 140))}</span>`,
+    nextmove: nextMoveCell(p),
     inflight:
       `<span class="if-num heat-${bucket}">${heat}</span><span class="if-word heat-${bucket}">${bucket}</span>` +
       flightCellsSvg(heat) +
