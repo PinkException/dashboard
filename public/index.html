@@ -108,6 +108,16 @@
   .rv-REVIEW { color: var(--amber); }
   .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
   .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
+  /* Spec 009-04: External (a PR out for someone else's review) is recessive —
+     quieter than the You-states, louder than Idle (which shows no badge). */
+  .rv-External { color: var(--text-muted); background: transparent; border: 1px solid var(--border-soft); }
+
+  /* Spec 009-04: detail-view open-PR list. */
+  .prs { margin-top: 14px; }
+  .pr-row { display: flex; align-items: baseline; gap: 9px; padding: 3px 0; font: 12px var(--mono); }
+  .pr-link { color: var(--blue); text-decoration: none; }
+  .pr-title { color: var(--text-subhead); }
+  .pr-hint { color: var(--text-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
 
   .row-inflight { display: flex; flex-direction: column; gap: 7px; }
   .if-num { font: 600 26px/0.9 var(--mono); }

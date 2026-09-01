@@ -1,13 +1,29 @@
 ---
-status: DEFERRED
+status: ABANDONED
 dependencies: [003-01]
 last_verified:
 ---
 
 ## Slice 003-03 — pr-badges
 
-**Resolution trigger:** when PR state is wanted on session rows, AND the
-`gh`-subprocess-vs-bridge question below is decided (likely via a short ADR).
+**Abandonment reason (2026-09-01):** Resolved by **[ADR-0006](../../decisions/adr-0006-overview-triage-surface.md)
++ spec [009-04](../009-overview-redesign/slice-04-gh-pr-enrichment.md)**, not by
+building this slice as scoped. The capability 003-03 wanted — PR state visible in
+the dashboard without leaving it — now ships, but its **placement moved** off the
+individual session row into the glance-layer triage state (an approved-ready PR →
+**MERGE**, a PR awaiting the owner's review → **REVIEW**, a PR out for someone
+else → **External**) plus the detail view's PR list (009-04 AC1). The two open
+questions this slice waited on are both settled: **`gh`-on-scan-path vs the
+routine-snapshot bridge** was decided in favour of **`gh` on the scan path**
+(ADR-0006 "PR state is sourced via `gh` as an optional enrichment" — the scanner
+reads `gh` directly, degrading gracefully when absent), and the session-row
+placement it originally scoped was superseded by that same ADR. The
+session-row-badge *approach* is therefore deliberately dropped; nothing under
+003-03 was built. See 009-04 for the shipped behaviour and its tests.
+
+**Resolution trigger (historical — now satisfied):** when PR state is wanted on
+session rows, AND the `gh`-subprocess-vs-bridge question below is decided (likely
+via a short ADR).
 
 **Goal (deferred):** On a session row whose branch has an associated GitHub
 PR, show a small badge with the PR number and state (OPEN / MERGED / CLOSED),

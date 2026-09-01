@@ -715,11 +715,38 @@ function forcedWaitingOn(marker) {
 // `project` is shaped exactly as scanProject emits it (specs[].slices[]
 // carrying status/dependencies/file, workstreams[].{items,next}, compass);
 // `marker` is the project's optional `needsYou` config field (AC3).
-export function deriveWaitingOn(project, marker) {
+// spec 009-04: is a PR the owner's to merge right now? Author-agnostic — an
+// approved, mergeable PR is the owner's to land whoever opened it. Requires no
+// ownerLogin. (`BLOCKED`/`BEHIND`/`DIRTY`/`UNKNOWN` are NOT mergeable.)
+function prIsMergeable(prObj) {
+  return prObj.reviewDecision === 'APPROVED' && prObj.mergeStateStatus === 'CLEAN';
+}
+
+// The lowest PR number among a set — keeps the chosen PR deterministic when
+// several qualify for the same bucket (009-04 AC1).
+function lowestPrNumber(prs) {
+  return prs.reduce((lo, p) => (p.number < lo ? p.number : lo), prs[0].number);
+}
+
+// The single derived waiting-on state for one scanned project (AC1/AC2): the
+// highest-precedence candidate present, chosen from the pinned total order
+// MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) > External > Idle.
+// `project` is shaped exactly as scanProject emits it (specs[].slices[]
+// carrying status/dependencies/file, workstreams[].{items,next}, compass,
+// and — spec 009-04 — an optional `prs` array of open non-draft PRs);
+// `marker` is the project's optional `needsYou` config field (AC3).
+// `ownerLogin` (spec 009-04, OPTIONAL) is the owner's `gh` login captured once
+// per scan — the identity the REVIEW-from-PR / External-from-PR split keys on.
+// When it is null/empty those two PR branches are skipped (owner-identity
+// guard); MERGE-from-PR is author-agnostic and needs no login. The two-arg
+// contract 009-02 relied on is preserved (ownerLogin defaults to undefined).
+export function deriveWaitingOn(project, marker, ownerLogin) {
   if (marker) return forcedWaitingOn(marker);
 
   const specs = project.specs || [];
   const allSlices = specs.flatMap((s) => (s.slices || []).map((sl) => ({ ...sl, specId: s.id })));
+  const prs = project.prs || [];
+  const hasOwner = typeof ownerLogin === 'string' && ownerLogin.length > 0;
 
   const reconciled = allSlices.filter((sl) => sl.status === 'RECONCILED');
   if (reconciled.length) {
@@ -730,6 +757,12 @@ export function deriveWaitingOn(project, marker) {
       rank: 1,
     };
   }
+  // MERGE from a PR (rank 1). A reconciled slice above wins deterministically
+  // when both qualify.
+  const mergeablePrs = prs.filter(prIsMergeable);
+  if (mergeablePrs.length) {
+    return { state: 'MERGE', verb: 'MERGE', action: `merge PR #${lowestPrNumber(mergeablePrs)}`, rank: 1 };
+  }
 
   const reviewed = allSlices.filter((sl) => sl.status === 'REVIEWED');
   if (reviewed.length) {
@@ -739,6 +772,14 @@ export function deriveWaitingOn(project, marker) {
       action: `review ${reviewed.length} finished slice${reviewed.length === 1 ? '' : 's'}`,
       rank: 2,
     };
+  }
+  // REVIEW from a PR (rank 2): a PR awaiting the OWNER's review (owner-identity
+  // guard — skipped without a known ownerLogin).
+  if (hasOwner) {
+    const reviewPrs = prs.filter((p) => (p.reviewRequests || []).some((r) => r.login === ownerLogin));
+    if (reviewPrs.length) {
+      return { state: 'REVIEW', verb: 'REVIEW', action: `review PR #${lowestPrNumber(reviewPrs)}`, rank: 2 };
+    }
   }
 
   const youText = findYouNextStep(project.workstreams);
@@ -771,9 +812,28 @@ export function deriveWaitingOn(project, marker) {
     return { state: 'Ready', verb: 'READY', action: `start ${sliceToken(startable.specId, startable.file)}`, rank: 5 };
   }
 
-  // External (rank 6) is deferred to 009-04 (gh PR enrichment): no on-disk
-  // signal exists yet to reach this branch. Left unreachable on purpose
-  // rather than fabricating a signal, per the taxonomy's explicit note.
+  // External (rank 6, spec 009-04): a PR out for SOMEONE ELSE's review — a
+  // non-empty `reviewRequests` with the owner NOT among them, and not
+  // MERGE-eligible (that would have fired rank 1 already). Owner-conditional:
+  // without a known ownerLogin we cannot tell an owner-review PR from a
+  // someone-else PR, so the guard skips this branch entirely (never mis-file an
+  // owner-review PR as External).
+  if (hasOwner) {
+    const externalPrs = prs.filter((p) => {
+      // Only *User* review-requests (those carrying a `.login`) count. A
+      // review requested from a **team** carries no login, so it cannot be
+      // keyed against the owner — per assumption A4′ such a PR yields NO signal
+      // (falls through to disk state) rather than a mis-filed External, since
+      // the owner may or may not be the one on the hook (craft-nit fix).
+      const userReqs = (p.reviewRequests || []).filter((r) => r.login);
+      if (!userReqs.length) return false;
+      if (userReqs.some((r) => r.login === ownerLogin)) return false;
+      return !prIsMergeable(p);
+    });
+    if (externalPrs.length) {
+      return { state: 'External', verb: 'EXTERNAL', action: `PR #${lowestPrNumber(externalPrs)} out for review`, rank: 6 };
+    }
+  }
 
   return { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
 }

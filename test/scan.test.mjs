@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanProject, loadConfig, ConfigMissingError } from '../src/scan.mjs';
+import { scanProject, scanAll, buildGhContext, loadConfig, ConfigMissingError } from '../src/scan.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -85,6 +85,122 @@ test('scanProject: no waitingOn field for non-jig-managed or error projects (009
 test('scanProject: missing path is an error entry, not a crash', () => {
   const p = scanProject({ path: path.join(FIXTURES, 'does-not-exist'), pinnedWorkstreams: [], hiddenWorkstreams: [] });
   assert.ok(p.error);
+});
+
+// --- spec 009-04: gh-optional PR enrichment (scan integration, injected gh) ---
+// The gh context is injected so tests never depend on the host's gh binary.
+// Shape: { available, ownerLogin, listPRs(root) } — listPRs returns an array
+// or throws to simulate a failure/timeout.
+function fakeGh({ available = true, ownerLogin = 'owner-login', prs = [], throwErr = false } = {}) {
+  const calls = [];
+  return {
+    available,
+    ownerLogin,
+    calls,
+    listPRs(root) {
+      calls.push(root);
+      if (throwErr) throw new Error('simulated gh failure/timeout');
+      return prs;
+    },
+  };
+}
+
+const jigCfg = () => ({
+  path: path.join(FIXTURES, 'proj-jig'),
+  label: 'fixture project',
+  pinnedWorkstreams: ['docs/runbook-widget.md'],
+  hiddenWorkstreams: [],
+});
+
+test('scanProject: gh available + PRs → result.prs attached (drafts filtered) and waitingOn reflects them (009-04 AC1)', () => {
+  const gh = fakeGh({
+    prs: [
+      { number: 7, title: 'ready one', url: 'u', author: { login: 'someone-else' }, isDraft: false, reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] },
+      { number: 8, title: 'a draft', url: 'u', author: { login: 'someone-else' }, isDraft: true, reviewDecision: '', mergeStateStatus: '', reviewRequests: [] },
+    ],
+  });
+  const p = scanProject(jigCfg(), gh);
+  assert.equal(p.prs.length, 1, 'the draft PR is filtered out before attach');
+  assert.equal(p.prs[0].number, 7);
+  assert.deepEqual(p.waitingOn, { state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 }, 'approved PR MERGE outranks the fixture DECIDE');
+  assert.deepEqual(gh.calls, [path.join(FIXTURES, 'proj-jig')], 'listPRs called once with the project root');
+});
+
+test('scanProject: gh unavailable → no prs, waitingOn identical to a no-gh run (009-04 AC2 status-quo)', () => {
+  const base = jig();
+  const gh = fakeGh({ available: false, ownerLogin: null });
+  const p = scanProject(jigCfg(), gh);
+  assert.equal(p.prs, undefined, 'no prs field when gh is unavailable');
+  assert.deepEqual(p.waitingOn, base.waitingOn, 'identical to the no-gh derivation');
+  assert.equal(gh.calls.length, 0, 'no listPRs call when unavailable');
+});
+
+test('scanProject: gh listPRs throws → no prs, no exception, rest of payload intact (009-04 AC2/AC3)', () => {
+  const gh = fakeGh({ throwErr: true });
+  const p = scanProject(jigCfg(), gh);
+  assert.equal(p.prs, undefined, 'a listPRs failure degrades to no PR signal, never a crash');
+  assert.ok(p.specs.length > 0, 'the rest of the payload is intact');
+  assert.deepEqual(p.waitingOn, jig().waitingOn, 'waitingOn falls back to the disk-derived state');
+});
+
+test('scanProject: a non-jig-managed project triggers NO gh call (009-04 — reads live past the early return)', () => {
+  const gh = fakeGh({ prs: [{ number: 1, title: 't', url: 'u', author: { login: 'x' }, isDraft: false, reviewDecision: '', mergeStateStatus: '', reviewRequests: [] }] });
+  const p = scanProject({ path: path.join(FIXTURES, 'proj-plain'), label: 'plain', pinnedWorkstreams: [], hiddenWorkstreams: [] }, gh);
+  assert.equal(p.jigManaged, false);
+  assert.equal(gh.calls.length, 0, 'a non-jig project makes no gh PR read');
+});
+
+test('scanProject: bare scanProject(cfg) with no gh context is unchanged status quo (009-04 back-compat)', () => {
+  const p = scanProject(jigCfg());
+  assert.equal(p.prs, undefined);
+  assert.deepEqual(p.waitingOn, jig().waitingOn);
+});
+
+test('scanAll: an injected gh context threads through to each scanned project (009-04 seam)', () => {
+  const gh = fakeGh({
+    prs: [{ number: 7, title: 't', url: 'u', author: { login: 'x' }, isDraft: false, reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] }],
+  });
+  const data = scanAll({ projects: [jigCfg()] }, { gh });
+  assert.equal(data.projects[0].prs.length, 1);
+  assert.equal(data.projects[0].waitingOn.state, 'MERGE');
+});
+
+test('buildGhContext: the real read path passes a bounded timeout + cwd to both probe and pr-list (009-04 AC3)', () => {
+  const seen = [];
+  const run = (bin, args, opts) => {
+    seen.push({ bin, args, opts });
+    return args[0] === 'api' ? 'owner-login\n' : '[]';
+  };
+  const gh = buildGhContext(run);
+  assert.equal(gh.available, true);
+  assert.equal(gh.ownerLogin, 'owner-login');
+  gh.listPRs('/tmp/fixture-proj');
+  const probe = seen.find((c) => c.args[0] === 'api');
+  const list = seen.find((c) => c.args[0] === 'pr');
+  assert.equal(probe.bin, 'gh');
+  assert.ok(typeof probe.opts.timeout === 'number' && probe.opts.timeout > 0, 'probe is time-bounded');
+  assert.ok(typeof list.opts.timeout === 'number' && list.opts.timeout > 0, 'pr-list is time-bounded');
+  assert.equal(list.opts.cwd, '/tmp/fixture-proj', 'pr-list runs in the project root');
+});
+
+test('buildGhContext: any throw in the probe degrades to unavailable, ownerLogin null (009-04 AC3)', () => {
+  const gh = buildGhContext(() => {
+    throw new Error('ENOENT: gh not on PATH');
+  });
+  assert.equal(gh.available, false);
+  assert.equal(gh.ownerLogin, null);
+  assert.deepEqual(gh.listPRs('/tmp/fixture-proj'), [], 'the degraded context yields no PRs');
+});
+
+test('buildGhContext: authenticated but a blank/empty login degrades to unavailable (009-04 AC3)', () => {
+  // gh present + the probe succeeds but resolves no login (e.g. an odd auth
+  // state) — the owner identity the REVIEW/External split needs is absent, so
+  // the whole context degrades to unavailable rather than running PR reads with
+  // a null owner. (compliance-nit coverage: the authenticated-empty-login branch.)
+  const gh = buildGhContext((bin, args) => (args[0] === 'api' ? '\n' : '[]'));
+  assert.equal(gh.available, false);
+  assert.equal(gh.ownerLogin, null);
+  assert.deepEqual(gh.listPRs('/tmp/fixture-proj'), [], 'no login → no PR reads');
 });
 
 // --- spec 009-01: optional per-project description subtitle ---

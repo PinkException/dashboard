@@ -29,6 +29,7 @@ import {
   waitingOnRank,
   detailView,
   sessionsDetailBlock,
+  prsDetailBlock,
   activityTabPlaceholder,
   OVERVIEW_STATE,
   openDetail,
@@ -252,6 +253,53 @@ test('detailView: sessions section shows full list, older toggle, and "N active 
 
 test('detailView: sessions section is omitted entirely when the project has no sessions (AC5 regression)', () => {
   assert.equal(sessionsDetailBlock(mkProject({ sessions: [] })), '');
+});
+
+// --- spec 009-04: detail-view PR area (pure, reads p.prs) ---
+
+test('detailView: PR area lists each open PR with number, title, state hint, and url (009-04 AC1)', () => {
+  const p = mkProject({
+    prs: [
+      { number: 7, title: 'wire up the merge path', url: 'https://example.test/pull/7', reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] },
+      { number: 9, title: 'awaiting your look', url: 'https://example.test/pull/9', reviewDecision: '', mergeStateStatus: '', reviewRequests: [{ login: 'owner-login' }] },
+    ],
+  });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.match(html, /#7/);
+  assert.match(html, /wire up the merge path/);
+  assert.match(html, /approved/i, 'approved-and-clean PR shows the approved hint');
+  assert.match(html, /#9/);
+  assert.match(html, /awaiting your review/i, 'owner-requested PR shows the awaiting-your-review hint');
+  assert.match(html, /https:\/\/example\.test\/pull\/7/);
+  assert.match(html, /https:\/\/example\.test\/pull\/9/);
+});
+
+test('detailView: PR area shows the "out for review" hint for a non-owner reviewer (009-04 AC1)', () => {
+  const p = mkProject({
+    prs: [{ number: 3, title: 'someone else reviews', url: 'https://example.test/pull/3', reviewDecision: '', mergeStateStatus: '', reviewRequests: [{ login: 'someone-else' }] }],
+  });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.match(html, /out for review/i);
+});
+
+test('detailView: PR area is omitted entirely when there are no PRs — no empty-state noise (009-04 AC2)', () => {
+  assert.equal(prsDetailBlock(mkProject({ prs: [] }), 'owner-login'), '');
+  assert.equal(prsDetailBlock(mkProject({}), 'owner-login'), '');
+});
+
+test('detailView: PR titles are escaped (009-04 — matches the existing esc convention)', () => {
+  const p = mkProject({ prs: [{ number: 1, title: '<script>x</script>', url: 'https://example.test/pull/1', reviewDecision: '', mergeStateStatus: '', reviewRequests: [] }] });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /&lt;script&gt;/);
+});
+
+test('detailView: whole-view render includes the PR area when PRs are present (009-04 integration)', () => {
+  const html = detailView(mkProject({
+    prs: [{ number: 7, title: 'merge me', url: 'https://example.test/pull/7', reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] }],
+  }));
+  assert.match(html, /merge me/);
+  assert.match(html, /#7/);
 });
 
 test('detailView: worktree-only-docs warning renders when present, absent when not (AC5)', () => {

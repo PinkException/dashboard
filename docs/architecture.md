@@ -48,8 +48,12 @@ dashboard/
   the package.
 - **Package manager:** npm, dev-only; there are **zero runtime dependencies**.
 - **Database / state:** none — rescan from disk on every request.
-- **Key external services:** none. The only subprocess is `git` (read-only
-  queries per scanned project).
+- **Key external services:** GitHub, reached **only** through the optional `gh`
+  CLI (spec 009-04) — a graceful enrichment, never required. Subprocesses are
+  `git` (read-only queries per scanned project, always) and `gh` (read-only PR
+  queries, **only when installed + authenticated**; every failure — absent,
+  unauthenticated, offline, timeout — degrades to the exact no-`gh` behavior, so
+  the `git clone && node server.mjs` install promise is preserved).
 
 ## Core architecture decisions
 
@@ -121,7 +125,13 @@ One-directional, read-only coupling:
   `deriveWaitingOn` (spec 009-02): the intent-scoped triage derivation that
   reduces a project to one `waitingOn: { state, verb, action, rank }` from its
   slice statuses, owner (`**(you)**`) tags, compass blockers, and an optional
-  owner-set `needsYou` marker.
+  owner-set `needsYou` marker. **Stays pure** across the spec 009-04 PR
+  enrichment: it gains an optional third `ownerLogin` arg and reads a
+  `project.prs` array, but performs no I/O — the `gh` calls that populate those
+  inputs live in `src/scan.mjs`. PR signals fold into the existing precedence
+  (approved+CLEAN → MERGE; owner in `reviewRequests` → REVIEW; a non-owner
+  reviewer → the previously-reserved External slot), owner-conditional so an
+  owner-review PR is never mis-filed as External.
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
@@ -140,7 +150,14 @@ One-directional, read-only coupling:
   longest-root tie-break needs every configured root at once. Each scanned
   project also carries a derived `waitingOn` field (spec 009-02, via
   `deriveWaitingOn`); it is omitted for error / non-jig payloads (the page treats
-  an absent field as Idle-equivalent).
+  an absent field as Idle-equivalent). **Optional `gh` read-boundary (spec
+  009-04):** when `gh` is installed + authenticated, `scanAll` builds a
+  once-per-scan `gh` context (`buildGhContext`, an injectable-runner seam that
+  captures the owner login) and each jig-managed project gets a bounded,
+  read-only `gh pr list` (placed *after* the non-jig early return, so non-jig
+  projects make no call); the resulting non-draft `prs` feed `deriveWaitingOn`.
+  Like the session-store read, it is snapshot-from-disk-category (no live
+  client) and lenient — any `gh` failure yields no `prs`, never a throw.
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html`, `/render.mjs` (the client render module, one explicit
   fixed-path route — no static-file server, no path-traversal surface; spec
@@ -249,7 +266,12 @@ Stateless by design — same disk state → same page (vision principle 2):
   fields, per spec 003's plan). Spec 009-02 adds a per-project derived
   `waitingOn: { state, verb, action, rank }` (state ∈ DECIDE/REVIEW/MERGE/Ready/
   External/Idle; the triage headline + finish-first sort key); omitted for
-  error / non-jig projects, which the page treats as Idle-equivalent.
+  error / non-jig projects, which the page treats as Idle-equivalent. Spec 009-04
+  additively adds, **only when `gh` is available**, a per-project `prs` array
+  (open non-draft PRs: `{ number, title, url, author, reviewDecision,
+  mergeStateStatus, reviewRequests }`) and an `ownerLogin` string (the detail
+  view keys each PR's hint on it); both absent on a no-`gh` run, and the page
+  renders identically without them.
 
 ## Open questions
 

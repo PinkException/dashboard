@@ -869,3 +869,141 @@ test('mutation check: absent the marker, the same project derives its own signal
   });
   assert.equal(deriveWaitingOn(p).state, 'Ready', 'no marker present — falls through to the derived signal, not DECIDE');
 });
+
+// --- spec 009-04: gh-optional PR enrichment folded into deriveWaitingOn ---
+// The pure function gains an OPTIONAL third arg (ownerLogin) and reads
+// project.prs (drafts already filtered upstream in scanProject). PR signals
+// fold into the existing precedence without reordering it. ownerLogin is the
+// owner-identity guard: the REVIEW-from-PR and External-from-PR branches only
+// fire when it is a non-empty string.
+
+const OWNER = 'owner-login';
+
+// A PR object shaped as scanProject attaches it (post-draft-filter).
+function pr(number, { reviewDecision = '', mergeStateStatus = '', reviewRequests = [] } = {}) {
+  return {
+    number,
+    title: `PR ${number}`,
+    url: `https://example.test/pull/${number}`,
+    author: { login: 'someone-else' },
+    isDraft: false,
+    reviewDecision,
+    mergeStateStatus,
+    reviewRequests,
+  };
+}
+
+// Only PRs (no disk You-signal) so the PR branch is what's under test.
+function prProj(prs) {
+  return { specs: [{ id: '030-x', title: 'X', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DONE')] }], prs };
+}
+
+test('deriveWaitingOn: MERGE from PR — approved + CLEAN fires rank-1 MERGE, action names the PR (009-04 AC1)', () => {
+  const p = prProj([pr(7, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' })]);
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.deepEqual(w, { state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 });
+});
+
+test('deriveWaitingOn: MERGE from PR is author-agnostic — fires even with ownerLogin null (009-04 AC1)', () => {
+  const p = prProj([pr(7, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' })]);
+  const w = deriveWaitingOn(p, undefined, null);
+  assert.equal(w.state, 'MERGE');
+  assert.equal(w.action, 'merge PR #7');
+});
+
+test('deriveWaitingOn: MERGE from PR — approved but BLOCKED/BEHIND/DIRTY/UNKNOWN does NOT qualify (009-04 AC1)', () => {
+  for (const m of ['BLOCKED', 'BEHIND', 'DIRTY', 'UNKNOWN']) {
+    const p = prProj([pr(7, { reviewDecision: 'APPROVED', mergeStateStatus: m })]);
+    assert.notEqual(deriveWaitingOn(p, undefined, OWNER).state, 'MERGE', `${m} is not mergeable`);
+  }
+});
+
+test('deriveWaitingOn: MERGE from PR — lowest-numbered qualifying PR chosen, deterministic (009-04 AC1)', () => {
+  const p = prProj([
+    pr(9, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' }),
+    pr(4, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' }),
+  ]);
+  assert.equal(deriveWaitingOn(p, undefined, OWNER).action, 'merge PR #4');
+});
+
+test('deriveWaitingOn: a reconciled slice still wins MERGE deterministically when an approved PR also qualifies (009-04)', () => {
+  const p = {
+    specs: [{ id: '031-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'RECONCILED')] }],
+    prs: [pr(7, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' })],
+  };
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.equal(w.state, 'MERGE');
+  assert.equal(w.action, 'land 1 reconciled slice', 'reconciled-slice action is the deterministic winner');
+});
+
+test('deriveWaitingOn: REVIEW from PR — owner in reviewRequests fires rank-2 REVIEW, action names the PR (009-04 AC1)', () => {
+  const p = prProj([pr(12, { reviewRequests: [{ login: OWNER }] })]);
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.deepEqual(w, { state: 'REVIEW', verb: 'REVIEW', action: 'review PR #12', rank: 2 });
+});
+
+test('deriveWaitingOn: REVIEW from PR — lowest-numbered owner-requested PR chosen (009-04)', () => {
+  const p = prProj([
+    pr(20, { reviewRequests: [{ login: OWNER }] }),
+    pr(11, { reviewRequests: [{ login: OWNER }] }),
+  ]);
+  assert.equal(deriveWaitingOn(p, undefined, OWNER).action, 'review PR #11');
+});
+
+test('deriveWaitingOn: External — a non-owner reviewer, owner not among them, not MERGE-eligible → rank-6 External (009-04 AC1)', () => {
+  const p = prProj([pr(5, { reviewRequests: [{ login: 'someone-else' }] })]);
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.deepEqual(w, { state: 'External', verb: 'EXTERNAL', action: 'PR #5 out for review', rank: 6 });
+});
+
+test('deriveWaitingOn: a TEAM-requested review (no login) yields NO External signal, falls through to disk state (009-04 A4′)', () => {
+  // A review requested from a team carries no `.login`, so it cannot be keyed
+  // to the owner — per assumption A4′ it must produce no PR signal rather than
+  // a mis-filed External. Here the disk side is Idle, so the whole project is
+  // Idle (not External).
+  const p = prProj([pr(7, { reviewRequests: [{ __typename: 'Team', slug: 'reviewers' }] })]);
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.equal(w.state, 'Idle', 'a team-only review request is not filed as External (A4′)');
+});
+
+test('deriveWaitingOn: REGRESSION — owner IS the requested reviewer is REVIEW (You), never mis-filed as External (009-04 frame-critique blocker)', () => {
+  // Both the owner and someone else are requested — the owner-present case
+  // must resolve to REVIEW (rank 2), not External (rank 6).
+  const p = prProj([pr(5, { reviewRequests: [{ login: 'someone-else' }, { login: OWNER }] })]);
+  const w = deriveWaitingOn(p, undefined, OWNER);
+  assert.equal(w.state, 'REVIEW');
+  assert.equal(w.rank, 2);
+});
+
+test('deriveWaitingOn: owner-identity guard — ownerLogin null skips REVIEW-from-PR and External-from-PR, falls through to disk state (009-04)', () => {
+  // An owner-review PR with no known owner login must NOT become External and
+  // must NOT become REVIEW — it falls through to the disk-derived state.
+  const p = {
+    specs: [{ id: '032-x', title: 'X', status: 'DRAFT', slices: [slice('slice-01-a.md', 'DRAFT')] }],
+    prs: [pr(5, { reviewRequests: [{ login: 'someone-else' }] })],
+  };
+  const w = deriveWaitingOn(p, undefined, null);
+  assert.equal(w.state, 'Ready', 'falls through to the disk-derived Ready(start), never External/REVIEW without an owner login');
+});
+
+test('deriveWaitingOn: a PR matching none of the three contributes no signal — falls through to disk state (009-04 AC1)', () => {
+  const p = {
+    specs: [{ id: '033-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }],
+    prs: [pr(5, { reviewDecision: 'CHANGES_REQUESTED', mergeStateStatus: 'DIRTY', reviewRequests: [] })],
+  };
+  assert.equal(deriveWaitingOn(p, undefined, OWNER).state, 'Ready', 'no PR bucket matches — disk Ready(resume) stands');
+});
+
+test('deriveWaitingOn: missing/empty project.prs is treated as no PR signal (009-04 backward-compat)', () => {
+  const p = { specs: [{ id: '034-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }] };
+  assert.equal(deriveWaitingOn(p, undefined, OWNER).state, 'Ready', 'no prs field — status quo');
+  const p2 = { ...p, prs: [] };
+  assert.equal(deriveWaitingOn(p2, undefined, OWNER).state, 'Ready');
+});
+
+test('deriveWaitingOn: two-arg call is still valid (backward-compatible signature) (009-04)', () => {
+  const p = prProj([pr(7, { reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN' })]);
+  // Without ownerLogin the third arg is undefined — MERGE (author-agnostic)
+  // still fires; the two-arg contract 009-02 relied on is preserved.
+  assert.equal(deriveWaitingOn(p, undefined).state, 'MERGE');
+});

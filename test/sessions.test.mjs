@@ -120,7 +120,10 @@ test('AC9: reading the store writes nothing under it', () => {
 test('AC6 (JSON contract via scanAll): sessions + sessionsTotal attached, even to a project whose local path does not exist', () => {
   process.env.DASHBOARD_SESSION_STORE = STORE;
   try {
-    const data = scanAll({ projects: [{ path: '/fixture/proj-a', pinnedWorkstreams: [], hiddenWorkstreams: [] }] });
+    // Inject a disabled gh context (009-04) so scanAll stays hermetic — it
+    // must not shell out to the host's real gh binary during the suite.
+    const gh = { available: false, ownerLogin: null, listPRs: () => [] };
+    const data = scanAll({ projects: [{ path: '/fixture/proj-a', pinnedWorkstreams: [], hiddenWorkstreams: [] }] }, { gh });
     const p = data.projects[0];
     assert.ok(p.error); // the local checkout path is fake; unrelated to session attribution
     assert.ok(Array.isArray(p.sessions));
