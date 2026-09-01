@@ -6,7 +6,9 @@ last_verified:
 
 ## Slice 003-03 — pr-badges
 
-**Abandonment reason (2026-09-01):** Resolved by **[ADR-0006](../../decisions/adr-0006-overview-triage-surface.md)
+**Abandonment reason:** Superseded by ADR-0006 + spec 009-04 (2026-09-01) — PR state ships in the glance triage state (MERGE/REVIEW/External) + detail view, not session-row badges. Full context below.
+
+Resolved by **[ADR-0006](../../decisions/adr-0006-overview-triage-surface.md)
 + spec [009-04](../009-overview-redesign/slice-04-gh-pr-enrichment.md)**, not by
 building this slice as scoped. The capability 003-03 wanted — PR state visible in
 the dashboard without leaving it — now ships, but its **placement moved** off the

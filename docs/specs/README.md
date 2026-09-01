@@ -36,7 +36,7 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage rows + project detail view (the split) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
-| [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | REVIEWED (claude/009-04-full-jig-cere…) |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | RECONCILED (claude/009-04-full-jig-cere…) |  |
 
 ## Abandoned slices
 
@@ -44,7 +44,7 @@
 
 | Spec | Slice | Abandonment reason |
 |------|-------|---------------------|
-| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges |  |
+| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | Superseded by ADR-0006 + spec 009-04 (2026-09-01) — PR state ships in the glance triage state (MERGE/REVIEW/External) + detail view, not session-row badges. Full context below. |
 
 ## Richer-skill selection audit (spec 096-05)
 

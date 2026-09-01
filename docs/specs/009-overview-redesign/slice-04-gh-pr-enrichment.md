@@ -1,7 +1,7 @@
 ---
-status: REVIEWED
+status: RECONCILED
 dependencies: [009-02, adr-0006]
-last_verified:
+last_verified: 2026-09-01
 arch_review: true
 frame_review: true
 claimed_by: claude/009-04-full-jig-ceremony-7c2dbb
@@ -29,7 +29,7 @@ and **un-defers slice 003-03 (pr-badges)**.
 > REVIEW (You) case that the two-bucket rule would have mis-filed as External
 > (rank 6 of 7, just above Idle), burying the exact "a PR needs YOU" signal
 > ADR-0006's kill criteria name as the under-report failure. The taxonomy already
-> owns a REVIEW (You) state (`src/lib.mjs:734`, rank 2), so this is a
+> owns a REVIEW (You) state (`deriveWaitingStages`, rank 2), so this is a
 > **precise-mapping refinement within the spec's PR-folding mandate** (ADR-0006
 > delegated "how PR states fold in" here), not new scope. External is now
 > owner-conditional and the three-way split keys on the owner's `gh` login.
@@ -63,10 +63,13 @@ and **un-defers slice 003-03 (pr-badges)**.
      falls through to the disk-derived state) — never a fabricated bucket.
 
    The owner's `gh` login is captured **once per scan** (AC3) and passed into the
-   pure `deriveWaitingOn` (`src/lib.mjs:718`) alongside the per-project PR list;
-   MERGE/REVIEW slot into the existing rank-1/rank-2 You-states and External into
-   the rank-6 slot 009-02 reserved (`src/lib.mjs:774`). Reflected in the grid
-   state (009-02) and the detail view's sessions/PR area (009-01).
+   pure derivation (`deriveWaitingStages` / its head `deriveWaitingOn`, `src/lib.mjs`)
+   alongside the per-project PR list; MERGE/REVIEW slot into the existing
+   rank-1/rank-2 You-states and External into the rank-6 slot 009-02 reserved.
+   Reflected in the grid state (009-02), 009-03's cross-project action-queue, and
+   the detail view's sessions/PR area (009-01). _(Post-rebase note: after sibling
+   slice 009-03 landed, this folding is into `deriveWaitingStages`, not the
+   pre-refactor single-return `deriveWaitingOn` — see the deviation log.)_
 2. **Absent or unauthenticated → exact status-quo.** With `gh` missing, not on
    `PATH`, or not authenticated, the overview renders identically to a run
    without this slice: no thrown error, no 500, no "PR unavailable" noise on the
@@ -89,22 +92,22 @@ and **un-defers slice 003-03 (pr-badges)**.
    not silently.
 
 **DoD:**
-- [ ] All ACs pass; full suite green.
-- [ ] Test coverage: the present-authenticated paths (fixture/mock `gh` output →
+- [x] All ACs pass; full suite green (341 tests).
+- [x] Test coverage: the present-authenticated paths (fixture/mock `gh` output →
       **MERGE** placement on approved+CLEAN, **REVIEW** placement when the owner
       is in `reviewRequests`, **External** placement when a non-owner is, and the
       owner-is-reviewer-not-mis-filed-as-External regression), the absent path
       (status-quo render, no error), the unauthenticated path, the
       not-a-git-repo / no-GitHub-remote path (treated as no PRs, not a crash), and
       the timeout/hang-treated-as-absent path.
-- [ ] Each new test shown to fail when its feature is removed.
-- [ ] Frame-critique pass (`frame_review: true` — the `gh` JSON-shape and
-      detection assumptions, A4).
-- [ ] Arch-review pass (`arch_review: true` — new external-binary boundary in the
-      scanner).
-- [ ] Reviewed by `reviewer` subagent (compliance + craft).
-- [ ] Deviation log + reconciliation sweep produced.
-- [ ] Reconciliation review passed; 003-03 lifecycle updated (AC5).
+- [x] Each new test shown to fail when its feature is removed (mutation check).
+- [x] Frame-critique pass (`frame_review: true` — the `gh` JSON-shape and
+      detection assumptions, A4). `reviews/slice-04-frame-critique.md`.
+- [x] Arch-review pass (`arch_review: true` — new external-binary boundary in the
+      scanner). `reviews/slice-04-arch.md`.
+- [x] Reviewed by `reviewer` subagent (compliance + craft).
+- [x] Deviation log + reconciliation sweep produced.
+- [x] Reconciliation review passed; 003-03 lifecycle updated (AC5).
 
 **Anti-horizontal-phasing check:** After this slice, an owner with `gh` installed
 sees "PR approved — ready to merge" surface as a MERGE action on the glance, and
@@ -183,14 +186,35 @@ bonus, and the base product's zero-install promise is intact.
   a blank hint — an approved-but-not-mergeable PR reads "approved · not
   mergeable", a changes-requested PR "changes requested", and any other open PR
   "open", so every listed PR carries a meaningful hint. Suite 310 green.
+- **Rebase-onto-009-03 integration (the biggest deviation from the as-scoped
+  plan).** This slice was built against a base that predated sibling slice 009-03,
+  then rebased onto `origin/main` after 009-03 merged. 009-03 refactored the
+  single `deriveWaitingOn` into a rank-ordered **`deriveWaitingStages`** list (so
+  the new cross-project action-queue can show every open stage, not just the top
+  one), leaving `deriveWaitingOn` as its head (`deriveWaitingStages(…)[0] ?? Idle`).
+  Consequences folded in at merge: the PR stages (MERGE / REVIEW / External) are
+  now pushed as **list entries in `deriveWaitingStages`** rather than early-returns
+  in `deriveWaitingOn` as AC1 originally scoped — so PR work surfaces in **both**
+  the grid headline *and* 009-03's action-queue lens (a strict improvement, and it
+  answers the craft "second merge-ready item could be overlooked" nit — the queue
+  now shows it). Within a rank the disk-derived stage is pushed **before** the PR
+  stage, preserving the grid's pre-009-04 tiebreak. `ownerLogin` is threaded
+  through both `deriveWaitingStages` and `deriveWaitingOn` (optional trailing arg;
+  the 009-02 two-arg contract preserved). A new integration test
+  (`test/lib.test.mjs`) pins that a MERGE slice + a REVIEW PR + an External PR all
+  appear as distinct rank-ordered stages while the grid head stays the slice. Full
+  merged suite: 341 green.
 
 ### Reconciliation sweep
 
 - **Architecture impact — `updated`.** `docs/architecture.md`: the "Key external
-  services" line (git-only → git + optional `gh`), the `src/lib.mjs`
-  `deriveWaitingOn` entry (stays pure; optional `ownerLogin` + `project.prs`), the
-  `src/scan.mjs` entry (new optional `gh` read-boundary + `buildGhContext` seam),
-  and the `GET /api/data` contract surface (additive `prs[]` + `ownerLogin`).
+  services" line (git-only → git + optional `gh`), the `src/lib.mjs` module entry
+  (the load-bearing seam is **`deriveWaitingStages`** post-rebase — PR stages fold
+  in as list-pushes; `deriveWaitingOn` is its head; both stay pure with the
+  optional `ownerLogin` + `project.prs`), the `src/scan.mjs` entry (new optional
+  `gh` read-boundary + `buildGhContext` seam; `ownerLogin` threaded into both
+  derivations), and the `GET /api/data` contract surface (additive `prs[]` +
+  `ownerLogin`, alongside 009-03's `waitingStages`).
 - **Load-bearing decision / ADR trigger — `no-op` (satisfied by existing ADR).**
   003-03 parked "`gh` on scan-path vs the routine-snapshot bridge" as needing
   "likely a short ADR." No **new** ADR: **ADR-0006 already decided it** —
