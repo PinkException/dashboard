@@ -1,10 +1,9 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: [009-04, adr-0007]
 last_verified: 2026-09-02
 arch_review: true
 frame_review: true
-claimed_by: claude/009-04-full-jig-ceremony-7c2dbb
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
