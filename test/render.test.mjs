@@ -28,6 +28,7 @@ import {
   runningNowCount,
   sortProjectsByWaitingOn,
   waitingOnRank,
+  mergePrDeltas,
   detailView,
   sessionsDetailBlock,
   prsDetailBlock,
@@ -661,6 +662,53 @@ test('waitingOnRank: reads p.waitingOn.rank, defaults to 7 (Idle-equivalent) whe
   assert.equal(waitingOnRank(withWaitingOn('MERGE', 'MERGE', 'x', 1)), 1);
   assert.equal(waitingOnRank(mkProject()), 7);
   assert.equal(waitingOnRank({}), 7);
+});
+
+// --- spec 010-01: two-phase load — client-side keyed merge of PR deltas ---
+
+test('mergePrDeltas: swaps waitingOn/waitingStages and adds prs/ownerLogin by matching path, leaves the rest of the project untouched (010-01 AC3)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const delta = {
+    path: disk.path,
+    ownerLogin: 'owner-login',
+    prs: [{ number: 7, title: 'ready one' }],
+    waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 },
+    waitingStages: [{ state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 }],
+  };
+  const [merged] = mergePrDeltas([disk], [delta]);
+  assert.deepEqual(merged.waitingOn, delta.waitingOn);
+  assert.deepEqual(merged.waitingStages, delta.waitingStages);
+  assert.deepEqual(merged.prs, delta.prs);
+  assert.equal(merged.ownerLogin, 'owner-login');
+  assert.equal(merged.name, disk.name, 'fields the delta does not carry stay from the disk payload');
+});
+
+test('mergePrDeltas: a project absent from the deltas is unchanged (010-01 AC3/AC4)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const [merged] = mergePrDeltas([disk], []);
+  assert.deepEqual(merged, disk);
+});
+
+test('mergePrDeltas: does not mutate the input projects array or its entries (pure)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const projects = [disk];
+  const delta = { path: disk.path, waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'x', rank: 1 }, waitingStages: [] };
+  mergePrDeltas(projects, [delta]);
+  assert.equal(projects[0], disk, 'the input array is untouched');
+  assert.deepEqual(disk.waitingOn, { state: 'DECIDE', verb: 'DECIDE', action: 'x', rank: 3 }, 'the original project object is untouched');
+});
+
+test('mergePrDeltas: a merged, PR-promoted project moves ahead after re-sort (010-01 AC3)', () => {
+  const alpha = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const beta = mkProject({ path: '/projects/beta', waitingOn: { state: 'Idle', verb: 'IDLE', action: '', rank: 7 } });
+  const delta = {
+    path: beta.path,
+    waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'merge PR #3', rank: 1 },
+    waitingStages: [{ state: 'MERGE', verb: 'MERGE', action: 'merge PR #3', rank: 1 }],
+  };
+  const merged = mergePrDeltas([alpha, beta], [delta]);
+  const ordered = sortProjectsByWaitingOn(merged);
+  assert.equal(ordered[0].path, beta.path, 'the PR-promoted project (now MERGE, rank 1) sorts ahead of the disk-only DECIDE project');
 });
 
 // --- spec 009-03: cross-project action-queue lens ---

@@ -730,6 +730,22 @@ export function scanAll(config, { gh } = {}) {
   };
 }
 
+// Spec 010-01: two-phase load, phase-two delta extraction. Pure — maps a
+// `scanAll` result (run with a real, gh-enriched context) to the per-project
+// fields the disk-only `/api/data` payload lacks or that PRs change, keyed on
+// `path`. `ownerLogin`/`prs` are included only when scanProject attached them
+// (gh available); `waitingOn`/`waitingStages` are always carried, together,
+// so the client swaps both atomically and never desyncs them (AC5).
+export function prDeltas(scanResult) {
+  return scanResult.projects.map((p) => ({
+    path: p.path,
+    ...(p.ownerLogin !== undefined ? { ownerLogin: p.ownerLogin } : {}),
+    ...(p.prs !== undefined ? { prs: p.prs } : {}),
+    waitingOn: p.waitingOn,
+    waitingStages: p.waitingStages,
+  }));
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cfg = loadConfig(resolveConfigPath());
   process.stdout.write(JSON.stringify(scanAll(cfg), null, 2) + '\n');

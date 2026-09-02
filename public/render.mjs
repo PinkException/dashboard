@@ -218,6 +218,33 @@ export function sortProjectsByWaitingOn(projects) {
   return [...(projects || [])].sort((a, b) => waitingOnRank(a) - waitingOnRank(b));
 }
 
+// Spec 010-01 (ADR-0007): phase-two client merge — a pure, keyed field-swap,
+// no derivation. Each project matched by `path` gets `waitingOn`/
+// `waitingStages` replaced and `prs`/`ownerLogin` added from its delta (both
+// atomically, from the same delta object, so the single-source invariant
+// waitingOn === waitingStages[0] survives the fold — AC5); a project absent
+// from `deltas` is returned unchanged. Pure — neither input is mutated.
+export function mergePrDeltas(projects, deltas) {
+  const byPath = new Map((deltas || []).map((d) => [d.path, d]));
+  return (projects || []).map((p) => {
+    const d = byPath.get(p.path);
+    if (!d) return p;
+    const merged = { ...p };
+    // Swap the waiting-on pair only when the delta carries it, and always
+    // TOGETHER (never one without the other) so the single-source invariant
+    // waitingOn === waitingStages[0] cannot desync (AC5). prDeltas always emits
+    // both; the `in`-guard makes the only-when-present intent explicit and stops
+    // a future partial delta from wiping a phase-one headline (arch nit).
+    if ('waitingOn' in d && 'waitingStages' in d) {
+      merged.waitingOn = d.waitingOn;
+      merged.waitingStages = d.waitingStages;
+    }
+    if ('ownerLogin' in d) merged.ownerLogin = d.ownerLogin;
+    if ('prs' in d) merged.prs = d.prs;
+    return merged;
+  });
+}
+
 // --- overview row (AC1/AC2/AC3/AC7) ---
 function activityCell(p) {
   const { activeCount } = sessionCounts(p);
