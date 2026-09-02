@@ -37,6 +37,7 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
+| [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | DRAFT |  |
 
 ## Abandoned slices
 
