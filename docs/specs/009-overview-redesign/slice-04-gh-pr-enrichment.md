@@ -137,6 +137,14 @@ bonus, and the base product's zero-install promise is intact.
   requested from a **team** rather than a user (`reviewRequests` can carry a Team
   entry), may not key cleanly on a single login — treated as "no PR signal" (falls
   through to disk state), never mis-filed. Recorded, not solved here._
+  > **Correction (2026-09-02, owner-confirmed).** The **multi-account** half of
+  > this residual does not apply: the owner has **a single GitHub identity**
+  > (the account `Kyarha` was renamed to `PinkException`; `gh api user` returns the
+  > current login, which is the sole correct identity to key on). Only the
+  > **team-review-request** half is a real residual — a review requested from a
+  > GitHub Team carries no per-user `login`, so it degrades to "no PR signal"
+  > (never mis-filed). No code change: keying on the single active `gh` login is
+  > correct.
 - **A4 (carried from spec) — `gh pr list` JSON maps onto the waiting-on states.**
   Now grounded by the probe above and the owner-keyed mapping in AC1; the
   frame-critique that falsified the original two-bucket framing is resolved in the
