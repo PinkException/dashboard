@@ -43,3 +43,11 @@ This spec cites the pre-rename names (`project-dashboard`,
 user config `~/.claude/my-dashboard/config.json`. Recorded in the amendment
 on [ADR-0003](../../decisions/adr-0003-claude-plugin-distribution.md);
 original prose preserved because closed specs are records.
+
+- **2026-09-02 — second rename `Kyarha` → `PinkException`.** The account/repo owner
+  `Kyarha` was later renamed to `PinkException` (single identity); the repo is now
+  `PinkException/dashboard` and install is
+  `/plugin marketplace add PinkException/dashboard`. Recorded in the second
+  amendment on [ADR-0003](../../decisions/adr-0003-claude-plugin-distribution.md);
+  original prose preserved. Read `PinkException/dashboard` wherever this spec (and
+  its slice) say `Kyarha/dashboard` or `Kyarha/project-dashboard`.

@@ -96,3 +96,17 @@ files ended up in a public repo. The audience already lives in Claude Code
 - **Manual zip / git-clone install**: works (and still does for
   non-Claude users via `node src/server.mjs`), but has no update story and
   no discoverability alongside jig.
+
+## Amendments
+
+- **2026-09-02 — account/repo rename `Kyarha` → `PinkException`.** The GitHub
+  account `Kyarha` was renamed to **`PinkException`** — a rename, single identity,
+  not a new account or a re-fork. The repo is therefore now
+  **`PinkException/dashboard`** and the install line is
+  `/plugin marketplace add PinkException/dashboard` (then
+  `/plugin install dashboard@dashboard`, unchanged). The `Kyarha/*` references in
+  the body above are **preserved** per jig's records-vs-live-prose rule (this ADR
+  is a record); GitHub redirects the old URLs. Live prose (`CLAUDE.md`), the
+  `README`, and the plugin/marketplace manifests
+  (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`) are updated
+  inline to the new name.

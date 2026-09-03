@@ -45,3 +45,9 @@ the amendment on
 original prose is preserved in place per jig's records-vs-live-prose rule
 (closed specs are records); read `dashboard` wherever it says
 `project-dashboard`.
+
+- **2026-09-02 — second rename `Kyarha` → `PinkException`.** The account/repo owner
+  `Kyarha` was later renamed to `PinkException` (single identity); the repo is now
+  `PinkException/dashboard`. See the amendment on
+  [ADR-0003](../../decisions/adr-0003-claude-plugin-distribution.md). Original prose
+  preserved; read `PinkException/dashboard` wherever this spec says `Kyarha/dashboard`.

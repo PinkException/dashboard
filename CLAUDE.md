@@ -56,7 +56,9 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 
 Spec 002 (dashboard MVP) shipped 2026-07-13. Spec 004 (Claude Code plugin
 packaging, ADR-0003) landed 2026-07-22, followed the same day by the
-rename recorded in the ADR-0003 amendment: repo `Kyarha/dashboard`, plugin
+rename recorded in the ADR-0003 amendment: repo `Kyarha/dashboard` (later
+`PinkException/dashboard` — the GitHub account `Kyarha` was renamed to
+`PinkException` 2026-09-02; a rename, single identity), plugin
 `dashboard@dashboard` (v0.2.1, installed at user scope), skill
 `/dashboard:open`, user data folder `~/.claude/my-dashboard/`. The owner
 has no `~/.claude/my-dashboard/config.json` yet — the first `/dashboard:open`
