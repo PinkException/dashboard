@@ -390,7 +390,47 @@ function scanCompass(root) {
   };
 }
 
-export function scanProject(projectCfg) {
+// spec 009-04: gh-optional PR enrichment. `gh` is an optional external binary
+// of the same category as the existing `git` shell-out (ADR-0006 / ADR-0001 —
+// a shelled binary is not a bundled npm dependency). All gh access degrades to
+// no-PR on ANY failure (missing binary, unauthenticated, timeout, bad JSON),
+// never crashing the scan (AC2/AC3).
+const GH_TIMEOUT_MS = 5000;
+
+// Builds the once-per-scan gh context. `run` is injectable (defaults to
+// execFileSync) so tests exercise the real probe/read logic with a fake runner
+// and never depend on the host's gh binary. Returns
+// `{ available, ownerLogin, listPRs(root) }`. The owner login is captured once
+// (AC3) — the identity deriveWaitingOn's REVIEW/External split keys on. On any
+// probe failure the context degrades to unavailable with a no-op listPRs.
+export function buildGhContext(run = execFileSync) {
+  const opts = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: GH_TIMEOUT_MS, killSignal: 'SIGKILL' };
+  let ownerLogin = null;
+  try {
+    const login = run('gh', ['api', 'user', '--jq', '.login'], opts).trim();
+    if (login) ownerLogin = login;
+  } catch {
+    return { available: false, ownerLogin: null, listPRs: () => [] };
+  }
+  if (!ownerLogin) return { available: false, ownerLogin: null, listPRs: () => [] };
+  return {
+    available: true,
+    ownerLogin,
+    listPRs(root) {
+      const out = run(
+        'gh',
+        // `--limit 100` overrides gh's default cap of 30, so a repo with many
+        // open PRs isn't silently truncated (craft-nit fix); the derivation
+        // scans all of them, not just the lowest-numbered page.
+        ['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'number,title,url,author,isDraft,reviewDecision,mergeStateStatus,reviewRequests'],
+        { ...opts, cwd: root },
+      );
+      return JSON.parse(out);
+    },
+  };
+}
+
+export function scanProject(projectCfg, gh) {
   const root = projectCfg.path;
   const name = projectCfg.label || path.basename(root);
   // Spec 009-01 AC2: an optional one-line project description, surfaced
@@ -449,12 +489,28 @@ export function scanProject(projectCfg) {
   // is the AC3 owner-settable marker backstop — loadConfig already spreads
   // arbitrary config keys through onto projectCfg, so no config-schema change
   // was needed to read it here.
-  result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou);
+  // spec 009-04: fold the project's open PRs into the triage signal, gated on
+  // an available gh context. Placed AFTER the `if (!jigManaged) return` above,
+  // so non-jig projects make no gh call. Drafts are filtered before attach; any
+  // failure degrades to no `prs` (never crashes the scan). The owner login is
+  // attached so the pure detail-view renderer can key each PR's hint on it.
+  if (gh && gh.available) {
+    result.ownerLogin = gh.ownerLogin;
+    try {
+      const prs = gh.listPRs(root);
+      if (Array.isArray(prs)) result.prs = prs.filter((p) => !p.isDraft);
+    } catch {
+      // not-a-git-repo, no GitHub remote, timeout, bad JSON → no PR signal.
+    }
+  }
+  const ownerLogin = gh && gh.ownerLogin;
+  result.waitingOn = deriveWaitingOn(result, projectCfg.needsYou, ownerLogin);
   // Spec 009-03: the full rank-ordered stage list `waitingOn` collapses to
   // its head — the action-queue lens (public/render.mjs's actionQueue) reads
   // this instead of re-deriving, so the two lenses cannot disagree (AC5:
-  // waitingOn === waitingStages[0] by construction).
-  result.waitingStages = deriveWaitingStages(result, projectCfg.needsYou);
+  // waitingOn === waitingStages[0] by construction). Spec 009-04 threads the
+  // owner login through so PR stages surface in the queue too.
+  result.waitingStages = deriveWaitingStages(result, projectCfg.needsYou, ownerLogin);
   return result;
 }
 
@@ -653,8 +709,12 @@ export function readAllSessions(projects, opts = {}) {
   return result;
 }
 
-export function scanAll(config) {
-  const projects = config.projects.map(scanProject);
+export function scanAll(config, { gh } = {}) {
+  // spec 009-04: build the gh context ONCE per scan (AC3), or use an injected
+  // one (tests / callers that already probed). When gh is absent/unavailable,
+  // scanProject makes no PR reads — exact status quo (AC2).
+  const ghCtx = gh || buildGhContext();
+  const projects = config.projects.map((cfgProj) => scanProject(cfgProj, ghCtx));
   const sessionsByRoot = readAllSessions(config.projects, { storeDir: resolveSessionStore(config) });
   config.projects.forEach((cfgProj, i) => {
     const s = sessionsByRoot.get(cfgProj.path) || { sessions: [], sessionsTotal: 0 };
@@ -668,6 +728,22 @@ export function scanAll(config) {
     generatedAt: new Date().toISOString(),
     projects,
   };
+}
+
+// Spec 010-01: two-phase load, phase-two delta extraction. Pure — maps a
+// `scanAll` result (run with a real, gh-enriched context) to the per-project
+// fields the disk-only `/api/data` payload lacks or that PRs change, keyed on
+// `path`. `ownerLogin`/`prs` are included only when scanProject attached them
+// (gh available); `waitingOn`/`waitingStages` are always carried, together,
+// so the client swaps both atomically and never desyncs them (AC5).
+export function prDeltas(scanResult) {
+  return scanResult.projects.map((p) => ({
+    path: p.path,
+    ...(p.ownerLogin !== undefined ? { ownerLogin: p.ownerLogin } : {}),
+    ...(p.prs !== undefined ? { prs: p.prs } : {}),
+    waitingOn: p.waitingOn,
+    waitingStages: p.waitingStages,
+  }));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

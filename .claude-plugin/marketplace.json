@@ -1,6 +1,6 @@
 {
   "name": "dashboard",
-  "owner": { "name": "Kyarha" },
+  "owner": { "name": "PinkException" },
   "plugins": [
     {
       "name": "dashboard",

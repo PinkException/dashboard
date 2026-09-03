@@ -21,7 +21,7 @@
 | [002-dashboard-mvp](002-dashboard-mvp/spec.md) | 002-03 — compass-snapshot | **DONE** | contract superseded by ADR-0004 (store moved out of surveyed projects, slice 005-01). Do NOT wire compass to write — it is read-only by design |
 | [003-sessions-panel](003-sessions-panel/spec.md) | 003-01 — sessions-scan-and-render | **DONE** | per-project sessions read from `~/.claude` store; running badge + title + branch + worktree |
 | [003-sessions-panel](003-sessions-panel/spec.md) | 003-02 — recency-expand-toggle | **DONE** | client-side "show older" + "N active · M older" summary |
-| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | DEFERRED | needs `gh`; trigger = decide gh-on-scan vs routine-snapshot bridge |
+| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | ABANDONED | superseded by ADR-0006 + 009-04: PR state ships in the glance triage state (MERGE/REVIEW/External) + detail view, not session-row badges |
 | [004-claude-plugin](004-claude-plugin/spec.md) | 004-01 — plugin-packaging | **DONE** | retroactive spec (owner-approved); ADR-0003; config moved to `~/.claude/my-dashboard/config.json`; fixed bug 001 en route |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-01 — relocate the snapshot store | **DONE** |  |
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-02 — migrate the existing history | **DONE** |  |
@@ -36,15 +36,16 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage rows + project detail view (the split) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
-| [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | DRAFT |  |
+| [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
+| [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
 
-## Deferred slices
+## Abandoned slices
 
-> Slices parked with a stated resolution trigger. Re-open by transitioning to DRAFT.
+> Slices permanently dropped, with a stated reason. This is distinct from Deferred (parked, resumable) — re-open by transitioning to DRAFT.
 
-| Spec | Slice | Resolution trigger |
-|------|-------|--------------------|
-| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | when PR state is wanted on session rows, AND the |
+| Spec | Slice | Abandonment reason |
+|------|-------|---------------------|
+| [003-sessions-panel](003-sessions-panel/spec.md) | 003-03 — pr-badges | Superseded by ADR-0006 + spec 009-04 (2026-09-01) — PR state ships in the glance triage state (MERGE/REVIEW/External) + detail view, not session-row badges. Full context below. |
 
 ## Richer-skill selection audit (spec 096-05)
 
@@ -52,5 +53,7 @@ Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/sli
 
 - **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
 - **0** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
-- **1** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
+- **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
+  - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review
+  - `010-nonblocking-pr-load/slice-01-arch.md` — applied `arch-review`; declined: design-jury, design-review

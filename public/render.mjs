@@ -218,6 +218,33 @@ export function sortProjectsByWaitingOn(projects) {
   return [...(projects || [])].sort((a, b) => waitingOnRank(a) - waitingOnRank(b));
 }
 
+// Spec 010-01 (ADR-0007): phase-two client merge — a pure, keyed field-swap,
+// no derivation. Each project matched by `path` gets `waitingOn`/
+// `waitingStages` replaced and `prs`/`ownerLogin` added from its delta (both
+// atomically, from the same delta object, so the single-source invariant
+// waitingOn === waitingStages[0] survives the fold — AC5); a project absent
+// from `deltas` is returned unchanged. Pure — neither input is mutated.
+export function mergePrDeltas(projects, deltas) {
+  const byPath = new Map((deltas || []).map((d) => [d.path, d]));
+  return (projects || []).map((p) => {
+    const d = byPath.get(p.path);
+    if (!d) return p;
+    const merged = { ...p };
+    // Swap the waiting-on pair only when the delta carries it, and always
+    // TOGETHER (never one without the other) so the single-source invariant
+    // waitingOn === waitingStages[0] cannot desync (AC5). prDeltas always emits
+    // both; the `in`-guard makes the only-when-present intent explicit and stops
+    // a future partial delta from wiping a phase-one headline (arch nit).
+    if ('waitingOn' in d && 'waitingStages' in d) {
+      merged.waitingOn = d.waitingOn;
+      merged.waitingStages = d.waitingStages;
+    }
+    if ('ownerLogin' in d) merged.ownerLogin = d.ownerLogin;
+    if ('prs' in d) merged.prs = d.prs;
+    return merged;
+  });
+}
+
 // --- overview row (AC1/AC2/AC3/AC7) ---
 function activityCell(p) {
   const { activeCount } = sessionCounts(p);
@@ -367,6 +394,41 @@ export function sessionsDetailBlock(p) {
   );
 }
 
+// --- spec 009-04: detail-view PR area (pure, reads p.prs) ---
+// A small list of the project's open PRs (drafts already filtered scan-side),
+// each as "#<number> <title>" with a one-word state hint and its url. Keyed on
+// `ownerLogin` (the same owner identity deriveWaitingOn uses) to tell an
+// "awaiting your review" PR from an "out for review" one. Omitted entirely when
+// there are no PRs — no empty-state noise (AC2).
+function prStateHint(pr, ownerLogin) {
+  if (pr.reviewDecision === 'APPROVED') {
+    // Approved but not mergeable (BLOCKED/BEHIND/DIRTY) still reads as approved,
+    // qualified — so it never lists with a blank hint (compliance nit).
+    return pr.mergeStateStatus === 'CLEAN' ? 'approved' : 'approved · not mergeable';
+  }
+  const reqs = pr.reviewRequests || [];
+  if (ownerLogin && reqs.some((r) => r.login === ownerLogin)) return 'awaiting your review';
+  if (reqs.length) return 'out for review';
+  if (pr.reviewDecision === 'CHANGES_REQUESTED') return 'changes requested';
+  return 'open';
+}
+
+export function prsDetailBlock(p, ownerLogin) {
+  const prs = p.prs || [];
+  if (!prs.length) return '';
+  const rows = prs
+    .map((pr) => {
+      const hint = prStateHint(pr, ownerLogin);
+      return (
+        `<div class="pr-row"><a class="pr-link" href="${esc(pr.url)}">#${esc(pr.number)}</a>` +
+        `<span class="pr-title">${esc(pr.title)}</span>` +
+        `${hint ? `<span class="pr-hint">${esc(hint)}</span>` : ''}</div>`
+      );
+    })
+    .join('');
+  return `<div class="prs"><div class="label">OPEN PRs</div>${rows}</div>`;
+}
+
 function warningBlock(p) {
   const docs = p.worktreeOnlyDocs || [];
   if (!docs.length) return '';
@@ -463,6 +525,7 @@ export function detailView(p, opts = {}) {
     `<div class="specs-panel">${specsHeader}${specRows}</div>` +
     `<div class="ws-panel"><div class="label">WORKSTREAMS · RELEASE PLANS</div>${wsBlocks}${discoveredBlock(p)}</div>` +
     `</div>` +
+    prsDetailBlock(p, p.ownerLogin) +
     sessionsDetailBlock(p) +
     warningBlock(p) +
     `</div>` +

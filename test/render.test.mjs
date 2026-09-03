@@ -28,8 +28,10 @@ import {
   runningNowCount,
   sortProjectsByWaitingOn,
   waitingOnRank,
+  mergePrDeltas,
   detailView,
   sessionsDetailBlock,
+  prsDetailBlock,
   activityTabPlaceholder,
   OVERVIEW_STATE,
   openDetail,
@@ -273,6 +275,53 @@ test('detailView: sessions section shows full list, older toggle, and "N active 
 
 test('detailView: sessions section is omitted entirely when the project has no sessions (AC5 regression)', () => {
   assert.equal(sessionsDetailBlock(mkProject({ sessions: [] })), '');
+});
+
+// --- spec 009-04: detail-view PR area (pure, reads p.prs) ---
+
+test('detailView: PR area lists each open PR with number, title, state hint, and url (009-04 AC1)', () => {
+  const p = mkProject({
+    prs: [
+      { number: 7, title: 'wire up the merge path', url: 'https://example.test/pull/7', reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] },
+      { number: 9, title: 'awaiting your look', url: 'https://example.test/pull/9', reviewDecision: '', mergeStateStatus: '', reviewRequests: [{ login: 'owner-login' }] },
+    ],
+  });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.match(html, /#7/);
+  assert.match(html, /wire up the merge path/);
+  assert.match(html, /approved/i, 'approved-and-clean PR shows the approved hint');
+  assert.match(html, /#9/);
+  assert.match(html, /awaiting your review/i, 'owner-requested PR shows the awaiting-your-review hint');
+  assert.match(html, /https:\/\/example\.test\/pull\/7/);
+  assert.match(html, /https:\/\/example\.test\/pull\/9/);
+});
+
+test('detailView: PR area shows the "out for review" hint for a non-owner reviewer (009-04 AC1)', () => {
+  const p = mkProject({
+    prs: [{ number: 3, title: 'someone else reviews', url: 'https://example.test/pull/3', reviewDecision: '', mergeStateStatus: '', reviewRequests: [{ login: 'someone-else' }] }],
+  });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.match(html, /out for review/i);
+});
+
+test('detailView: PR area is omitted entirely when there are no PRs — no empty-state noise (009-04 AC2)', () => {
+  assert.equal(prsDetailBlock(mkProject({ prs: [] }), 'owner-login'), '');
+  assert.equal(prsDetailBlock(mkProject({}), 'owner-login'), '');
+});
+
+test('detailView: PR titles are escaped (009-04 — matches the existing esc convention)', () => {
+  const p = mkProject({ prs: [{ number: 1, title: '<script>x</script>', url: 'https://example.test/pull/1', reviewDecision: '', mergeStateStatus: '', reviewRequests: [] }] });
+  const html = prsDetailBlock(p, 'owner-login');
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /&lt;script&gt;/);
+});
+
+test('detailView: whole-view render includes the PR area when PRs are present (009-04 integration)', () => {
+  const html = detailView(mkProject({
+    prs: [{ number: 7, title: 'merge me', url: 'https://example.test/pull/7', reviewDecision: 'APPROVED', mergeStateStatus: 'CLEAN', reviewRequests: [] }],
+  }));
+  assert.match(html, /merge me/);
+  assert.match(html, /#7/);
 });
 
 test('detailView: worktree-only-docs warning renders when present, absent when not (AC5)', () => {
@@ -613,6 +662,53 @@ test('waitingOnRank: reads p.waitingOn.rank, defaults to 7 (Idle-equivalent) whe
   assert.equal(waitingOnRank(withWaitingOn('MERGE', 'MERGE', 'x', 1)), 1);
   assert.equal(waitingOnRank(mkProject()), 7);
   assert.equal(waitingOnRank({}), 7);
+});
+
+// --- spec 010-01: two-phase load — client-side keyed merge of PR deltas ---
+
+test('mergePrDeltas: swaps waitingOn/waitingStages and adds prs/ownerLogin by matching path, leaves the rest of the project untouched (010-01 AC3)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const delta = {
+    path: disk.path,
+    ownerLogin: 'owner-login',
+    prs: [{ number: 7, title: 'ready one' }],
+    waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 },
+    waitingStages: [{ state: 'MERGE', verb: 'MERGE', action: 'merge PR #7', rank: 1 }],
+  };
+  const [merged] = mergePrDeltas([disk], [delta]);
+  assert.deepEqual(merged.waitingOn, delta.waitingOn);
+  assert.deepEqual(merged.waitingStages, delta.waitingStages);
+  assert.deepEqual(merged.prs, delta.prs);
+  assert.equal(merged.ownerLogin, 'owner-login');
+  assert.equal(merged.name, disk.name, 'fields the delta does not carry stay from the disk payload');
+});
+
+test('mergePrDeltas: a project absent from the deltas is unchanged (010-01 AC3/AC4)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const [merged] = mergePrDeltas([disk], []);
+  assert.deepEqual(merged, disk);
+});
+
+test('mergePrDeltas: does not mutate the input projects array or its entries (pure)', () => {
+  const disk = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const projects = [disk];
+  const delta = { path: disk.path, waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'x', rank: 1 }, waitingStages: [] };
+  mergePrDeltas(projects, [delta]);
+  assert.equal(projects[0], disk, 'the input array is untouched');
+  assert.deepEqual(disk.waitingOn, { state: 'DECIDE', verb: 'DECIDE', action: 'x', rank: 3 }, 'the original project object is untouched');
+});
+
+test('mergePrDeltas: a merged, PR-promoted project moves ahead after re-sort (010-01 AC3)', () => {
+  const alpha = withWaitingOn('DECIDE', 'DECIDE', 'x', 3);
+  const beta = mkProject({ path: '/projects/beta', waitingOn: { state: 'Idle', verb: 'IDLE', action: '', rank: 7 } });
+  const delta = {
+    path: beta.path,
+    waitingOn: { state: 'MERGE', verb: 'MERGE', action: 'merge PR #3', rank: 1 },
+    waitingStages: [{ state: 'MERGE', verb: 'MERGE', action: 'merge PR #3', rank: 1 }],
+  };
+  const merged = mergePrDeltas([alpha, beta], [delta]);
+  const ordered = sortProjectsByWaitingOn(merged);
+  assert.equal(ordered[0].path, beta.path, 'the PR-promoted project (now MERGE, rank 1) sorts ahead of the disk-only DECIDE project');
 });
 
 // --- spec 009-03: cross-project action-queue lens ---

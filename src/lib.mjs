@@ -709,6 +709,19 @@ function forcedWaitingOn(marker) {
   return { state, verb: WAITING_ON_VERB[state], action, rank: FORCED_STATE_RANK[state] };
 }
 
+// spec 009-04: is a PR the owner's to merge right now? Author-agnostic — an
+// approved, mergeable PR is the owner's to land whoever opened it. Requires no
+// ownerLogin. (`BLOCKED`/`BEHIND`/`DIRTY`/`UNKNOWN` are NOT mergeable.)
+function prIsMergeable(prObj) {
+  return prObj.reviewDecision === 'APPROVED' && prObj.mergeStateStatus === 'CLEAN';
+}
+
+// The lowest PR number among a set — keeps the chosen PR deterministic when
+// several qualify for the same bucket (009-04 AC1).
+function lowestPrNumber(prs) {
+  return prs.reduce((lo, p) => (p.number < lo ? p.number : lo), prs[0].number);
+}
+
 // The Idle sentinel (rank 7): not a "stage" (deriveWaitingStages never
 // includes it in its list — Idle means the list is empty), but still
 // deriveWaitingOn's fallback head when no stage is present (009-02 AC1).
@@ -723,13 +736,26 @@ const IDLE_WAITING_ON = { state: 'Idle', verb: 'IDLE', action: '', rank: 7 };
 // stage instead of just the one the grid shows (single-source refactor, no
 // parallel re-derivation — see slice-03-action-queue-lens.md's design frame).
 // `project`/`marker` are shaped exactly as deriveWaitingOn documents them.
-export function deriveWaitingStages(project, marker) {
+// `ownerLogin` (spec 009-04, OPTIONAL) is the owner's `gh` login captured once
+// per scan — the identity the REVIEW-from-PR / External-from-PR split keys on.
+// When it is null/empty those two PR branches are skipped (owner-identity
+// guard); MERGE-from-PR is author-agnostic and needs no login. Each open PR
+// (spec 009-04) is folded into the SAME list as a stage of its own, so the
+// action-queue surfaces PR work cross-project exactly like slice work — within
+// a rank, the disk-derived stage is pushed first, so the grid head (rank order)
+// keeps its pre-009-04 tiebreak while the queue shows both.
+export function deriveWaitingStages(project, marker, ownerLogin) {
   if (marker) return [forcedWaitingOn(marker)];
 
   const stages = [];
   const specs = project.specs || [];
   const allSlices = specs.flatMap((s) => (s.slices || []).map((sl) => ({ ...sl, specId: s.id })));
+  const prs = project.prs || [];
+  const hasOwner = typeof ownerLogin === 'string' && ownerLogin.length > 0;
 
+  // MERGE (rank 1): reconciled slices to land, and/or an approved+CLEAN PR to
+  // merge. The reconciled-slice stage is pushed first so the grid headline
+  // keeps naming it over a PR when both qualify (deterministic tiebreak).
   const reconciled = allSlices.filter((sl) => sl.status === 'RECONCILED');
   if (reconciled.length) {
     stages.push({
@@ -739,7 +765,15 @@ export function deriveWaitingStages(project, marker) {
       rank: 1,
     });
   }
+  const mergeablePrs = prs.filter(prIsMergeable);
+  if (mergeablePrs.length) {
+    stages.push({ state: 'MERGE', verb: 'MERGE', action: `merge PR #${lowestPrNumber(mergeablePrs)}`, rank: 1 });
+  }
 
+  // REVIEW (rank 2): reviewed slices owed owner sign-off, and/or a PR awaiting
+  // the OWNER's review (owner-identity guard — skipped without a known login;
+  // a mergeable PR already fired MERGE, so it is excluded here to keep each PR
+  // in one bucket).
   const reviewed = allSlices.filter((sl) => sl.status === 'REVIEWED');
   if (reviewed.length) {
     stages.push({
@@ -748,6 +782,14 @@ export function deriveWaitingStages(project, marker) {
       action: `review ${reviewed.length} finished slice${reviewed.length === 1 ? '' : 's'}`,
       rank: 2,
     });
+  }
+  if (hasOwner) {
+    const reviewPrs = prs.filter(
+      (p) => !prIsMergeable(p) && (p.reviewRequests || []).some((r) => r.login === ownerLogin),
+    );
+    if (reviewPrs.length) {
+      stages.push({ state: 'REVIEW', verb: 'REVIEW', action: `review PR #${lowestPrNumber(reviewPrs)}`, rank: 2 });
+    }
   }
 
   const youText = findYouNextStep(project.workstreams);
@@ -780,9 +822,26 @@ export function deriveWaitingStages(project, marker) {
     stages.push({ state: 'Ready', verb: 'READY', action: `start ${sliceToken(startable.specId, startable.file)}`, rank: 5 });
   }
 
-  // External (rank 6) is deferred to 009-04 (gh PR enrichment): no on-disk
-  // signal exists yet to reach this branch. Left unreachable on purpose
-  // rather than fabricating a signal, per the taxonomy's explicit note.
+  // External (rank 6, spec 009-04) — now reachable: a PR out for SOMEONE ELSE's
+  // review — a non-empty set of *user* reviewers with the owner NOT among them,
+  // not MERGE-eligible. Owner-conditional: without a known ownerLogin we cannot
+  // tell an owner-review PR from a someone-else PR, so the guard skips this
+  // branch entirely (never mis-file an owner-review PR as External).
+  if (hasOwner) {
+    const externalPrs = prs.filter((p) => {
+      // Only *User* review-requests (those carrying a `.login`) count. A review
+      // requested from a **team** carries no login, so it cannot be keyed
+      // against the owner — per assumption A4′ such a PR yields NO signal (falls
+      // through to disk state) rather than a mis-filed External (craft-nit fix).
+      const userReqs = (p.reviewRequests || []).filter((r) => r.login);
+      if (!userReqs.length) return false;
+      if (userReqs.some((r) => r.login === ownerLogin)) return false;
+      return !prIsMergeable(p);
+    });
+    if (externalPrs.length) {
+      stages.push({ state: 'External', verb: 'EXTERNAL', action: `PR #${lowestPrNumber(externalPrs)} out for review`, rank: 6 });
+    }
+  }
 
   return stages;
 }
@@ -790,12 +849,11 @@ export function deriveWaitingStages(project, marker) {
 // The single derived waiting-on state for one scanned project (AC1/AC2): the
 // highest-precedence candidate present, chosen from the pinned total order
 // MERGE > REVIEW > DECIDE > Ready(resume) > Ready(start) > External > Idle.
-// `project` is shaped exactly as scanProject emits it (specs[].slices[]
-// carrying status/dependencies/file, workstreams[].{items,next}, compass);
-// `marker` is the project's optional `needsYou` config field (AC3).
-// 009-03: re-expressed as deriveWaitingStages(...)[0] ?? Idle — the grid
-// still gets exactly one state, byte-identical to the pre-refactor behaviour
-// (a non-regression test pins this in test/lib.test.mjs).
-export function deriveWaitingOn(project, marker) {
-  return deriveWaitingStages(project, marker)[0] ?? IDLE_WAITING_ON;
+// 009-03: re-expressed as deriveWaitingStages(...)[0] ?? Idle — the grid still
+// gets exactly one state, byte-identical to the pre-refactor behaviour (a
+// non-regression test pins this in test/lib.test.mjs). 009-04: threads the
+// optional `ownerLogin` through; the two-arg contract 009-02 relied on is
+// preserved (ownerLogin defaults to undefined).
+export function deriveWaitingOn(project, marker, ownerLogin) {
+  return deriveWaitingStages(project, marker, ownerLogin)[0] ?? IDLE_WAITING_ON;
 }

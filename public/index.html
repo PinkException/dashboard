@@ -126,6 +126,16 @@
   .rv-REVIEW { color: var(--amber); }
   .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
   .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
+  /* Spec 009-04: External (a PR out for someone else's review) is recessive —
+     quieter than the You-states, louder than Idle (which shows no badge). */
+  .rv-External { color: var(--text-muted); background: transparent; border: 1px solid var(--border-soft); }
+
+  /* Spec 009-04: detail-view open-PR list. */
+  .prs { margin-top: 14px; }
+  .pr-row { display: flex; align-items: baseline; gap: 9px; padding: 3px 0; font: 12px var(--mono); }
+  .pr-link { color: var(--blue); text-decoration: none; }
+  .pr-title { color: var(--text-subhead); }
+  .pr-hint { color: var(--text-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
 
   .row-inflight { display: flex; flex-direction: column; gap: 7px; }
   .if-num { font: 600 26px/0.9 var(--mono); }
@@ -323,6 +333,9 @@ app.addEventListener('click', (e) => {
   if (row) { state = R.openDetail(row.dataset.path, state.lens); render(); return; }
 });
 
+// Spec 010-01 (ADR-0007): phase one — disk-only, never blocks on gh. Renders
+// immediately, then fires phase two (loadPrs) to fold PR states in without
+// making the caller (the click handler / setInterval) wait on gh.
 async function load() {
   const res = await fetch('/api/data');
   const data = await res.json();
@@ -334,6 +347,50 @@ async function load() {
   generatedAt = data.generatedAt;
   scannedEl.textContent = 'scanned ' + new Date(generatedAt).toLocaleString();
   render();
+  loadPrs();
+}
+
+// Phase two: fetch the gh-enriched PR deltas and fold them into the
+// already-rendered model. Any failure (gh absent/unauthenticated/offline/
+// hanging, a non-ok response, a network error) is swallowed here — the disk
+// render from phase one stands unchanged, no error surfaced (AC4). Never
+// lets phase two throw out of load().
+async function loadPrs() {
+  // AC3 residual: the phase-two render is wholesale (app.innerHTML), so it
+  // would otherwise reset an open detail's active tab. Preserving it is
+  // cheap (the tab toggle is a DOM class + hidden flip, no re-render), so we
+  // capture it here and restore it after the fold.
+  let activityTabWasActive = false;
+  if (state.view === 'detail') {
+    const activity = app.querySelector('.activity-tab-content');
+    activityTabWasActive = !!activity && !activity.hidden;
+  }
+  // Narrow the swallow to the NETWORK phase only (craft nit): a gh-absent /
+  // offline / timeout / non-ok /api/prs must degrade silently to the disk
+  // render (AC4), but a genuine bug in mergePrDeltas or render() below must
+  // NOT be hidden — it reaches the console like any other programming error.
+  let prs;
+  try {
+    const res = await fetch('/api/prs');
+    if (!res.ok) return;
+    prs = await res.json();
+  } catch {
+    return; // gh absent/offline/timeout, or a thrown fetch — disk page stands.
+  }
+  if (!prs || prs.error) return;
+  projects = R.mergePrDeltas(projects, prs.projects);
+  render();
+  if (activityTabWasActive && state.view === 'detail') {
+    const content = app.querySelector('.overview-tab-content');
+    const activity = app.querySelector('.activity-tab-content');
+    const overviewTabBtn = app.querySelector('[data-action="show-overview-tab"]');
+    const activityTabBtn = app.querySelector('[data-action="show-activity-tab"]');
+    if (content && activity) {
+      content.hidden = true; activity.hidden = false;
+      if (activityTabBtn) activityTabBtn.classList.add('active');
+      if (overviewTabBtn) overviewTabBtn.classList.remove('active');
+    }
+  }
 }
 
 document.getElementById('refresh').addEventListener('click', load);

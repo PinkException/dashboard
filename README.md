@@ -9,7 +9,7 @@ other repos, deterministic, zero dependencies (Node ≥ 18).
 This repo is a Claude Code plugin (and its own marketplace). In Claude Code:
 
 ```
-/plugin marketplace add Kyarha/dashboard
+/plugin marketplace add PinkException/dashboard
 /plugin install dashboard@dashboard
 ```
 
@@ -112,6 +112,6 @@ Spec-driven via jig: see [docs/specs/README.md](docs/specs/README.md) and
 
 ## Credits
 
-Idea and original design by **[@Kyarha](https://github.com/Kyarha)** — built as
+Idea and original design by **[@PinkException](https://github.com/PinkException)** — built as
 a personal tool for tracking many parallel [jig](https://github.com/ramboz/jig)
 projects from one local page, and shared so others can reuse it for their own.

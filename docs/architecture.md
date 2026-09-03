@@ -23,7 +23,7 @@ dashboard/
 ├── src/
 │   ├── lib.mjs          # pure parsing helpers — no filesystem access, fully unit-testable
 │   ├── scan.mjs         # scanner over configured project roots (fs walk + git subprocess); CLI: node src/scan.mjs
-│   └── server.mjs       # tiny node:http server; GET / → page, GET /api/data → fresh rescan JSON
+│   └── server.mjs       # tiny node:http server; GET / → page, GET /api/data → disk-only rescan, GET /api/prs → gh-enriched deltas (010-01)
 ├── public/
 │   └── index.html       # the one self-contained page (inline CSS/JS, no build step)
 ├── scripts/
@@ -48,8 +48,12 @@ dashboard/
   the package.
 - **Package manager:** npm, dev-only; there are **zero runtime dependencies**.
 - **Database / state:** none — rescan from disk on every request.
-- **Key external services:** none. The only subprocess is `git` (read-only
-  queries per scanned project).
+- **Key external services:** GitHub, reached **only** through the optional `gh`
+  CLI (spec 009-04) — a graceful enrichment, never required. Subprocesses are
+  `git` (read-only queries per scanned project, always) and `gh` (read-only PR
+  queries, **only when installed + authenticated**; every failure — absent,
+  unauthenticated, offline, timeout — degrades to the exact no-`gh` behavior, so
+  the `git clone && node server.mjs` install promise is preserved).
 
 ## Core architecture decisions
 
@@ -125,7 +129,14 @@ One-directional, read-only coupling:
   marker. `deriveWaitingOn` (spec 009-02) is re-expressed as its head
   (`deriveWaitingStages(…)[0] ?? Idle`) — the one collapsed `waitingOn` state the
   grid shows — so the grid headline and the action-queue rows read from one
-  source and cannot disagree.
+  source and cannot disagree. **Both stay pure** across the spec 009-04 PR
+  enrichment: they gain an optional trailing `ownerLogin` arg and read a
+  `project.prs` array, but perform no I/O — the `gh` calls that populate those
+  inputs live in `src/scan.mjs`. PR signals fold into the same rank-ordered list
+  (approved+CLEAN → MERGE; owner in `reviewRequests` → REVIEW; a non-owner
+  reviewer → the previously-reserved External slot), owner-conditional so an
+  owner-review PR is never mis-filed as External — so PR work surfaces in both the
+  grid head and the action-queue.
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
@@ -145,12 +156,22 @@ One-directional, read-only coupling:
   project also carries the derived `waitingOn` field (spec 009-02, via
   `deriveWaitingOn`) and the full `waitingStages` list (spec 009-03, via
   `deriveWaitingStages`); both are omitted for error / non-jig payloads (the page
-  treats an absent field as Idle-equivalent).
+  treats an absent field as Idle-equivalent). **Optional `gh` read-boundary (spec
+  009-04):** when `gh` is installed + authenticated, `scanAll` builds a
+  once-per-scan `gh` context (`buildGhContext`, an injectable-runner seam that
+  captures the owner login) and each jig-managed project gets a bounded,
+  read-only `gh pr list` (placed *after* the non-jig early return, so non-jig
+  projects make no call); the resulting non-draft `prs` feed both derivations.
+  Like the session-store read, it is snapshot-from-disk-category (no live
+  client) and lenient — any `gh` failure yields no `prs`, never a throw.
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html`, `/render.mjs` (the client render module, one explicit
   fixed-path route — no static-file server, no path-traversal surface; spec
-  009-01), and `/api/data` (a fresh `scanAll` per request, no cache). Imports
-  scan.
+  009-01), and the **two-phase data routes** (spec 010-01 / ADR-0007):
+  `/api/data` is a **disk-only** `scanAll` (run with a disabled `gh` context, so
+  first paint never blocks on `gh`), and `/api/prs` is the enrichment phase — a
+  full `scanAll` with the real `gh` context, returned as per-project deltas via
+  `prDeltas`. Both are a fresh scan per request, no cache. Imports scan.
 - **`scripts/snapshot.mjs`** — the one writer
   ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)): validates a
   snapshot and appends it to the dashboard-owned store in the user's home data
@@ -181,9 +202,13 @@ One-directional, read-only coupling:
   `snapshot.mjs`). Run via Bash, so the Write/Edit-only guardrail does not
   intercept it (spec 006 A1). **Enabling/scheduling the cron stays a separate owner
   action** — the installer only manages the SKILL.md content.
-- **`public/index.html`** — the single page: fetches `/api/data`, owns the
-  theming (light default + dark via `prefers-color-scheme`) and the thin
-  click/tab interaction glue; imports the render module.
+- **`public/index.html`** — the single page: **two-phase load** (spec 010-01) —
+  fetches `/api/data` and renders immediately, then fires a non-blocking
+  `/api/prs` fetch and folds the PR deltas into the rendered model via the pure
+  `mergePrDeltas` (a keyed field-swap, no client derivation — ADR-0001 holds); any
+  `/api/prs` failure is swallowed so the disk render stands. Owns the theming
+  (light default + dark via `prefers-color-scheme`) and the thin click/tab
+  interaction glue; imports the render module.
 - **`public/render.mjs`** — pure client render helpers (spec 009-01): row +
   detail-view HTML builders and derivations (`overviewRow`, `detailView`,
   `inFlightCount`/`heatBucket`, `progressBarSvg`, `currentReleaseTrack`/
@@ -260,6 +285,23 @@ Stateless by design — same disk state → same page (vision principle 2):
   adds the sibling `waitingStages: [{ state, verb, action, rank }, …]` — the
   rank-ordered list of all open stages (`waitingOn === waitingStages[0]`), read by
   the cross-project action-queue lens; an empty list is Idle.
+  **Spec 010-01 (ADR-0007) makes `/api/data` disk-only:** it is now a scan run
+  with a disabled `gh` context, so its `waitingOn`/`waitingStages` are derived from
+  disk signals alone and it **no longer carries** `prs`/`ownerLogin` (those moved
+  to `/api/prs`, below). This is the **first deliberately non-additive** change to
+  this surface (its documented policy is "additive evolution preferred"); it is
+  acceptable because the sole consumer is `public/index.html`, updated in lockstep,
+  and the removed fields are re-supplied by the phase-two surface.
+- **`GET /api/prs`** — the phase-two enrichment surface (spec 010-01 / ADR-0007):
+  a full `scanAll` with the real `gh` context, returned as **per-project deltas**
+  `{ generatedAt, projects: [{ path, ownerLogin?, prs?, waitingOn, waitingStages }] }`,
+  keyed on `path`. `prs` (the 009-04 open-non-draft-PR array
+  `{ number, title, url, author, reviewDecision, mergeStateStatus, reviewRequests }`)
+  and `ownerLogin` are present **only when `gh` is available**; `waitingOn`/
+  `waitingStages` are the `gh`-enriched recomputation and are always carried
+  together. On any `gh` failure the deltas equal the disk values (empty/absent
+  `prs`), so the page — which folds these in via `mergePrDeltas` — renders
+  identically to a no-`gh` run.
 
 ## Open questions
 
