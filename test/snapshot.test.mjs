@@ -250,6 +250,29 @@ test('snapshot.mjs --all --auto --if-changed with no config: clean non-zero exit
   assert.ok(!/ENOENT/.test(stderr), 'raw ENOENT is not the primary signal');
 });
 
+test('snapshot.mjs --all --auto with a malformed config: clean non-zero exit, friendly line, no SyntaxError stack', () => {
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-badconfig-'));
+  const badConfig = path.join(configDir, 'config.json');
+  fs.writeFileSync(badConfig, '{ "projects": [ ], }');
+  let threw = false;
+  let stderr = '';
+  try {
+    run([SCRIPT, '--all', '--auto', '--if-changed'], {
+      env: { ...process.env, DASHBOARD_SNAPSHOTS: store, DASHBOARD_CONFIG: badConfig },
+      stdio: 'pipe',
+    });
+  } catch (err) {
+    threw = true;
+    stderr = err.stderr.toString();
+  }
+  assert.ok(threw, 'exits non-zero when the config is malformed');
+  assert.match(stderr, /not valid JSON/);
+  assert.ok(stderr.includes(badConfig), 'message names the malformed config path');
+  assert.match(stderr, /\/dashboard:open/, 'message points at the recreate remedy');
+  assert.ok(!/SyntaxError/.test(stderr), 'no raw SyntaxError surfaced');
+  assert.ok(!/\n\s+at /.test(stderr), 'no stack trace printed');
+});
+
 test('snapshot.mjs --all --auto with a present, valid config still works (007-01 AC4)', () => {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-hasconfig-'));
   const configPath = path.join(configDir, 'config.json');

@@ -167,10 +167,11 @@ if (args.all) {
   try {
     cfg = loadConfig(args.config ? expandHome(args.config) : resolveConfigPath());
   } catch (err) {
-    // A missing config is the fresh-install case (slice 007-01): print the
-    // one friendly pointer line and exit cleanly, no ENOENT stack trace.
-    // Any other failure (e.g. malformed JSON) surfaces honestly instead.
-    if (err && err.code === 'CONFIG_MISSING') {
+    // A missing config is the fresh-install case (slice 007-01), a malformed
+    // one a hand-edit gone wrong: either way print the one friendly pointer
+    // line and exit cleanly, no stack trace. Any other failure surfaces
+    // honestly instead.
+    if (err && (err.code === 'CONFIG_MISSING' || err.code === 'CONFIG_MALFORMED')) {
       console.error(err.message);
       process.exit(1);
     }

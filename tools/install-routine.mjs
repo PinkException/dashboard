@@ -100,6 +100,23 @@ export function writeManifest(hash, mPath = manifestPath()) {
   );
 }
 
+// The Claude Code scheduler re-serializes the live SKILL.md WITHOUT its final
+// newline whenever the task is edited through it (e.g. toggling `enabled`).
+// That round-trip is not a content change, so every comparison here treats a
+// trailing-newline-only difference as equal — otherwise `check` reports drift
+// and `install` calls the file hand-edited after every scheduler toggle.
+export function sameRoutine(a, b) {
+  return a.replace(/\n+$/, '') === b.replace(/\n+$/, '');
+}
+
+// Does `liveText` match the content the manifest recorded, modulo the same
+// trailing-newline round-trip? The manifest hashes the source exactly as
+// written, so try the live text as-is and with one restored final newline.
+export function matchesManifest(liveText, manifest) {
+  const bare = liveText.replace(/\n+$/, '');
+  return [liveText, bare, bare + '\n'].some((t) => sha256(t) === manifest.sha256);
+}
+
 // Pure decision function for AC3: given the state of the live file and the
 // manifest, decide whether a write may proceed. Exported so the refuse logic
 // can be reasoned about (and tested) independently of any filesystem I/O.
@@ -112,9 +129,9 @@ export function writeManifest(hash, mPath = manifestPath()) {
 //     but source has since changed     -> proceed (we own this file; upgrade)
 export function planInstall({ liveExists, sourceText, liveText, manifest } = {}) {
   if (!liveExists) return { action: 'proceed' };
-  if (sourceText === liveText) return { action: 'noop' };
+  if (sameRoutine(sourceText, liveText)) return { action: 'noop' };
   if (manifest) {
-    if (sha256(liveText) !== manifest.sha256) return { action: 'refuse', reason: 'hand-edited' };
+    if (!matchesManifest(liveText, manifest)) return { action: 'refuse', reason: 'hand-edited' };
     return { action: 'proceed' };
   }
   return { action: 'refuse', reason: 'unmanaged' };
@@ -137,7 +154,7 @@ export function checkDrift({ source, live } = {}) {
   } catch {
     return { status: 'absent', source: src, target: tgt };
   }
-  const status = sourceText === liveText ? 'match' : 'drift';
+  const status = sameRoutine(sourceText, liveText) ? 'match' : 'drift';
   return { status, source: src, target: tgt, sourceText, liveText };
 }
 
