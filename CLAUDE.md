@@ -80,14 +80,15 @@ daily auto line, and `--commit` is gone. **Spec 005 is DONE.** Spec 006
 (routine-installer, ADR-0005) then landed DONE 2026-08-04: the dashboard now owns
 its own installer — `tools/install-routine.mjs` with read-only `check` (006-01)
 and owner-gated `install` (006-02), sourcing the version-controlled
-`prompts/compass-snapshots/SKILL.md`. The installer is built and tested but has
-**not** been run against the live scheduler, so the live copy is still the stale
-pre-005-04 orphan. Next active work: run the now-built installer to land the
-routine live — `install --approved-by-owner --force` (force because the live
-orphan is unmanaged) — and separately enable the disabled `compass-snapshots`
-cron; **both are owner-gated per-user steps**. Or pick up spec 003 (sessions
-panel), drafted with no code yet. Still nothing deleted; §6 in-repo cleanup stays
-owner-gated.
+`prompts/compass-snapshots/SKILL.md`. The installer was **run live 2026-08-04**
+(`install --approved-by-owner --force`): the live routine now matches the repo
+source byte-for-byte (`check` clean, manifest written). The `compass-snapshots`
+cron is **intentionally stopped by the owner** — snapshots are manual for now;
+re-enable only on owner instruction. **§6 in-repo cleanup done 2026-10-05:** the
+old per-repo `docs/status/compass-history.jsonl` files were deleted across the
+surveyed projects after confirming the store held all narrative/manual history
+(only disposable `auto:` progress-pings were uncovered, by design). All specs
+001–010 are DONE; there is no required work outstanding.
 Later candidates (vision → MVP scope deferrals): hours-worked layer,
 evolution graphs from snapshot history (the owner confirmed 2026-07-24 they
 want this — ADR-0004 OQ2), cross-project "waiting on you / ready for Claude"
