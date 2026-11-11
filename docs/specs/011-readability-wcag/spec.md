@@ -30,6 +30,17 @@ lightness is not WCAG relative luminance. That recorded decision is therefore
 **revised**, and the reconciliation must route that revision (update the entry,
 or promote it to an ADR).
 
+**Second tradeoff (type):** the redline is the "Console direction (dark,
+monospace)" (`docs/designs/dashboard-v1.2/redlines/base.md:7`). Its type table
+sets chip, tag, label, caption, micro, path, meta and waitline in mono at
+9.5-11px (`base.md:124-131`). Slice 02 overrides that table on both size and
+font family, so the page will look less "console-like". This is a deliberate
+departure, routed the same way as the colour change.
+
+**Out of scope:** phone-width layout. The overview grid is fixed at roughly
+1125px minimum (`public/index.html:98,102`), `.sheet` clips overflow, and the
+redline is desktop-only (`base.md:16-19`). That is a separate follow-up.
+
 ### Current state (measured 2026-11-11, probe in this session)
 
 Contrast of text tokens against `--sheet` (the card surface), computed with the
@@ -50,8 +61,10 @@ plugin.
 | `--abandoned` | 2.82 ❌ | 3.01 ❌ |
 
 Type: body text is 14px. Grepping `public/index.html` for `font:` and
-`font-size:` finds 50 size declarations: 9px ×1, 9.5px ×1, 10px ×5, 10.5px ×2,
-11px ×9, 11.5px ×2, 12px ×11, 12.5px ×6, and 13px and up for the rest. 41 rules
+`font-size:` (including shorthands that put a weight before the size) finds 22
+declarations below 12px: 9px ×1, 9.5px ×2, 10px ×5, 10.5px ×3, 11px ×9,
+11.5px ×2. A first count of 20 missed weight-first shorthands; frame-critique
+round 1 caught it. 41 rules
 use `var(--mono)` and 17 use `var(--sans)`. IBM Plex is named first in both font
 stacks but is deliberately never loaded (header comment, `public/index.html:14-16`,
 ADR-0001 zero-dep, offline-safe), so the system font renders. That stays.
@@ -74,11 +87,15 @@ other than the one inline string. Two opacity rules lower effective contrast:
   (`.pr-hint` uses uppercase + 0.06em tracking) or density may also contribute.
   Mitigation: each slice ends with the owner reading the page in both modes (an
   AC), and anything left over becomes a follow-up instead of growing this spec.
-- **A2 — measuring each text token against the five surface tokens covers what
-  is actually rendered.** The pairing of each text token to the surfaces it can
-  sit on is not derived from the DOM. Checking every text token against every
-  surface is the conservative over-approximation used by the test (slice 01
-  AC2), so A2 only risks over-constraining, never under-constraining.
+- **A2 — the text-bearing surfaces are `--canvas`, `--sheet`, `--topbar`,
+  `--hover`, `--blocked-bg` and `--warn-bg`.** Derived from the `background:`
+  declarations in `public/index.html`, minus fills that carry no text. `--inset`
+  is used only as the heat meter's empty-cell fill (`render.mjs:106`). `--track`
+  sits behind `--sheet` panels. `--green` and `--dot-off` are dot/bar fills. The
+  pairing of each text token to its surfaces is not derived from the DOM, so the
+  test checks every text token against all six. That over-approximates, but
+  without `--inset` it no longer forces the grey ramp to collapse
+  (frame-critique round 1).
 
 ## Decomposition
 
