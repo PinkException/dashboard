@@ -23,9 +23,9 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 ### Active specs
 - [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) - DONE worked example to imitate; see [docs/specs/README.md](docs/specs/README.md) for the status board.
 - [002-dashboard-mvp](docs/specs/002-dashboard-mvp/spec.md) - DONE. The MVP: scan-and-serve, workstreams, compass-snapshot. Deferred to later specs: hours layer, evolution graphs, owner queue, jig upstreaming.
-- [003-sessions-panel](docs/specs/003-sessions-panel/spec.md) - **DONE 2026-08-06.** Per-project Claude Code sessions on each card (title foregrounded, branch, worktree, running badge, last activity), read zero-dep from the local `~/.claude` store. **003-01** = the reader + render (body-free slug-attribution + bounded body reads for the capped set; a pre-impl frame-critique resolved an AC4/AC7 attribution contradiction). **003-02** = the recency toggle (native `<details>` "show older" + "N active · M older (+K not shown)" honest overflow) and the session-row title-layout fix. **003-03 (pr-badges) DEFERRED** behind the `gh` decision. On branch `claude/003-02-recency-expand-toggle`; deploy to main + plugin release pending.
-- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). **005-02 migrate-history DONE (2026-07-31)** - 68 entries in 7 store files, identity via the owner-confirmed alias list (ADR-0004 OQ4); all four review passes recorded, deviation log + reconciliation sweep written. **Nothing has been deleted** - removing the in-repo files is §6, still gated on explicit owner approval (see the §6 handoff in the slice's reconciliation sweep: reconcile the search root against the real project list first, delete per-file). **005-03 (dashboard-owned narrative snapshot skill) DONE 2026-08-01** (resolves ADR-0004 OQ1): the Claude-run `/dashboard:snapshot` skill (`skills/snapshot/SKILL.md`) composes a narrative "what's next" entry from a project's own artifacts and writes it via `snapshot.mjs --source dashboard` (new provenance tag; scanner/page stay LLM-free). All four review passes recorded incl. a pre-impl frame-critique; plugin bumped 0.2.1→0.3.0. **005-04 (rebuild the recurring routine + choose cadence, ADR-0004 OQ2) DONE 2026-08-03** — resolves OQ2. Owner chose **deterministic-only, on-change** cadence: the routine writes `snapshot.mjs --all --auto --if-changed`; the new `--if-changed` guard skips a project whose progress signature (`specs.done`/`total` + active spec, **bug-count excluded**) matches its last stored same-source entry. The narrative `/dashboard:snapshot` skill stays human-invoked. A pre-impl frame-critique caught two frame errors, both folded in: the card reader now **prefers the latest narrative entry** so the daily auto series never buries 005-03's prose; and "changed" is progress-only (not the full headline). `--commit` is gone. **Spec 005 is DONE** (§6 in-repo cleanup is separate, still owner-gated). The routine now has a dashboard-owned install path — see spec 006.
-- [006-routine-installer](docs/specs/006-routine-installer/spec.md) - **DONE 2026-08-04** (ADR-0005: the dashboard owns and installs its own automation, after the night-worker dropped it from scope). The rebuilt routine's SKILL.md is a version-controlled artifact at `prompts/compass-snapshots/SKILL.md`; `tools/install-routine.mjs` copies it to the live scheduler. **006-01** = read-only `check` (drift report, non-zero on drift). **006-02** = owner-gated `install`: refuses without `--approved-by-owner` (no unflagged write — the flag is an approval *signal*, not proof of owner identity, per ADR-0005), byte-for-byte read-back, SHA-256 manifest at `~/.claude/scheduled-tasks/.dashboard-install.json`, and refuses to clobber a hand-edited or unmanaged live file without `--force`. A pre-impl frame-critique + the compliance review together tightened the write-decision into a full table (managed upgrade proceeds; unmanaged/hand-edited refuse). **Owner handoff (NOT done by this spec):** the installer is built and tested but has NOT been run against the live scheduler — the live copy is still the stale pre-005-04 orphan. Landing it is `install --approved-by-owner --force` (force because the orphan is unmanaged); **enabling the disabled `compass-snapshots` cron is a separate owner action** via the scheduler.
+- [003-sessions-panel](docs/specs/003-sessions-panel/spec.md) - **DONE 2026-08-06.** Per-project Claude Code sessions on each card (title foregrounded, branch, worktree, running badge, last activity), read zero-dep from the local `~/.claude` store. **003-01** = the reader + render (body-free slug-attribution + bounded body reads for the capped set; a pre-impl frame-critique resolved an AC4/AC7 attribution contradiction). **003-02** = the recency toggle (native `<details>` "show older" + "N active · M older (+K not shown)" honest overflow) and the session-row title-layout fix. **003-03 (pr-badges) DEFERRED** behind the `gh` decision. Landed on main and released (plugin 0.5.0).
+- [005-snapshot-store](docs/specs/005-snapshot-store/spec.md) - implements ADR-0004. **005-01 relocate-store DONE** (writer + reader moved to `~/.claude/my-dashboard/snapshots/`; closes bug 002). **005-02 migrate-history DONE (2026-07-31)** - 68 entries in 7 store files, identity via the owner-confirmed alias list (ADR-0004 OQ4); all four review passes recorded, deviation log + reconciliation sweep written. **§6 removal of the in-repo files was done by the owner 2026-10-05** (after confirming the store held all narrative/manual history). **005-03 (dashboard-owned narrative snapshot skill) DONE 2026-08-01** (resolves ADR-0004 OQ1): the Claude-run `/dashboard:snapshot` skill (`skills/snapshot/SKILL.md`) composes a narrative "what's next" entry from a project's own artifacts and writes it via `snapshot.mjs --source dashboard` (new provenance tag; scanner/page stay LLM-free). All four review passes recorded incl. a pre-impl frame-critique; plugin bumped 0.2.1→0.3.0. **005-04 (rebuild the recurring routine + choose cadence, ADR-0004 OQ2) DONE 2026-08-03** — resolves OQ2. Owner chose **deterministic-only, on-change** cadence: the routine writes `snapshot.mjs --all --auto --if-changed`; the new `--if-changed` guard skips a project whose progress signature (`specs.done`/`total` + active spec, **bug-count excluded**) matches its last stored same-source entry. The narrative `/dashboard:snapshot` skill stays human-invoked. A pre-impl frame-critique caught two frame errors, both folded in: the card reader now **prefers the latest narrative entry** so the daily auto series never buries 005-03's prose; and "changed" is progress-only (not the full headline). `--commit` is gone. **Spec 005 is DONE** (§6 in-repo cleanup also done, 2026-10-05). The routine now has a dashboard-owned install path — see spec 006.
+- [006-routine-installer](docs/specs/006-routine-installer/spec.md) - **DONE 2026-08-04** (ADR-0005: the dashboard owns and installs its own automation, after the night-worker dropped it from scope). The rebuilt routine's SKILL.md is a version-controlled artifact at `prompts/compass-snapshots/SKILL.md`; `tools/install-routine.mjs` copies it to the live scheduler. **006-01** = read-only `check` (drift report, non-zero on drift). **006-02** = owner-gated `install`: refuses without `--approved-by-owner` (no unflagged write — the flag is an approval *signal*, not proof of owner identity, per ADR-0005), byte-for-byte read-back, SHA-256 manifest at `~/.claude/scheduled-tasks/.dashboard-install.json`, and refuses to clobber a hand-edited or unmanaged live file without `--force`. A pre-impl frame-critique + the compliance review together tightened the write-decision into a full table (managed upgrade proceeds; unmanaged/hand-edited refuse). **Owner handoff done 2026-08-04:** the owner ran `install --approved-by-owner --force` against the live scheduler (`check` clean). The `compass-snapshots` cron was later **intentionally stopped by the owner** (snapshots manual for now).
 - [007-plugin-onboarding](docs/specs/007-plugin-onboarding/spec.md) - **DONE 2026-08-04** (serves UC-3). New-user onboarding for a fresh plugin install. **007-01:** the snapshot routine no longer crashes with a raw `ENOENT` when `~/.claude/my-dashboard/config.json` is absent — `loadConfig` throws a typed `ConfigMissingError` and `snapshot.mjs --all` prints "run `/dashboard:open` to create one" and exits cleanly. **007-02:** the README documents the full first-run path (install → `/dashboard:open` creates the config → optionally arm the owner-gated routine via `install-routine.mjs`). Two small code follow-ups parked in inbox: a friendly message for a *malformed* (not just missing) config, and converging `server.mjs`'s missing-config pointer with the new typed error.
 - [008-release-goal-view](docs/specs/008-release-goal-view/spec.md) - **DONE.** Release-goal progress + next-action on the card, with graceful degradation / honest unknowns. `resolveReleaseGoal` (`src/lib.mjs`) joins a shaper release plan's Include tokens to scanned slice statuses → `goalProgress`/`goalNext`.
 - [009-overview-redesign](docs/specs/009-overview-redesign/spec.md) - **DONE 2026-09-01** (ADR-0006). Turned the overview from a report into a **triage surface**: uniform rows + a per-project detail view (**009-01**); one derived **waiting-on state** per project (DECIDE/REVIEW/MERGE/Ready/External/Idle) ordered finish-first, `deriveWaitingOn` in `src/lib.mjs` (**009-02**); a cross-project **action-queue lens** — `deriveWaitingOn` re-expressed as the head of a rank-ordered `deriveWaitingStages` list so grid + queue read one source (**009-03**); and **gh-optional PR enrichment** (**009-04**) — when `gh` is installed + authenticated, PR state folds into the same stages (approved+CLEAN → MERGE; owner in `reviewRequests` → REVIEW; a non-owner reviewer → External), keyed on the owner login captured once per scan; every `gh` failure degrades to the exact no-`gh` behaviour (the zero-install promise holds). 009-04 **un-defers 003-03 (pr-badges → ABANDONED)**: PR state ships in the glance state + detail view, not session-row badges. Full ceremony on 009-04 (frame-critique + compliance + craft + arch + reconciliation, all green).
@@ -54,45 +54,42 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 
 > Updated each session by the team: what are we building right now?
 
-Spec 002 (dashboard MVP) shipped 2026-07-13. Spec 004 (Claude Code plugin
-packaging, ADR-0003) landed 2026-07-22, followed the same day by the
-rename recorded in the ADR-0003 amendment: repo `Kyarha/dashboard` (later
-`PinkException/dashboard` — the GitHub account `Kyarha` was renamed to
-`PinkException` 2026-09-02; a rename, single identity), plugin
-`dashboard@dashboard` (v0.2.1, installed at user scope), skill
-`/dashboard:open`, user data folder `~/.claude/my-dashboard/`. The owner
-has no `~/.claude/my-dashboard/config.json` yet — the first `/dashboard:open`
-run should offer to create it. Spec 005 (dashboard-owned snapshot store,
-ADR-0004) landed slice 005-01 on 2026-07-24: snapshots now live outside every
-repo and no code path writes into a surveyed project. Slice 005-02 ran the
-migration on 2026-07-27 (`ee21c27`) and was closed out DONE on 2026-07-31: the
-scattered histories are folded into one store file per project — 68 entries
-across 7 projects, this repo's own 16 recovered from its pre-rename folder via
-the owner-confirmed alias. Identity is **declared, not derived** (ADR-0004 OQ4
-amendment); do not re-propose a root-commit identity, it was probed and
-falsified. 005-03 (dashboard-owned narrative snapshot skill) landed
-DONE 2026-08-01 (ADR-0004 OQ1): the `/dashboard:snapshot` skill writes narrative
-entries tagged `source: dashboard`; plugin bumped to 0.3.0. 005-04 (recurring
-routine + cadence, OQ2) landed DONE 2026-08-03: the routine writes
-`snapshot.mjs --all --auto --if-changed` (deterministic, on-change; bug-churn
-excluded from the change test), the card reader now prefers narrative over the
-daily auto line, and `--commit` is gone. **Spec 005 is DONE.** Spec 006
-(routine-installer, ADR-0005) then landed DONE 2026-08-04: the dashboard now owns
-its own installer — `tools/install-routine.mjs` with read-only `check` (006-01)
-and owner-gated `install` (006-02), sourcing the version-controlled
-`prompts/compass-snapshots/SKILL.md`. The installer was **run live 2026-08-04**
-(`install --approved-by-owner --force`): the live routine now matches the repo
-source byte-for-byte (`check` clean, manifest written). The `compass-snapshots`
-cron is **intentionally stopped by the owner** — snapshots are manual for now;
-re-enable only on owner instruction. **§6 in-repo cleanup done 2026-10-05:** the
-old per-repo `docs/status/compass-history.jsonl` files were deleted across the
-surveyed projects after confirming the store held all narrative/manual history
-(only disposable `auto:` progress-pings were uncovered, by design). All specs
-001–010 are DONE; there is no required work outstanding.
-Later candidates (vision → MVP scope deferrals): hours-worked layer,
-evolution graphs from snapshot history (the owner confirmed 2026-07-24 they
-want this — ADR-0004 OQ2), cross-project "waiting on you / ready for Claude"
-queue, jig upstreaming.
+**State (2026-11-11): every spec is DONE (001–010) and plugin 0.6.0 is
+released** (tag `dashboard--v0.6.0`; decision in
+[lightweight-decisions](docs/decisions/lightweight-decisions.md)). 0.6.0 carries
+everything since 0.5.0: specs 008 (release-goal view), 009 (overview triage
+redesign + action-queue lens + gh-optional PR state), 010 (non-blocking PR
+load), the leak-guard tooling, and PR #8's follow-ups (release-goal meter
+restored in the detail view, friendly malformed-config message,
+newline-tolerant routine `check`/`install`). Nothing is in progress.
+
+Settled facts a new session should not re-litigate:
+- Repo is `PinkException/dashboard` (the GitHub account `Kyarha` was renamed
+  2026-09-02; one identity). Plugin `dashboard@dashboard`, skill
+  `/dashboard:open`, user data folder `~/.claude/my-dashboard/` (ADR-0003).
+- Snapshots live in `~/.claude/my-dashboard/snapshots/`, outside every repo
+  (ADR-0004); identity is **declared, not derived** — do not re-propose a
+  root-commit identity, it was probed and falsified.
+- The routine installer (spec 006) **has been run** live 2026-08-04
+  (`install --approved-by-owner --force`; `check` clean, manifest written).
+  The `compass-snapshots` cron is **intentionally stopped by the owner** —
+  snapshots are manual for now; re-enable only on owner instruction.
+- **§6 in-repo cleanup is done (2026-10-05):** the old per-repo
+  `docs/status/compass-history.jsonl` files were deleted across the surveyed
+  projects after confirming the store held all narrative/manual history (only
+  disposable `auto:` progress-pings were uncovered, by design).
+- `leak-scan` is a **required status check** on `main` (GitHub refuses a
+  merge until it passes — observed 2026-11-11).
+- Releases: bump `.claude-plugin/plugin.json` + `package.json` (minor for a
+  new user-facing feature), record a lightweight decision, tag
+  `dashboard--vX.Y.Z` on the release commit. A cloud session cannot push tags
+  (proxy 403) — the owner pushes the tag locally.
+
+There is no required work outstanding. Small parked items live in
+[docs/inbox.md](docs/inbox.md).
+Later candidates (vision → MVP scope deferrals): evolution graphs from
+snapshot history (the owner confirmed 2026-07-24 they want this — ADR-0004
+OQ2), hours-worked layer, jig upstreaming.
 
 **Do NOT re-add a snapshot write to the compass skill.** An earlier note here
 asked for exactly that; ADR-0004 reversed it and the owner retired compass's
