@@ -136,3 +136,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** Owner design call 2026-09-01 after the frame-critique found the drafted 'one row per action, every open item' was unbuildable from 009-02's collapsed single-state emission. Rejected: (a) per-slice enumeration (needs a new derivation 009-02 doesn't provide; floods); (b) lean one-per-project (just the grid re-sorted). Chosen middle: capped-rich, which 009-02's within-stage aggregation makes naturally bounded (<=5 stages/project), so the top-3 cap is a safety floor. Refinement within ADR-0006's delegated taxonomy, not a new load-bearing decision.
 
 **Scope:** src/lib.mjs deriveWaitingStages/deriveWaitingOn; src/scan.mjs waitingStages emit; public/render.mjs actionQueue/actionQueueHtml/setLens; public/index.html lens toggle; spec 009-03
+
+### 2026-11-11 — Release cut: plugin 0.6.0 (triage redesign + follow-ups)
+
+**Decision:** Plugin version bumped 0.5.0 -> 0.6.0 (plugin.json + package.json). This release carries everything landed on main since 0.5.0: spec 008 (release-goal view), spec 009 (overview triage redesign: uniform rows + detail view, waiting-on state, action-queue lens, gh-optional PR enrichment), spec 010 (two-phase non-blocking PR load), the leak-guard tooling, and PR #8's follow-ups (release-goal meter restored in the detail view, friendly malformed-config message, newline-tolerant routine check). Minor (not patch) — new user-facing features; no breaking change for the installed plugin.
+
+**Context:** 008, 009 and 010 all landed under 0.5.0 without a further bump, so an installed 0.5.0 plugin would not be signalled to update. The owner first asked for 0.5.1 to ship PR #8's fixes, then chose 0.6.0 once told the unreleased range also held the 008–010 features. Distribution unchanged: marketplace is the PinkException/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache.
+
+**Scope:** .claude-plugin/plugin.json, package.json
