@@ -337,6 +337,28 @@ function wsItemsHtml(w) {
   return items.map((i) => `<div class="ws-item">☐ ${esc(i.text)}</div>`).join('');
 }
 
+// Spec 008's release-goal meter, re-surfaced in the 009 detail view (it was
+// dropped when 009-01 replaced the dense card). Only a release workstream
+// whose scan attached `goalProgress` gets one — the scanner already
+// suppresses the "0 of 0" all-parked corner (008-02 AC4), so absence here
+// means title-only, exactly as before. "· K unresolved" keeps 008-02 AC3's
+// honest-unknowns marker; the NEXT line is the first non-landed gate.
+export function goalMeterHtml(w) {
+  const g = w && w.goalProgress;
+  if (!g || !g.total) return '';
+  const pct = Math.round((g.done / g.total) * 100);
+  const unresolved = (w.goalUnresolved || []).length;
+  const text =
+    `${g.done} of ${g.total} slices landed` + (unresolved ? ` · ${unresolved} unresolved` : '');
+  const next = w.goalNext
+    ? `<div class="ws-goal-next"><span class="label-inline">NEXT</span> ${esc(w.goalNext.id)} — ${esc(w.goalNext.action)}</div>`
+    : '';
+  return (
+    `<div class="ws-goal"><div class="ws-goal-line">${progressBarSvg(pct, { w: 120, h: 4 })}` +
+    `<span class="ws-goal-text">${esc(text)}</span></div>${next}</div>`
+  );
+}
+
 function wsBlockHtml(w, isCurrent) {
   const kindLabel =
     w.kind === 'release'
@@ -347,6 +369,7 @@ function wsBlockHtml(w, isCurrent) {
     `<div class="ws-block"><div class="ws-title-line">` +
     `<span class="ws-title">${esc(w.title || w.path)}</span>${currentChip}` +
     `<span class="ws-kind">${esc(kindLabel)}</span></div>` +
+    goalMeterHtml(w) +
     `<div class="ws-items">${wsItemsHtml(w)}</div></div>`
   );
 }

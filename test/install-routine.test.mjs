@@ -366,3 +366,46 @@ test('CLI `install --approved-by-owner --force` adopts an unmanaged stray file (
   assert.equal(code, EXIT.MATCH);
   assert.equal(fs.readFileSync(path.join(dir, 'compass-snapshots', 'SKILL.md'), 'utf8'), SRC());
 });
+
+// --- scheduler trailing-newline round-trip (inbox 2026-08-04) ---
+// The scheduler re-serializes the live SKILL.md without its final newline when
+// the task is toggled. That must read as "no change", not drift / hand-edited.
+
+test('checkDrift → match when the live copy only lost its trailing newline (scheduler round-trip)', () => {
+  const dir = tempSchedulerDir(SRC().replace(/\n+$/, ''));
+  const r = checkDrift({ live: path.join(dir, 'compass-snapshots', 'SKILL.md') });
+  assert.equal(r.status, 'match');
+});
+
+test('install is a no-op, without --force, when the managed live copy only lost its trailing newline', () => {
+  const srcText = SRC();
+  const stripped = srcText.replace(/\n+$/, '');
+  const { live, manifest } = tempInstallPaths({ liveContent: stripped, manifestHash: sha256(srcText) });
+  const code = install({ approved: true, livePath: live, manifestPath: manifest });
+  assert.equal(code, EXIT.MATCH);
+  assert.equal(fs.readFileSync(live, 'utf8'), stripped, 'nothing rewritten');
+});
+
+test('install proceeds without --force on a managed upgrade after the scheduler stripped the newline', () => {
+  const { dir, live, manifest } = tempInstallPaths();
+  const oldContent = 'OLD ROUTINE CONTENT v1\n';
+  const newContent = 'NEW ROUTINE CONTENT v2\n';
+  fs.mkdirSync(path.dirname(live), { recursive: true });
+  fs.writeFileSync(live, 'OLD ROUTINE CONTENT v1'); // scheduler round-tripped the installed v1
+  fs.writeFileSync(manifest, JSON.stringify({ sha256: sha256(oldContent) }));
+  const srcFile = path.join(dir, 'source.md');
+  fs.writeFileSync(srcFile, newContent);
+
+  const code = install({ approved: true, sourcePath: srcFile, livePath: live, manifestPath: manifest });
+  assert.equal(code, EXIT.MATCH, 'still recognised as our managed file — no --force needed');
+  assert.equal(fs.readFileSync(live, 'utf8'), newContent);
+});
+
+test('a real content edit is still drift / hand-edited, even with newline tolerance', () => {
+  const srcText = SRC();
+  const edited = srcText.replace(/\n+$/, '') + ' EDITED';
+  const dir = tempSchedulerDir(edited);
+  assert.equal(checkDrift({ live: path.join(dir, 'compass-snapshots', 'SKILL.md') }).status, 'drift');
+  const { live, manifest } = tempInstallPaths({ liveContent: edited, manifestHash: sha256(srcText) });
+  assert.equal(install({ approved: true, livePath: live, manifestPath: manifest }), EXIT.REFUSED);
+});

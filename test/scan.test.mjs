@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanProject, scanAll, buildGhContext, prDeltas, loadConfig, ConfigMissingError } from '../src/scan.mjs';
+import { scanProject, scanAll, buildGhContext, prDeltas, loadConfig, ConfigMissingError, ConfigMalformedError } from '../src/scan.mjs';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -438,6 +438,21 @@ test('loadConfig: a present-but-invalid-JSON file throws a DIFFERENT error, not 
     (err) => {
       assert.notEqual(err.code, 'CONFIG_MISSING', 'a malformed-but-present file must not be misreported as missing');
       assert.ok(!(err instanceof ConfigMissingError));
+      return true;
+    },
+  );
+});
+
+test('loadConfig: invalid JSON throws a typed CONFIG_MALFORMED error naming the path and the parser detail', () => {
+  const bad = path.join(CONFIG_TMP, 'malformed-typed.json');
+  fs.writeFileSync(bad, '{ not valid json');
+  assert.throws(
+    () => loadConfig(bad),
+    (err) => {
+      assert.ok(err instanceof ConfigMalformedError);
+      assert.equal(err.code, 'CONFIG_MALFORMED');
+      assert.ok(err.message.includes(bad), 'message names the malformed path');
+      assert.match(err.message, /not valid JSON \(.+\)/, 'parser detail is kept');
       return true;
     },
   );

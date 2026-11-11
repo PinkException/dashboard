@@ -158,6 +158,19 @@ export class ConfigMissingError extends Error {
   }
 }
 
+// Thrown by loadConfig when the config exists but is not valid JSON (e.g. a
+// hand-edit left a trailing comma). Same typed-error shape as
+// ConfigMissingError so the CLI can print one friendly line instead of a raw
+// SyntaxError stack; the parser's own message is kept as the detail.
+export class ConfigMalformedError extends Error {
+  constructor(configPath, detail) {
+    super(`dashboard config at ${configPath} is not valid JSON (${detail}) — fix the file, or delete it and run /dashboard:open to recreate it`);
+    this.name = 'ConfigMalformedError';
+    this.code = 'CONFIG_MALFORMED';
+    this.configPath = configPath;
+  }
+}
+
 export function loadConfig(configPath) {
   let raw;
   try {
@@ -166,7 +179,12 @@ export function loadConfig(configPath) {
     if (err.code === 'ENOENT') throw new ConfigMissingError(configPath);
     throw err;
   }
-  const cfg = JSON.parse(raw);
+  let cfg;
+  try {
+    cfg = JSON.parse(raw);
+  } catch (err) {
+    throw new ConfigMalformedError(configPath, err.message);
+  }
   cfg.projects = (cfg.projects || []).map((p) => ({
     pinnedWorkstreams: [],
     hiddenWorkstreams: [],

@@ -380,6 +380,32 @@ test('detailView: spec list defaults to the current release track with a "show a
   assert.ok(!html.includes('unrelated'), 'spec outside the current track is filtered out by default');
 });
 
+test('detailView: a release plan with goalProgress shows the 008 goal meter — count, unresolved marker, next gate', () => {
+  const html = detailView(mkProject({
+    workstreams: [{
+      kind: 'release', title: 'Public Beta (v0.9)', path: 'docs/releases/beta.md',
+      goalProgress: { done: 1, total: 3 }, goalUnresolved: ['014-02'],
+      goalNext: { id: '014-02', action: 'author slice' }, memberSpecIds: ['014'],
+    }],
+  }));
+  assert.match(html, /class="ws-goal"/);
+  assert.match(html, /1 of 3 slices landed · 1 unresolved/);
+  assert.match(html, /aria-label="33%"/, 'meter bar reflects done/total');
+  assert.match(html, /NEXT<\/span> 014-02 — author slice/);
+});
+
+test('detailView: a fully landed goal shows the meter without a NEXT line; no goalProgress → no meter', () => {
+  const landed = detailView(mkProject({
+    workstreams: [{ kind: 'release', title: 'Shipped', path: 'docs/releases/s.md', goalProgress: { done: 2, total: 2 }, goalUnresolved: [], goalNext: null }],
+  }));
+  assert.match(landed, /2 of 2 slices landed</);
+  assert.ok(!landed.includes('ws-goal-next'));
+  const plain = detailView(mkProject({
+    workstreams: [{ kind: 'release', title: 'Checklist only', path: 'docs/releases/c.md' }],
+  }));
+  assert.ok(!plain.includes('ws-goal'), 'title-only release plan stays meter-free (008-02)');
+});
+
 test('detailView: "show all" toggle reveals the full spec list (AC5)', () => {
   const p = mkProject({
     specs: [{ id: '014', title: 'elevation-profile', status: 'IN_PROGRESS', slices: [] }, { id: '099', title: 'unrelated', status: 'DONE', slices: [] }],
