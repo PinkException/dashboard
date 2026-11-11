@@ -70,8 +70,8 @@ stacks but is deliberately never loaded (header comment, `public/index.html:14-1
 ADR-0001 zero-dep, offline-safe), so the system font renders. That stays.
 
 **Text-colour set (enumerated):** `color: var(--…)` in `public/index.html` uses
-26 distinct tokens. `public/render.mjs` has exactly one inline style
-(`render.mjs:660`, `--text-muted`). A search for literal `#hex`, `rgb()`,
+26 distinct tokens. `public/render.mjs` has one inline style
+(`render.mjs:660`, `--text-muted`), and `index.html` has two inline `color:var(--text-muted)` at lines 246 and 281 (added by frame-critique round 4; same token, already in the set). A search for literal `#hex`, `rgb()`,
 `hsl()`, `color-mix()`, `filter:` and `mix-blend` outside the token blocks
 (`:root` and the dark `@media` block) returns nothing. The search is exhaustive
 because colour can only reach text through these CSS syntaxes in these two
