@@ -39,6 +39,8 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
 | [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-01 — contrast: every text colour passes WCAG AA in both modes | DRAFT |  |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | DRAFT |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-01 — roadmap tab with automatic order | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
