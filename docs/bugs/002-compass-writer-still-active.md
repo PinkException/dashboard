@@ -1,5 +1,8 @@
 ---
-status: REVIEWED
+severity: medium
+tier: standard
+regression_test: test/snapshot-store.test.mjs
+status: DONE
 ---
 # Bug 002 — the snapshot writer is still active after the routine was paused
 
@@ -17,10 +20,10 @@ writers. On discovery only one had been retired:
 |---|---|---|
 | the compass plugin skill (`compass/skills/compass/SKILL.md`) | active — appended after *every* briefing | **RETIRED by the owner, 2026-07-24** |
 | `scripts/snapshot.mjs` | active — hardcoded the in-repo target | **FIXED in [slice 005-01](../specs/005-snapshot-store/slice-01-relocate-store.md)** — now writes to the dashboard-owned store |
-| the `compass-snapshots` scheduled routine | paused 2026-07-22 | paused; to be rebuilt against the new writer |
+| the `compass-snapshots` scheduled routine | paused 2026-07-22 | rebuilt against the new writer (slice 005-04), installed via spec 006, now intentionally stopped by the owner — it shells out to `snapshot.mjs`, so the 005-01 retarget covers it too |
 
 Pausing the routine closed only the twice-daily path, never the per-run one.
-`scripts/snapshot.mjs:63-65` is the second path — it hardcodes
+`scripts/snapshot.mjs:63-65` (pre-fix line numbers) is the second path — it hardcodes
 `path.join(root, 'docs', 'status')`.
 
 Compass's past writes are independently confirmed in the data: 12 backed-up
@@ -91,3 +94,18 @@ files is a later, separately approved step.
 - [x] `snapshot.mjs` retargeted (slice 005-01)
 - [x] regression test written and witnessed red before the fix
 - [x] fix landed on `claude/spec-005-snapshot-store`
+
+## Closure (2026-11-11)
+
+- **Legacy record.** Written before the repository-closure schema existed, so it
+  has no closure-inventory sections. The writer enumeration lives in slice
+  005-01's reconciliation sweep, and the 2026-11-11 bug-review re-ran it
+  (`docs/status`, `writeFileSync`, `appendFileSync` across `scripts/`, `src/`,
+  `tools/`, `skills/`, `prompts/`, `public/`): the only `docs/status` reference
+  left is a read in `src/scan.mjs`.
+- **Red-before-fix** was asserted at the time, not captured. The test would fail
+  on the pre-fix code, because the old writer created the `docs/status/`
+  directory that it asserts is absent.
+- **Reviews:** [bug-review](reviews/bug-002-bug-review.md) (fresh, pass) and
+  [craft](reviews/bug-002-craft.md) (carried over from slice 005-01).
+- §6 in-repo cleanup was done by the owner on 2026-10-05.

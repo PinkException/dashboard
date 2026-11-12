@@ -1,4 +1,7 @@
 ---
+severity: medium
+tier: standard
+regression_test: test/scan.test.mjs
 status: RESOLVED_ON_MAIN
 ---
 # Bug 001 — .gitignore's `.claude/` rule excludes the worktree test fixture
