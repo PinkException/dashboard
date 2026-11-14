@@ -38,6 +38,10 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
 | [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
+| [011-project-roadmap-tab](011-project-roadmap-tab/spec.md) | 011-01 — roadmap tab with automatic order | DRAFT |  |
+| [011-project-roadmap-tab](011-project-roadmap-tab/spec.md) | 011-02 — parked section and slice goals | DRAFT |  |
+| [011-project-roadmap-tab](011-project-roadmap-tab/spec.md) | 011-03 — saved order and narrative extras from snapshots | DRAFT |  |
+| [011-project-roadmap-tab](011-project-roadmap-tab/spec.md) | 011-04 — end-of-day skill | DRAFT |  |
 
 ## Abandoned slices
 
