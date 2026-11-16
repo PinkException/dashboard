@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: READY_FOR_IMPLEMENTATION
 dependencies: [012-03]
 last_verified:
 frame_review: true

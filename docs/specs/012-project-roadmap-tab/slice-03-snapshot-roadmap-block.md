@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: READY_FOR_IMPLEMENTATION
 dependencies: [012-02, adr-0004]
 last_verified:
 arch_review: true
