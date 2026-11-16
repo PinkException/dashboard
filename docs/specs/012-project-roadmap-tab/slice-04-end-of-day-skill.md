@@ -18,27 +18,50 @@ to correct.
 **DoR:**
 - ✅ 012-03 DONE (snapshot skill writes the roadmap block).
 - ⬜ A4 probed first: can the skill list projects with session activity since
-  local midnight without the server running? Result and chosen source recorded
-  in the deviation log.
+  a given time (AC2's window) without the server running? Result and chosen source recorded in the deviation log.
 
 **Acceptance Criteria:**
 
 1. **Skill exists.** `skills/end-of-day/SKILL.md` ships in the plugin as
    `/dashboard:end-of-day`, with trigger phrases ("end of day", "wrap up my
    day", "snapshot everything I touched today").
-2. **Today's projects.** It selects configured projects with activity since
-   local midnight (source per the A4 probe); none → says so and writes
-   nothing.
+2. **Projects since the last run.** It selects configured projects with
+   session activity **since the last completed end-of-day run** — not since
+   midnight, so a run after midnight or after a skipped evening still covers
+   everything. The last-run time lives in
+   `~/.claude/my-dashboard/end-of-day.json` (user data folder, ADR-0003):
+   the run's start time, written at the end of every run, plus the list of
+   projects that **failed** in it — those are selected again on the next run
+   whatever their activity, so a failure never silently uses up its window.
+   A failed project no longer in config is dropped quietly. Known gaps
+   (record with the A4 probe): a session started outside any configured
+   root or its worktrees does not select that project; two overlapping runs
+   can overwrite each other's state (unlikely for a nightly ritual). First run, or file missing → the last
+   24 hours; lookback capped at 7 days (the summary says when the cap
+   applied). Activity source per the A4 probe — likely the exported,
+   server-free `readAllSessions` (`src/scan.mjs:656-701`, transcript mtime;
+   worktree sessions count via `attributeSessionDir`, `src/lib.mjs:328-343`).
+   No session is excluded — the wrap-up may run in the session used all
+   day; a project selected only because of the wrap-up costs one subagent
+   and a "nothing new — not written" line (thin day, 012-03 AC8).
+   None → says so and writes nothing.
+   Under decision 7 a day spent only in an unmerged worktree yields at most
+   a carry-forward of main's roadmap — the summary says "work is in
+   worktrees" rather than implying the roadmap reflects it.
 3. **One subagent per project.** Each project's snapshot is composed by its
    own subagent following `skills/snapshot/SKILL.md` (single source — the
    end-of-day skill never duplicates the composition rules); the orchestrator
    keeps only each result.
-4. **Summary.** One line per project: name, headline, proposed order
-   (`a → b → c`), plus any project that failed and why. A failure on one
-   project never stops the others.
+4. **Summary.** One line per project: name, headline (or "nothing new —
+   not written" when the day was too thin, 012-03 AC8), the order (`a → b → c`) marked
+   "yours" or "proposed", any suggested change to a "yours" order (not
+   applied), plus any project that failed and why. A failure on one project
+   never stops the others.
 5. **Corrections.** The skill tells the owner how to correct ("move 007-03
-   before 007-02 in <project>"); a correction writes a **new** snapshot entry for
-   that project with the corrected order (latest wins; history kept).
+   before 007-02 in <project>"); the end-of-day orchestrator applies it in the
+   same conversation with one `snapshot.mjs --move … --before …` call for that
+   project (012-03 AC2), so it survives every later end-of-day run. Summary
+   order lines come from `snapshot.mjs --print-order`.
 6. **Writes only to the store.** No write into any surveyed repo; no git
    operation.
 7. **Docs.** README lists the skill in the plugin's skill table and the

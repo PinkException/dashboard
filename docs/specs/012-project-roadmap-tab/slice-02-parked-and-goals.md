@@ -21,16 +21,27 @@ snapshot.
 **Acceptance Criteria:**
 
 1. **Goal line.** The scanner adds `goal` to each slice record: the first
-   sentence of the `**Goal:**` paragraph, plain text (markdown emphasis and
+   sentence of the `**Goal:**` paragraph — or, when absent, a
+   `**Goal (…):**` paragraph (P3: 4 of 42 deferred slices) — plain text (markdown emphasis and
    links stripped), capped at a fixed length with an ellipsis. Absent →
    no goal line on the card (A1).
 2. **Trigger.** The scanner adds `trigger` to each DEFERRED slice: the text of
-   its `**Resolution trigger:**` line (first sentence, same cleanup and cap).
+   its `**Resolution trigger:**` paragraph — the label line plus following
+   lines up to a blank line, heading, list item or next bold label (P3: 13 of
+   40 triggers wrap) — shown whole up to the cap (not cut to one sentence, so
+   "A. Or B." never reads as just "A"). Whenever any text is dropped, by goal
+   sentence cut or by cap, the shown text ends with "…". Sentence splitting
+   ignores dots in abbreviations, filenames and versions ("e.g.",
+   `server.mjs`, `0.6.0`). The cap is set after measuring goal/trigger
+   lengths over P3's sample (recorded in the deviation log).
    Absent → the card says nothing about a trigger (A2) — never a guessed one.
 3. **Parked section.** Below the spec groups, a "Parked" section lists every
-   DEFERRED slice across unfinished specs, plus any spec whose every non-DONE
-   slice is DEFERRED, as dashed cards with a "Parked" chip, the slice ID, name,
-   goal, and "Revisit when: <trigger>".
+   DEFERRED slice from **every** spec — including finished specs with a
+   deferred tail, which stay in the "show N done" fold as specs — as one
+   dashed card per slice with a "Parked" chip, the slice ID, name, goal, and
+   "Revisit when: <trigger>". The count equals 012-01 AC4's "N parked" (a
+   slice count). No spec-level parked card. A spec whose own frontmatter
+   status is ABANDONED contributes no parked cards.
 4. **Bounded reads.** Goal/trigger extraction reads only the slice files
    `scanSpecs` already opens (no new file walk); a scan of the surveyed
    projects stays within the current `/api/data` timing envelope (measure

@@ -73,8 +73,9 @@ setup.
   `next`, `blockers`, `ts`, `source` (`scripts/snapshot.mjs:4-20,105-120`).
 - jig slice files carry a `## Slice NNN-NN — <name>` heading and a `**Goal:**`
   line by template; DEFERRED slices carry a `**Resolution trigger:**` line by
-  convention (spec-workflow SKILL.md; example
-  `docs/specs/003-sessions-panel/slice-03-pr-badges.md:26`).
+  convention (jig spec-workflow SKILL.md, "DEFERRED state"; jig's own
+  extractor matches the exact single-line label, `workflow.py`
+  `**Resolution trigger:**` regex). Measured in probe P3 (A1/A2).
 
 ### Automatic order (layer 1)
 
@@ -110,8 +111,9 @@ Slices inside a spec: dependency order (a slice after the slices **of the same
 spec** it depends on; cross-spec IDs and `adr-*` tokens do not affect order
 but are still shown as "Depends on"), ties by slice number; a dependency cycle
 falls back to slice number. DEFERRED slices go to the **Parked** section;
-ABANDONED slices are not shown. A spec whose every non-DONE slice is DEFERRED
-sits in Parked.
+ABANDONED slices are not shown. A spec whose every other slice is DONE (a
+"deferred tail") is finished: it folds under "show N done", and its DEFERRED
+slices still appear in Parked (P3 found 16 such specs).
 
 **"We are here".** The first sequence step carries "We are here" only when it
 is a current release or a spec in the in-flight or started tier. Otherwise
@@ -170,17 +172,26 @@ artifacts don't show.
 - **A1 — slice headings/goals are present enough to be useful.** Template
   slices have `## Slice … — name` and `**Goal:**`; legacy or hand-made slices
   may not. Mitigation: fall back to the slice filename; never fail the scan.
-  Not yet measured across the surveyed projects.
 - **A2 — `**Resolution trigger:**` is a convention, not enforced.** A DEFERRED
   slice without it renders with no trigger line (honest absence, not a guess).
+- **A1/A2 evidence — probe P3 (2026-11-16)** over the 8 configured projects:
+  42 DEFERRED slices in 5 projects. 40/42 carry an exact
+  `**Resolution trigger:**` line; 13 of those wrap onto following lines.
+  Goal: 37/42 exact `**Goal:**`, 4 more as `**Goal (…):**` (e.g. "Goal (when
+  un-deferred)"), 1 none. 16 finished specs have a deferred tail. Hence
+  012-02 accepts the `**Goal (…):**` variant and reads wrapped triggers.
+  **Kill criterion:** if the Parked section shows no trigger for more than a
+  quarter of parked slices across projects, revisit label tolerance.
 - **A3 — snapshot readers tolerate an extra `roadmap` field.** The reader
   parses each JSONL line as an object and keeps it (`src/lib.mjs:178-193`);
   not yet verified that no consumer (migrate, `--if-changed` signature) chokes
   on a large nested field. Slice 03 probes this first.
-- **A4 — a skill can list "projects touched today".** The sessions reader
-  (spec 003) runs inside the server scan; whether it is callable from a
-  skill/CLI entry point without the server is unverified. Slice 04 probes this
-  first; fallback is the projects whose snapshot or git activity changed today.
+- **A4 — a skill can list projects active since its last run.** The sessions
+  reader `readAllSessions` is exported and reads transcript mtimes without the
+  server (`src/scan.mjs:656-701`, per the 012-04 frame-critique); Slice 04
+  confirms it first. Fallback: projects
+  whose git activity changed in the window. "Today" means "since the last
+  end-of-day run" (012-04 AC2), not since midnight.
 
 ## Decomposition
 

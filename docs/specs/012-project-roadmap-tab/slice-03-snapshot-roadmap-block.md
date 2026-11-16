@@ -28,31 +28,96 @@ saying which order is in effect.
 1. **Entry shape.** A snapshot entry may carry an optional `roadmap` object:
    `order` (slice IDs, e.g. `"012-01"`), optional `groups`
    (`[{ label, slices: [ids] }]`), `layers` (`[{ name, title, text }]`),
-   `rule` (string), `locked` (strings). Documented as an additive amendment to
+   `rule` (string), `locked` (strings), `orderOrigin`: `"proposed"` (the
+   skill's own proposal) or `"corrected"` (the owner changed it, or it
+   carries forward an earlier correction), `correctedAt` (ISO time of the
+   owner's last correction; present only when `"corrected"`) and `proposedAt`
+   (ISO time of the last proposal; present only when `"proposed"`). Neither
+   date is ever moved by a mechanical carry-forward. Documented as an additive amendment to
    the ADR-0004 contract (record or ADR per the reconciliation trigger).
-2. **Writer.** `scripts/snapshot.mjs` accepts `--roadmap <file.json>`; an
-   invalid file (bad JSON, wrong types, unknown slice-ID format) is refused
-   with a clear message and **nothing is written**. Entries without
-   `--roadmap` are byte-identical to today's.
+2. **Writer owns every order computation.** `scripts/snapshot.mjs` (which
+   already scans a project for `--auto`) gains three roadmap modes, so no
+   order is ever computed by hand in a skill:
+   - `--roadmap <file.json>` (with `--headline`): the file holds the
+     narrative block (`groups`, `layers`, `rule`, `locked`) and, optionally,
+     `proposedOrder`. The **writer** sets `order`: no saved roadmap for the
+     project → `proposedOrder` (else the automatic order), `orderOrigin:
+     "proposed"`; a saved roadmap exists → `mergeSavedOrder(saved,
+     autoOrder)` (AC4), keeping `orderOrigin` and its date. While the origin
+     is still `"proposed"`, a new `proposedOrder` **replaces** it (fresh
+     `proposedAt`) — the skill keeps proposing until the owner corrects. Once
+     `"corrected"`, `proposedOrder` is ignored (printed as a suggestion only).
+   - `--move <id> --before <id>` (no other input): an owner correction. The
+     writer loads the latest narrative entry and the latest roadmap entry,
+     applies the move to the merged order, and appends a new entry copying
+     `headline`/`next`/`blockers`/`source` and the full block, with
+     `orderOrigin: "corrected"` and `correctedAt` = now. Unknown IDs or no saved roadmap → refused, nothing
+     written.
+   - `--print-order` (read-only): prints the order the tab would show, as one
+     line (`007-01 → 007-03 → 007-02`) plus its origin — used by the skills'
+     summaries.
+   An invalid file (bad JSON, wrong types, unknown slice-ID format) is refused
+   with a clear message and **nothing is written**. The temp file lives
+   outside the surveyed repo. Entries without roadmap modes are
+   byte-identical to today's. Every entry still carries a `headline` — the
+   existing contract (`validateSnapshot`, `src/lib.mjs:235-237`;
+   `parseCompassHistory` requires it, `src/lib.mjs:186-196`; migration dedups
+   on `ts`+`headline`) is unchanged, so `roadmap` stays a purely **additive**
+   field. Headline-less entries were considered and rejected (frame-critique
+   round 2): they would count as malformed and warn on the card forever.
 3. **Reader.** The scan exposes the newest narrative entry that carries a
-   `roadmap` (independent of which entry the card headline uses).
-4. **Override with drift safety.** When a saved order exists, the tab uses it:
-   IDs that no longer exist are dropped; existing unfinished slices missing
-   from the order are appended in automatic order (new work never vanishes);
-   DEFERRED slices stay in Parked regardless.
-5. **Groups.** When `groups` is present, cards group under those labels
-   instead of per spec; slices not in any group fall into a final per-spec
-   group.
+   `roadmap`, tracked alongside today's `latest`/`latestNarrative` in the same
+   parse. Each roadmap entry carries the **full** block (order, groups,
+   layers, rule, locked) — a correction copies the previous block and changes
+   only the order — so the newest one is always complete. AC7's dates use
+   `correctedAt` or `proposedAt`, never the entry's `ts`. After a `--move`, the card's
+   "when it ran" shows the correction time, because the copied entry is the
+   newest narrative one — accepted: the owner re-confirmed that headline, and
+   the copied `source` keeps its provenance.
+4. **Override with drift safety — one merge function.** A single pure
+   function `mergeSavedOrder(saved, autoOrder)` in `src/lib.mjs` is used
+   **both** by the tab at read time and by `snapshot.mjs` when it carries an
+   order forward or applies a correction (AC2), so the order never shifts on its own between runs:
+   - IDs that no longer exist, or whose slice is now DONE / DEFERRED /
+     ABANDONED, are dropped (DEFERRED slices show in Parked regardless);
+   - unfinished slices missing from the saved order are **appended** at the
+     end, in automatic order (new work never vanishes, and never jumps
+     position later);
+   - appended slices sit at the end, labelled per AC5.
+5. **Groups label, `order` places.** Position comes **only** from `order`
+   (after AC4's merge); `groups` never move a card. Walking the order, each
+   maximal run of consecutive slices sharing a group gets that group's label;
+   a slice in no group gets its spec's title as label. A group whose slices
+   are not consecutive simply labels each run. So a freshly composed `groups`
+   on a later run can relabel cards but can never undo an owner correction.
 6. **Extras.** `layers`, `rule` and `locked` render (escaped) only when
    present; absent → nothing, no empty boxes.
-7. **Which-order label.** The tab states "Order: automatic" or "Order: saved
-   by <source> · <date>"; a saved order older than the newest slice-status
-   change in the project adds "(older than latest changes)".
-8. **Snapshot skill.** `skills/snapshot/SKILL.md` composes the roadmap block
-   from the project's own artifacts, **proposes** an order (the owner corrects
-   afterwards, decision 6), writes it via `--roadmap`, and shows the order as
-   one line (`007-01 → 007-03 → 007-02`). It still never writes into the
+7. **Which-order label.** The tab states "Order: automatic", "Order:
+   proposed · <proposedAt>" or "Order: yours · <correctedAt>". "(older than
+   latest changes)" compares the slice-status changes against that same date
+   (so a mechanical carry-forward never clears it).
+8. **Snapshot skill — corrections persist.** `skills/snapshot/SKILL.md`
+   composes only the **narrative** part of the block (groups, layers, rule,
+   locked) and, while the order is not yet `"corrected"`, a `proposedOrder`,
+   from the
+   project's own artifacts. It **never writes `order` itself**: the writer
+   (AC2) proposes, carries forward or corrects it. So:
+   - a `"corrected"` order is never replaced by a fresh proposal (the writer
+     ignores `proposedOrder` once the order is `"corrected"`; the skill may *suggest* a
+     change in its summary, applied only on the owner's say via `--move`);
+   - an owner correction ("move 007-03 before 007-02") is one `--move` call;
+   - **thin day** (no headline worth writing, per the skill's existing bar)
+     → nothing is written; new slices still appear via AC4's read-time merge;
+   - **one project per run** stays the skill's rule; the "cross-project sweep
+     is the scheduled routine's job" guardrail (`skills/snapshot/SKILL.md:74-75`)
+     is reworded to also allow `/dashboard:end-of-day` (012-04) to invoke it
+     once per project.
+   Its summary shows `--print-order`'s line; it never writes into the
    surveyed repo.
+9. **Roadmap changes are written.** A `dashboard`-source entry whose only
+   change is the roadmap block is never skipped by the `--if-changed` guard
+   (same-source `auto` comparison only, `scripts/snapshot.mjs:15-20,65,138`;
+   confirm in the A3 probe and cover with a test).
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).
