@@ -1,5 +1,5 @@
 ---
-status: DONE
+status: IN_PROGRESS
 skill:
 use_cases: [UC-3]
 ---
@@ -64,3 +64,4 @@ the second. Either can land without the other. No spike — the one factual clai
 
 - [007-01 — graceful config-missing message](slice-01-graceful-config-missing.md)
 - [007-02 — README onboarding section](slice-02-readme-onboarding.md)
+- [007-03 — converge the missing-config message](slice-03-converge-missing-config-message.md) (DRAFT)

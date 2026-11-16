@@ -86,3 +86,12 @@ Also note: this slice's goal mentions the `.claude/` runtime machinery.
 The project runs jig as an **installed plugin**, so that machinery lives
 in the plugin, not in this repo — `scaffold.json` records
 `scaffold_mode: plugin-only` accordingly.
+
+### 2026-11-16 — "Reconciliation review passed" box: not applicable
+
+The DoD box "Reconciliation review passed" above was left unticked. Read it as
+**not applicable**, for the same reason as the other review boxes (Deviation
+log item 2): this slice's output is deterministic template emission, so there
+was nothing authored to reconcile-review. The box is left as originally
+written because closed slices are records. (Owner-approved in the 2026-11-16
+inbox triage.)

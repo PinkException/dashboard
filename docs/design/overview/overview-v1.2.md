@@ -5,7 +5,7 @@ version: v1.2
 base: v1.1
 product: Local read-only dashboard over a person's jig-managed code projects
 tool: Claude design
-status: briefed
+status: iterating
 ---
 
 # Overview — design brief (v1.2)
@@ -72,3 +72,6 @@ You own the visual design — mood, colour, type, layout, imagery. Keep the Prod
   REVIEW / MERGE — which becomes the label and keeps the state's prominence;
   the header count formerly "You" becomes **"To do"**. Ready / External / Idle
   unchanged. Colour, finish-first ordering, and layout unchanged.
+
+### R2 — scan warnings (2026-11-16, from inbox triage) · overview-v1.2
+- In `overview-v1.2/`, show each project's scan warnings (for example, a snapshot line the scanner had to skip) in the project detail view, styled like the existing worktree-only warning block.
