@@ -9,7 +9,7 @@ frame_review: true
 <!-- jig self-defining vocabulary (soft, forward-only). -->
 <!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
 
-## Slice 011-01 — roadmap tab with automatic order
+## Slice 012-01 — roadmap tab with automatic order
 
 **Goal:** Open any project's detail view, click a new **roadmap** tab, and see
 the road ahead in the automatic order: a sequence strip, the current release's
@@ -17,7 +17,7 @@ slices, and one group per unfinished spec with a card per slice (ID, name,
 status chip, "depends on …"); DONE specs folded under "show N done".
 
 **DoR:**
-- ✅ Spec 011 decisions recorded (spec.md "Owner decisions").
+- ✅ Spec 012 decisions recorded (spec.md "Owner decisions").
 - ✅ Detail-view tab bar exists (`public/render.mjs:537-538`).
 
 **Acceptance Criteria:**
@@ -31,19 +31,26 @@ status chip, "depends on …"); DONE specs folded under "show N done".
    falls back to the filename stem (A1). The `/api/data` change is additive.
 3. **Automatic order.** A pure function in `src/lib.mjs` (scanner-side, per
    ADR-0001 — the page does no derivation) returns the spec and slice order
-   defined in spec.md "Automatic order (layer 1)", including the in-spec
-   dependency order and the cycle fallback. Covered by fixture tests for each
-   rule (release-first, status rank, number tie-break, dependency order,
-   cycle).
-4. **Sequence strip.** Up to four steps: **Now** = the current release (or the
-   first ordered spec when no release), **Then** / **After** = the next two
-   ordered specs, **Later** = "N parked" when any slice is DEFERRED. "Now"
-   carries a "We are here" marker. Fewer steps render when fewer exist.
+   defined in spec.md "Automatic order (layer 1)", including the
+   definitions (slice, unfinished, tier), in-spec dependency order and the
+   cycle fallback. The scanner supplies each spec's recency (git commit
+   timestamp of its directory, mtime fallback) as an input, so the function
+   stays pure. `currentReleaseTrack` moves from `public/render.mjs` into
+   `src/lib.mjs`; the scanner emits its result and both the overview and the
+   roadmap read that one value (no second copy of the rule). Covered by
+   fixture tests for each rule (release-first, tier, recency, number
+   tie-break, status-less `slice-*.md` ignored, spec with no slices,
+   cross-spec / `adr-*` dependencies, dependency order, cycle).
+4. **Sequence strip.** Up to four steps: the first = the current release (or
+   the first ordered spec when no release), the next two = the next two
+   ordered specs, the last = "N parked" when any slice is DEFERRED. The first
+   step reads "Now · We are here" only under spec.md's "We are here" rule,
+   otherwise "Next up". Fewer steps render when fewer exist.
 5. **Release block.** When a current release exists, a block lists its Include
    slices with chips, under "In front of it — <release title>".
 6. **Spec groups.** One group per unfinished spec in order; each slice card
-   shows ID, name, chip (spec.md "Status chips"), and "Depends on <ids>" when
-   it has in-project dependencies. DEFERRED slices are excluded here (they
+   shows ID, name, chip (spec.md "Status chips"), and "Depends on <ids>"
+   listing every declared dependency (same-spec, cross-spec and `adr-*`). DEFERRED slices are excluded here (they
    land in Parked, slice 02); ABANDONED slices are not shown.
 7. **Done fold.** DONE specs render inside a native `<details>` with summary
    "show N done", closed by default.
@@ -54,6 +61,41 @@ status chip, "depends on …"); DONE specs folded under "show N done".
    import); the four chips are visually distinct in light and dark mode;
    cards wrap to one column at phone width with no horizontal scroll.
    Attest-by-eyeball at review (low-stakes polish; no `design_review` gate).
+10. **"As of main" label and worktree hint** (spec.md decision 7, A6). The
+    tab header reads "as of main" (the root's current branch name when it is
+    not `main`), plus a worktree hint computed as follows (no worktree status
+    feeds the order):
+    - **Worktrees considered:** every `git worktree list` entry except the
+      root, read **from disk** (uncommitted edits count). No merged-branch
+      skip: a fresh worktree at the root's HEAD lists as "merged" while
+      holding live uncommitted work, and the strict rank below already keeps
+      stale worktrees' older statuses out of N. Residual: a stale worktree's
+      slices that were renamed or deleted on main may still count.
+    - **Progress rank:** DRAFT < READY_FOR_REVIEW < READY_FOR_IMPLEMENTATION
+      < IN_PROGRESS < REVIEWED < RECONCILED < DONE. DEFERRED and ABANDONED
+      never count as "further along".
+    - **"N slices further along in worktrees":** slices whose highest
+      worktree status (across all considered worktrees, each slice counted
+      once) ranks strictly above the root's; plus slices that exist only in
+      worktrees **inside a spec folder the root has**.
+    - **"M specs only in worktrees":** spec folders absent from the root,
+      reported separately (a renamed folder lands here, not in N).
+    - No cap on either count. Both zero → no hint.
+    - Fixtures include: a worktree at the root's HEAD with an uncommitted
+      IN_PROGRESS slice → N ≥ 1; a stale worktree holding DRAFT where the
+      root has DONE → not counted.
+    - This is a **new content read** of worktree slice frontmatter — a
+      deliberate widening beyond 002-02 AC4's path-only worktree rule.
+      `scanWorktreeOnlyDocs` (path-only, `.claude/worktrees` only, capped at
+      40) is left unchanged; the hint uses its own enumeration. Its cost
+      counts toward AC11's budget.
+11. **Scan cost.** Recency for all specs of a project comes from **one** git
+    call per repo (e.g. a single `git log --format=%ct --name-only --
+    docs/specs` pass mapped to spec directories), not one call per spec.
+    The disk-only `/api/data` scan (ADR-0007) over the configured projects
+    grows by no more than 10% versus before this slice (measure before and
+    after; record both numbers in the deviation log). An overrun is
+    recorded and raised with the owner, never hidden.
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).

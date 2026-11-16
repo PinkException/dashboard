@@ -1,6 +1,6 @@
 ---
 status: DRAFT
-dependencies: [011-02, adr-0004]
+dependencies: [012-02, adr-0004]
 last_verified:
 arch_review: true
 frame_review: true
@@ -9,7 +9,7 @@ frame_review: true
 <!-- jig self-defining vocabulary (soft, forward-only). -->
 <!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
 
-## Slice 011-03 — saved order and narrative extras from snapshots
+## Slice 012-03 — saved order and narrative extras from snapshots
 
 **Goal:** Run `/dashboard:snapshot` on a project and its roadmap tab switches
 from the automatic order to the skill's proposed order, with the narrative
@@ -17,7 +17,7 @@ extras (named groups, layers, "the rule", locked decisions) shown — and a labe
 saying which order is in effect.
 
 **DoR:**
-- ✅ 011-02 DONE.
+- ✅ 012-02 DONE.
 - ✅ ADR-0004 (snapshot store contract) accepted.
 - ⬜ A3 probed first: every reader of the store (`src/lib.mjs` reader,
   `scripts/snapshot.mjs --if-changed`, `src/migrate.mjs`) tolerates an extra
@@ -51,7 +51,7 @@ saying which order is in effect.
 8. **Snapshot skill.** `skills/snapshot/SKILL.md` composes the roadmap block
    from the project's own artifacts, **proposes** an order (the owner corrects
    afterwards, decision 6), writes it via `--roadmap`, and shows the order as
-   one line (`012-01 → 012-05 → 012-03`). It still never writes into the
+   one line (`007-01 → 007-03 → 007-02`). It still never writes into the
    surveyed repo.
 
 **DoD:**

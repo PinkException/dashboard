@@ -6,7 +6,7 @@ use_cases: [UC-1, UC-3]
 
 <!-- jig self-defining vocabulary (soft, forward-only): expand each acronym on first use and link the term to docs/memory/glossary.md (or jig's lexicon). See docs/workflow.md "Self-defining vocabulary". -->
 
-# Spec 011: Project-roadmap tab
+# Spec 012: Project-roadmap tab
 
 > Give each project a **roadmap tab** in its detail view: the road ahead in
 > order — current release, unfinished specs as slice cards, parked work with
@@ -50,6 +50,12 @@ setup.
    project touched today, one subagent per project.
 6. **Who orders:** the skill **proposes and saves** the order; the owner only
    corrects it.
+7. **Main only, labelled (2026-11-16, after the 012-01 frame-critique round
+   2):** the roadmap reads the configured root (normally the main checkout)
+   and says so — "as of main" — plus a hint counting slices that are further
+   along, or only exist, in the project's worktrees. Reading worktree
+   *statuses* into the order was considered and declined for now (bigger
+   scanner change; abandoned worktrees would need filtering). See A6.
 
 ### Current state (verified 2026-11-14)
 
@@ -72,19 +78,45 @@ setup.
 
 ### Automatic order (layer 1)
 
+Revised 2026-11-16 after the 012-01 frame-critique and probe P1 (see A5).
+
+**Definitions.**
+- A **slice** is a `slice-*.md` file whose frontmatter has a `status:`. A
+  `slice-*.md` without one (e.g. a device-test evidence note) is not a slice
+  for the roadmap: no card, no effect on order (P1 found these in 2 of 7
+  projects, where they made a finished spec look unfinished). Legacy slices
+  that carry status only as a prose `**STATUS:**` line are equally invisible —
+  the same as every existing dashboard count today.
+- A spec is **unfinished** when at least one of its slices is not DONE,
+  DEFERRED or ABANDONED — judged from slice statuses, not the spec's
+  frontmatter. A spec with no slices yet is unfinished unless its own status
+  is DONE or ABANDONED.
+- A spec's **tier**: **in flight** (any slice IN_PROGRESS / REVIEWED /
+  RECONCILED) > **started** (any slice DONE or READY_FOR_*) > **not started**
+  (only DRAFT slices, or no slices).
+
 Specs, top to bottom:
 
-1. Specs with any slice in the **current release's** Include set.
-2. Then by most-advanced slice status, finish-first:
-   RECONCILED > REVIEWED > IN_PROGRESS > READY_FOR_IMPLEMENTATION >
-   READY_FOR_REVIEW > DRAFT (same finish-first spirit as `deriveWaitingStages`,
-   spec 009).
-3. Ties by spec number, ascending.
+1. Specs with any slice in the **current release's** Include set (current
+   release = today's `currentReleaseTrack` rule, moved scanner-side — see
+   012-01 AC3).
+2. Then by tier, in flight first.
+3. Then by **recency**: the newest git commit touching the spec's directory
+   (commit timestamp, not day); when git is unavailable, the newest file
+   mtime in the directory.
+4. Ties by spec number, ascending.
 
-Slices inside a spec: dependency order (a slice after the in-spec slices it
-depends on), ties by slice number; a dependency cycle falls back to slice
-number. DEFERRED slices go to the **Parked** section; ABANDONED slices are not
-shown. A spec whose every non-DONE slice is DEFERRED sits in Parked.
+Slices inside a spec: dependency order (a slice after the slices **of the same
+spec** it depends on; cross-spec IDs and `adr-*` tokens do not affect order
+but are still shown as "Depends on"), ties by slice number; a dependency cycle
+falls back to slice number. DEFERRED slices go to the **Parked** section;
+ABANDONED slices are not shown. A spec whose every non-DONE slice is DEFERRED
+sits in Parked.
+
+**"We are here".** The first sequence step carries "We are here" only when it
+is a current release or a spec in the in-flight or started tier. Otherwise
+the step is labelled "Next up" — the tab never claims a position the
+artifacts don't show.
 
 ### Status chips
 
@@ -96,6 +128,44 @@ shown. A spec whose every non-DONE slice is DEFERRED sits in Parked.
 | Parked | DEFERRED |
 
 ## Assumptions
+
+- **A5 — the automatic order puts the real next work first.** Probed
+  2026-11-16 (P1): the original rules (status rank → spec number) and the
+  revised rules (tier → recency → number) were run over the 8 configured
+  projects with the real scanner (one had no unfinished spec). Results,
+  anonymized:
+  - Against the owner's hand-made reference roadmap (project B): original
+    rules put an old, side-lined spec first and the actual "Now" spec 4th;
+    revised rules put the actual "Now" spec 1st. The reference's "Then"
+    spec came 3rd behind another started spec — an owner priority no
+    artifact records, which is what the saved order (012-03) is for.
+  - Project A (has a release plan): unchanged top spec (the in-flight one).
+  - Project C (two in-flight specs): unchanged top two.
+  - Projects D–G: revised order differs only in tie-breaks among drafts,
+    now newest-first instead of oldest-first.
+  - **Kill criterion:** if, after 012-01 ships, the owner reports the
+    automatic "Now" step wrong on most projects, drop the "We are here"
+    marker entirely and label every first step "Next up".
+  - **Known residuals (frame-critique round 5):** a release whose Include
+    names a never-written slice stays "current" indefinitely (shared with the
+    overview's default track, A-009-01); the "started" tier counts
+    READY_FOR_* slices, so an approved-but-unbegun spec can read "We are
+    here". Both fall under the kill criterion above.
+- **A6 — "as of main" is an acceptable view.** The scanner reads only
+  `<root>/docs/specs` (`src/scan.mjs:231-259`); worktree awareness today is
+  path-existence only (`src/scan.mjs:358-378`). Probe P2 (2026-11-16) over the
+  8 configured projects: 7 have worktrees whose slice files differ from the
+  root — up to 20 slices with a *different* status (direction not measured;
+  stale worktrees can hold older statuses) and up to 58 slices that
+  exist only in worktrees per project (some may be stale). So the automatic order may lag
+  the owner's live work. Accepted by the owner (decision 7) with an honest
+  label and a worktree hint; the saved order (012-03) can encode live
+  priorities. Reading worktree slice frontmatter for the hint (012-01 AC10)
+  widens 002-02 AC4's path-only worktree rule on purpose. **Kill criterion:** if the owner finds the lag makes the tab
+  misleading in practice, open a follow-up slice that folds worktree slice
+  statuses into tier/recency (ignoring worktrees idle 14+ days).
+  Residual: "main" means the **local** root checkout; if it lags
+  origin/main, worktrees branched from the newer origin inflate the hint.
 
 - **A1 — slice headings/goals are present enough to be useful.** Template
   slices have `## Slice … — name` and `**Goal:**`; legacy or hand-made slices
@@ -129,7 +199,7 @@ Each slice ends in something the owner can see in the dashboard or run.
 
 ## Slices
 
-- [011-01 — roadmap tab with automatic order](slice-01-roadmap-tab-automatic-order.md)
-- [011-02 — parked section and slice goals](slice-02-parked-and-goals.md)
-- [011-03 — saved order and narrative extras from snapshots](slice-03-snapshot-roadmap-block.md)
-- [011-04 — end-of-day skill](slice-04-end-of-day-skill.md)
+- [012-01 — roadmap tab with automatic order](slice-01-roadmap-tab-automatic-order.md)
+- [012-02 — parked section and slice goals](slice-02-parked-and-goals.md)
+- [012-03 — saved order and narrative extras from snapshots](slice-03-snapshot-roadmap-block.md)
+- [012-04 — end-of-day skill](slice-04-end-of-day-skill.md)

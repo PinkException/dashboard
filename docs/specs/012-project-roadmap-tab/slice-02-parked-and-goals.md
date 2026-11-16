@@ -1,6 +1,6 @@
 ---
 status: DRAFT
-dependencies: [011-03]
+dependencies: [012-01]
 last_verified:
 frame_review: true
 ---
@@ -8,41 +8,35 @@ frame_review: true
 <!-- jig self-defining vocabulary (soft, forward-only). -->
 <!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
 
-## Slice 011-04 — end-of-day skill
+## Slice 012-02 — parked section and slice goals
 
-**Goal:** At the end of the day the owner runs `/dashboard:end-of-day` once;
-every project worked on today gets a fresh snapshot (headline + roadmap
-block), and the owner sees one short summary with each proposed order, ready
-to correct.
+**Goal:** The roadmap tab gains a **Parked** section — dashed cards for
+DEFERRED slices, each with its "Revisit when …" trigger — and every slice card
+gets its one-line goal, so the tab reads like the reference roadmap page without any
+snapshot.
 
 **DoR:**
-- ✅ 011-03 DONE (snapshot skill writes the roadmap block).
-- ⬜ A4 probed first: can the skill list projects with session activity since
-  local midnight without the server running? Result and chosen source recorded
-  in the deviation log.
+- ✅ 012-01 DONE (tab, cards, order in place).
 
 **Acceptance Criteria:**
 
-1. **Skill exists.** `skills/end-of-day/SKILL.md` ships in the plugin as
-   `/dashboard:end-of-day`, with trigger phrases ("end of day", "wrap up my
-   day", "snapshot everything I touched today").
-2. **Today's projects.** It selects configured projects with activity since
-   local midnight (source per the A4 probe); none → says so and writes
-   nothing.
-3. **One subagent per project.** Each project's snapshot is composed by its
-   own subagent following `skills/snapshot/SKILL.md` (single source — the
-   end-of-day skill never duplicates the composition rules); the orchestrator
-   keeps only each result.
-4. **Summary.** One line per project: name, headline, proposed order
-   (`a → b → c`), plus any project that failed and why. A failure on one
-   project never stops the others.
-5. **Corrections.** The skill tells the owner how to correct ("move 012-05
-   before 012-03 in <project>"); a correction writes a **new** snapshot entry for
-   that project with the corrected order (latest wins; history kept).
-6. **Writes only to the store.** No write into any surveyed repo; no git
-   operation.
-7. **Docs.** README lists the skill in the plugin's skill table and the
-   first-run path.
+1. **Goal line.** The scanner adds `goal` to each slice record: the first
+   sentence of the `**Goal:**` paragraph, plain text (markdown emphasis and
+   links stripped), capped at a fixed length with an ellipsis. Absent →
+   no goal line on the card (A1).
+2. **Trigger.** The scanner adds `trigger` to each DEFERRED slice: the text of
+   its `**Resolution trigger:**` line (first sentence, same cleanup and cap).
+   Absent → the card says nothing about a trigger (A2) — never a guessed one.
+3. **Parked section.** Below the spec groups, a "Parked" section lists every
+   DEFERRED slice across unfinished specs, plus any spec whose every non-DONE
+   slice is DEFERRED, as dashed cards with a "Parked" chip, the slice ID, name,
+   goal, and "Revisit when: <trigger>".
+4. **Bounded reads.** Goal/trigger extraction reads only the slice files
+   `scanSpecs` already opens (no new file walk); a scan of the surveyed
+   projects stays within the current `/api/data` timing envelope (measure
+   before/after; record numbers in the deviation log).
+5. **Escaping.** Goal and trigger text are HTML-escaped (`esc`) — a slice
+   containing `<script>` renders as text (fixture test).
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).
@@ -80,9 +74,8 @@ from the count.
       the entry. If this slice introduces a new skill, add or
       update its row in the Skills table.
 
-**Anti-horizontal-phasing check:** after this slice the owner's evening
-ritual is one command, and every touched project's roadmap tab reflects the
-day.
+**Anti-horizontal-phasing check:** after this slice the owner sees what each
+slice is for and why parked work is parked, straight from the repo.
 
 ### Deviation log (after reconciliation)
 
