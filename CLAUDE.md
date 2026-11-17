@@ -55,14 +55,12 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 
 > Updated each session by the team: what are we building right now?
 
-**State (2026-11-11): every spec is DONE (001–010) and plugin 0.6.0 is
-released** (tag `dashboard--v0.6.0`; decision in
-[lightweight-decisions](docs/decisions/lightweight-decisions.md)). 0.6.0 carries
-everything since 0.5.0: specs 008 (release-goal view), 009 (overview triage
-redesign + action-queue lens + gh-optional PR state), 010 (non-blocking PR
-load), the leak-guard tooling, and PR #8's follow-ups (release-goal meter
-restored in the detail view, friendly malformed-config message,
-newline-tolerant routine `check`/`install`). Nothing is in progress.
+**State (2026-11-17): plugin 0.7.0 is released** (tag `dashboard--v0.7.0`;
+decision in [lightweight-decisions](docs/decisions/lightweight-decisions.md)).
+0.7.0 adds the **roadmap tab** (spec 012 slice 01) on top of 0.6.0 (specs
+008–010, leak-guard tooling, PR #8's follow-ups). **Spec 012 is in flight:**
+012-01 DONE; 012-02 (parked + goals), 012-03 (saved order from snapshots),
+012-04 (end-of-day skill) are READY_FOR_IMPLEMENTATION. Specs 001–010 are DONE.
 
 Settled facts a new session should not re-litigate:
 - Repo is `PinkException/dashboard` (the GitHub account `Kyarha` was renamed
@@ -86,7 +84,7 @@ Settled facts a new session should not re-litigate:
   `dashboard--vX.Y.Z` on the release commit. A cloud session cannot push tags
   (proxy 403) — the owner pushes the tag locally.
 
-There is no required work outstanding. Small parked items live in
+Next pickable work: slice 012-02. Small parked items live in
 [docs/inbox.md](docs/inbox.md).
 Later candidates (vision → MVP scope deferrals): evolution graphs from
 snapshot history (the owner confirmed 2026-07-24 they want this — ADR-0004
