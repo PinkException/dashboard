@@ -39,7 +39,7 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
 | [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
-| [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-01 — roadmap tab with automatic order | READY_FOR_IMPLEMENTATION |  |
+| [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-01 — roadmap tab with automatic order | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
@@ -57,7 +57,7 @@
 Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/slice-*.md` `substrate:` fields.
 
 - **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
-- **0** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
+- **2** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
 - **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review
