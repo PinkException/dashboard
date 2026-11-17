@@ -43,6 +43,9 @@
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | READY_FOR_IMPLEMENTATION |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
 
 ## Abandoned slices
 
