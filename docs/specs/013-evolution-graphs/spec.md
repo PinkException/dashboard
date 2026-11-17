@@ -51,8 +51,9 @@ writer change, which is parked in slice 03 rather than blocking the first chart.
   median about 5, max 17. Timestamps run from 2026-07 to 2026-11.
 - **Cadence.** The auto guard's signature is `{done, total, next}`, compared
   only with the newest same-source entry; the bug count is excluded
-  (`scripts/snapshot.mjs:47-62`). A gap in the series therefore means "no
-  change", not "no data" (slice 005-04).
+  (`scripts/snapshot.mjs:47-62`). A gap means "no change" **only while that
+  routine runs** (slice 005-04). The routine is stopped today, so a gap can just
+  as well mean "not recorded" (see A1).
 - **UI slot.** `detailView` (`public/render.mjs:532-616`) has
   `TAB_NAMES = ['overview','roadmap','activity']`. Activity is rendered
   `disabled`, with `activityTabPlaceholder()` reading "coming soon … Token usage
@@ -61,12 +62,28 @@ writer change, which is parked in slice 03 rather than blocking the first chart.
 
 ## Assumptions
 
-- **A1 — Sparse data still makes a useful chart.** With a median of about 5
-  points per project, and the routine stopped, a chart may look nearly flat. We
-  assume a step line extended to "now" still reads as real information (the
-  length of a flat run *is* the signal). If the owner finds the first chart
-  uninformative, the answer is slice 03 plus re-enabling the routine, not a
-  denser fake series.
+- **A1 — Sparse data still makes a useful chart, if gaps are drawn honestly.**
+  With a median of about 5 points per project, and the routine stopped, the
+  stored series is sparse. While the routine is stopped, a gap after the last
+  snapshot means "nobody recorded", not "nothing moved". So the chart does
+  **not** extend the last stored value flat to "now". It draws that stretch
+  dashed, ending at the **live** count from the current scan, with a "last
+  snapshot N days ago" caption (frame-critique 2026-11-17).
+
+  Grounded: the live count uses the same rule the writer stores
+  (`scripts/snapshot.mjs:121` stores `scanned.progress.done` and
+  `scanned.progress.denom`). **Unverified:** whether every *older* writer
+  (compass-era, manual) counted the same way, and whether every point read the
+  same files. A snapshot taken from a linked worktree is stored under the main
+  project's key (`projectRootOf`, `src/scan.mjs:98-126`), but it counts that
+  branch's specs (frame-critique round 2).
+
+  Measured 2026-11-17 (aggregate only): of 12 stored series (92 points with
+  numbers), 2 contain a downward step. That is 2 down-steps in `done` and 1 in
+  `total`. Down-steps are therefore rare but real. They are marked with every
+  possible cause named, never smoothed. Recording which root and branch each
+  point came from is parked in slice 03. If the owner still finds the chart uninformative, the
+  answer is slice 03 plus re-enabling the routine, not a denser fake series.
 - **A2 — Payload size is negligible.** At about 100 entries in total, sending a
   per-project series in `/api/data` adds only a few KB. It is not measured;
   slice 01 caps the series length (AC2) so this holds even if history grows.

@@ -30,7 +30,11 @@ The writer explicitly hands this to "the future evolution-chart spec"
 3. The series reader passes these fields through when present. The chart draws
    a slice-level done line when at least 2 points carry `slices`, and otherwise
    falls back to spec level without comment.
-4. Tests cover old and new entries mixed in one series.
+4. The writer also records where a point was counted: `scanned: {branch,
+   worktree: true|false}`. The chart can then tell a branch or worktree point
+   apart from a main-checkout point, and explain a down-step precisely instead
+   of listing every possible cause (013-01 frame-critique round 2).
+5. Tests cover old and new entries mixed in one series.
 
 **Anti-horizontal-phasing check:** after this slice, a project finishing slices
 inside one long spec shows a rising line instead of a flat one.
