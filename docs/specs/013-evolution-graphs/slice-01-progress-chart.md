@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: READY_FOR_IMPLEMENTATION
 dependencies: []
 last_verified:
 frame_review: true
@@ -21,7 +21,8 @@ contract (`project.history`) and a second reader over the store.
 **DoR:**
 - ✅ Placement in the Activity tab confirmed by the owner (2026-11-17; the
   Overview tab was the rejected alternative, because it is already full).
-- ⬜ Spec 013 approved by the owner for implementation.
+- ✅ Approved by the owner for implementation (2026-11-17), after the
+  frame-critique passed.
 - ✅ Snapshot store and schema stable (ADR-0004, spec 005 DONE).
 - ⬜ If spec 012-03 has landed by then, merge `origin/main` first: both edit
   `parseCompassHistory` (spec Assumption A3).
