@@ -27,6 +27,11 @@ import {
   compareSessionOrder,
   parseIncludeTokens,
   resolveReleaseGoal,
+  currentReleaseTrack,
+  sliceNameFrom,
+  deriveRoadmap,
+  parseRecencyLog,
+  parseWorktreeList,
   deriveWaitingOn,
   deriveWaitingStages,
 } from './lib.mjs';
@@ -210,6 +215,31 @@ function readIf(p) {
   }
 }
 
+// Frontmatter-only read: the first few KB of a file (falling back to the whole
+// file when the closing `---` isn't in that window). Worktree slice files are
+// read only for their `status:`, so reading ~11 KB each was most of AC10's cost.
+function readHead(p, n = 2048) {
+  let fd;
+  try {
+    fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(n);
+    const got = fs.readSync(fd, buf, 0, n, 0);
+    const head = buf.subarray(0, got).toString('utf8');
+    if (got < n || /^---[ \t]*\r?\n[\s\S]*?\n---/.test(head)) return head;
+    return readIf(p) || '';
+  } catch {
+    return '';
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // already closed
+      }
+    }
+  }
+}
+
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build']);
 
 function* walkMd(dir, base) {
@@ -228,7 +258,7 @@ function* walkMd(dir, base) {
   }
 }
 
-function scanSpecs(root) {
+function scanSpecs(root, onGit) {
   const specsDir = path.join(root, 'docs', 'specs');
   if (!isDir(specsDir)) return null;
   const specs = [];
@@ -245,9 +275,11 @@ function scanSpecs(root) {
     const slices = [];
     for (const f of fs.readdirSync(dir).sort()) {
       if (!/^slice-.*\.md$/.test(f)) continue;
-      const fm = parseFrontmatter(readIf(path.join(dir, f)) || '').data;
+      const parsed = parseFrontmatter(readIf(path.join(dir, f)) || '');
+      const fm = parsed.data;
       slices.push({
         file: f,
+        name: sliceNameFrom(parsed.body, f),
         status: normStatus(fm.status),
         dependencies: Array.isArray(fm.dependencies) ? fm.dependencies : [],
         lastVerified: fm.last_verified || null,
@@ -256,7 +288,144 @@ function scanSpecs(root) {
     specs.push({ id: entry.name, title, status: normStatus(data.status), slices });
   }
   specs.sort((a, b) => a.id.localeCompare(b.id));
+  // Spec 012-01: per-spec recency for the roadmap's automatic order.
+  const commitTimes = specCommitTimes(root, onGit);
+  for (const s of specs) {
+    s.recency = commitTimes.get(s.id) ?? newestMtimeSec(path.join(specsDir, s.id));
+  }
   return specs;
+}
+
+// Spec 012-01 AC11: ONE `git log --name-only` pass over docs/specs for the
+// whole repo (not one call per spec). Returns an empty map when git is
+// unavailable or the directory is not a repo — callers fall back to mtime.
+function specCommitTimes(root, onGit) {
+  const args = ['-C', root, 'log', '--format=%ct', '--name-only', '--no-renames', '--relative', '--', 'docs/specs'];
+  if (onGit) onGit(args);
+  try {
+    const out = execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    return parseRecencyLog(out);
+  } catch {
+    return new Map();
+  }
+}
+
+// Newest file mtime (seconds) under a directory — the no-git recency fallback.
+function newestMtimeSec(dir) {
+  let newest = 0;
+  const walk = (d) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else {
+        try {
+          newest = Math.max(newest, fs.statSync(full).mtimeMs / 1000);
+        } catch {
+          // vanished mid-scan — ignore
+        }
+      }
+    }
+  };
+  walk(dir);
+  return Math.floor(newest);
+}
+
+// Root branch + other worktree paths. Fast path (AC11): a normal checkout
+// (`.git` is a directory) is read straight from `.git/HEAD` and
+// `.git/worktrees/*/gitdir` — no process spawn. A root that is itself a linked
+// worktree (`.git` is a file), or any read failure, falls back to one
+// `git worktree list --porcelain` call.
+function listWorktrees(root, onGit) {
+  const gitDir = path.join(root, '.git');
+  try {
+    if (fs.statSync(gitDir).isDirectory()) {
+      const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+      const m = head.match(/^ref: refs\/heads\/(.+)$/);
+      const others = [];
+      const wtMeta = path.join(gitDir, 'worktrees');
+      if (isDir(wtMeta)) {
+        for (const name of fs.readdirSync(wtMeta)) {
+          const ptr = readIf(path.join(wtMeta, name, 'gitdir'));
+          if (ptr === null) continue;
+          const raw = ptr.trim();
+          // git >= 2.48 with worktree.useRelativePaths writes a path relative to this metadata folder.
+          const wtPath = path.dirname(path.isAbsolute(raw) ? raw : path.resolve(wtMeta, name, raw));
+          if (isDir(wtPath)) others.push(wtPath); // missing dirs are prunable entries
+        }
+      }
+      return { branch: m ? m[1] : null, others, rootListed: true };
+    }
+  } catch {
+    // fall through to the git call
+  }
+  const args = ['-C', root, 'worktree', 'list', '--porcelain'];
+  if (onGit) onGit(args);
+  let out;
+  try {
+    out = execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return { branch: null, others: [], rootListed: false };
+  }
+  let rootReal = root;
+  try {
+    rootReal = fs.realpathSync(root); // git prints resolved paths (macOS /var → /private/var)
+  } catch {
+    // keep the configured path
+  }
+  return parseWorktreeList(out, rootReal);
+}
+
+// Spec 012-01 AC10: the root checkout's branch plus the slice frontmatter of
+// every OTHER worktree, read from disk (uncommitted edits count). A new
+// content read, deliberately wider than scanWorktreeOnlyDocs's path-only rule;
+// that function is untouched.
+function scanWorktreeSpecs(root, onGit) {
+  const { branch, others, rootListed } = listWorktrees(root, onGit);
+  // A project living in a repo SUBDIRECTORY is not a worktree top-level: the
+  // enclosing repo's worktrees are not its worktrees.
+  if (!rootListed) return { branch: null, worktrees: [] };
+  const worktrees = [];
+  for (const wtPath of others) {
+    const specsDir = path.join(wtPath, 'docs', 'specs');
+    if (!isDir(specsDir)) continue;
+    const list = [];
+    let entries;
+    try {
+      entries = fs.readdirSync(specsDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(specsDir, entry.name);
+      if (!fs.existsSync(path.join(dir, 'spec.md'))) continue;
+      const slices = [];
+      let files;
+      try {
+        files = fs.readdirSync(dir).sort();
+      } catch {
+        continue; // removed / unreadable mid-scan — skip this spec, never fail /api/data
+      }
+      for (const f of files) {
+        if (!/^slice-.*\.md$/.test(f)) continue;
+        const status = normStatus(parseFrontmatter(readHead(path.join(dir, f))).data.status);
+        slices.push({ file: f, status });
+      }
+      list.push({ id: entry.name, slices });
+    }
+    worktrees.push(list);
+  }
+  return { branch, worktrees };
 }
 
 function scanBugs(root) {
@@ -273,17 +442,21 @@ function scanBugs(root) {
   return { open, total };
 }
 
+// One `git log` spawn instead of three (rev-list --count, log -1, log
+// --reverse): the commit-date list gives the count (its length), the last
+// commit (first line) and the first commit (last line) in the same order the
+// separate calls did. Spawn cost dominates the scan, and 012-01's added
+// recency call is paid for here (AC11).
 function gitInfo(root) {
-  const run = (args) =>
-    execFileSync('git', ['-C', root, ...args], {
+  try {
+    const out = execFileSync('git', ['-C', root, 'log', '--format=%cs'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 256 * 1024 * 1024,
     }).trim();
-  try {
-    const commits = parseInt(run(['rev-list', '--count', 'HEAD']), 10);
-    const lastCommit = run(['log', '-1', '--format=%cs']);
-    const firstCommit = run(['log', '--reverse', '--format=%cs']).split('\n')[0];
-    return { firstCommit, lastCommit, commits };
+    if (!out) return null;
+    const dates = out.split('\n');
+    return { firstCommit: dates[dates.length - 1], lastCommit: dates[0], commits: dates.length };
   } catch {
     return null;
   }
@@ -317,6 +490,8 @@ function scanWorkstreams(root, projectCfg, specs) {
         const goal = resolveReleaseGoal(tokens, specs || []);
         if (goal.goalProgress.total >= 1) {
           Object.assign(ws, goal);
+          // Spec 012-01: the roadmap lists the release's Include slices.
+          ws.includeTokens = tokens;
         }
       }
       workstreams.push(ws);
@@ -448,7 +623,7 @@ export function buildGhContext(run = execFileSync) {
   };
 }
 
-export function scanProject(projectCfg, gh) {
+export function scanProject(projectCfg, gh, { onGit } = {}) {
   const root = projectCfg.path;
   const name = projectCfg.label || path.basename(root);
   // Spec 009-01 AC2: an optional one-line project description, surfaced
@@ -462,7 +637,7 @@ export function scanProject(projectCfg, gh) {
       ...(description ? { description } : {}),
     };
   }
-  const specs = scanSpecs(root);
+  const specs = scanSpecs(root, onGit);
   const jigManaged = specs !== null;
   const result = {
     name,
@@ -487,6 +662,12 @@ export function scanProject(projectCfg, gh) {
   };
   Object.assign(result, scanWorkstreams(root, projectCfg, specs));
   result.worktreeOnlyDocs = scanWorktreeOnlyDocs(root);
+  // Spec 012-01 AC3: the current release is derived ONCE here (the rule lives
+  // in src/lib.mjs); the overview and the roadmap both read this value.
+  const track = currentReleaseTrack(result);
+  result.currentReleasePath = track ? track.path : null;
+  const wtScan = scanWorktreeSpecs(root, onGit);
+  result.roadmap = deriveRoadmap({ specs, track, branch: wtScan.branch, worktrees: wtScan.worktrees });
   const compass = scanCompass(root);
   result.compass = compass.latest
     ? {

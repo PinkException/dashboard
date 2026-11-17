@@ -239,6 +239,40 @@
   .activity-icon { width: 52px; height: 52px; margin: 0 auto 14px; border: 1px dashed var(--border-dash); border-radius: 12px; }
   .activity-heading { font: 16px var(--sans); color: var(--text-bright); }
   .activity-desc { margin-top: 6px; font: 12.5px var(--sans); color: var(--text-muted); }
+
+  /* --- 012-01 roadmap tab (existing tokens only; chips differ by hue AND label) --- */
+  .roadmap-tab-content { padding: 20px 26px; }
+  .roadmap-tab-content[hidden] { display: none; }
+  .rm-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  .rm-asof { font: 12px var(--mono); color: var(--text-muted); }
+  .rm-hint { font: 12px var(--mono); color: var(--link); }
+  .rm-sequence { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 6px; }
+  .rm-step { flex: 1 1 200px; min-width: 0; background: var(--inset); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+  .rm-step-label { display: block; font: 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
+  .rm-step-title { display: block; margin-top: 4px; font: 13px var(--sans); color: var(--text-hi); overflow-wrap: anywhere; }
+  .rm-step-parked .rm-step-label { color: var(--text-dimmer); }
+  .rm-release, .rm-spec-group { margin-top: 18px; }
+  .rm-group-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
+  .rm-group-id { font: 12.5px var(--mono); color: var(--text-label); }
+  .rm-group-name { font: 500 15px var(--sans); color: var(--text-hi); overflow-wrap: anywhere; }
+  .rm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .rm-card { min-width: 0; background: var(--sheet); border: 1px solid var(--border-strong); border-radius: 6px; padding: 10px 12px; }
+  .rm-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .rm-card-id { font: 12px var(--mono); color: var(--text-label); }
+  .rm-card-name { margin-top: 6px; font: 13.5px var(--sans); color: var(--text-body); overflow-wrap: anywhere; }
+  .rm-deps { margin-top: 6px; font: 11.5px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+  .rm-chip { font: 10.5px var(--mono); padding: 2px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+  .chip-done { color: var(--green); }
+  .chip-progress { color: var(--blue); background: var(--inset); }
+  .chip-planned { color: var(--draft); border-style: dashed; }
+  .chip-parked { color: var(--stale); border-style: dotted; }
+  .rm-empty { margin-top: 16px; font: 14px var(--sans); color: var(--text-muted); }
+  .roadmap-done { margin-top: 20px; }
+  .roadmap-done summary { cursor: pointer; font: 12px var(--mono); color: var(--link); }
+  @media (max-width: 600px) {
+    .rm-cards { grid-template-columns: 1fr; }
+    .roadmap-tab-content { padding: 16px 14px; }
+  }
 </style>
 </head>
 <body>
@@ -285,7 +319,7 @@ function overviewHtml() {
 function render() {
   if (state.view === 'detail') {
     const p = projects.find((pr) => pr.path === state.path);
-    app.innerHTML = p ? R.detailView(p, { showAll: state.showAll }) : overviewHtml();
+    app.innerHTML = p ? R.detailView(p, { showAll: state.showAll, tab: state.tab }) : overviewHtml();
     if (!p) state = R.closeDetail(state.lens);
   } else if (state.lens === 'queue') {
     // Spec 009-03: the cross-project action-queue lens — flattens each
@@ -311,26 +345,13 @@ app.addEventListener('click', (e) => {
   }
   const toggle = e.target.closest('[data-action="show-all-specs"], [data-action="show-track-specs"]');
   if (toggle) { state = { ...state, showAll: toggle.dataset.action === 'show-all-specs' }; render(); return; }
-  const activityTab = e.target.closest('[data-action="show-activity-tab"]');
-  if (activityTab) {
-    const content = app.querySelector('.overview-tab-content');
-    const activity = app.querySelector('.activity-tab-content');
-    const overviewTab = app.querySelector('[data-action="show-overview-tab"]');
-    if (content && activity) {
-      content.hidden = true; activity.hidden = false;
-      activityTab.classList.add('active'); if (overviewTab) overviewTab.classList.remove('active');
-    }
-    return;
-  }
-  const overviewTabBtn = e.target.closest('[data-action="show-overview-tab"]');
-  if (overviewTabBtn) {
-    const content = app.querySelector('.overview-tab-content');
-    const activity = app.querySelector('.activity-tab-content');
-    const activityTabBtn = app.querySelector('[data-action="show-activity-tab"]');
-    if (content && activity) {
-      content.hidden = false; activity.hidden = true;
-      overviewTabBtn.classList.add('active'); if (activityTabBtn) activityTabBtn.classList.remove('active');
-    }
+  // 012-01 AC1: tabs are app state (state.tab), applied by a re-render
+  // through detailView — so the /api/prs fold-in (which re-renders
+  // wholesale) can never reset the open tab.
+  const tabBtn = e.target.closest('[data-action="show-overview-tab"], [data-action="show-roadmap-tab"], [data-action="show-activity-tab"]');
+  if (tabBtn) {
+    state = { ...state, tab: tabBtn.dataset.action.replace(/^show-/, '').replace(/-tab$/, '') };
+    render();
     return;
   }
   const row = e.target.closest('.project-row, .queue-row');
@@ -360,15 +381,8 @@ async function load() {
 // render from phase one stands unchanged, no error surfaced (AC4). Never
 // lets phase two throw out of load().
 async function loadPrs() {
-  // AC3 residual: the phase-two render is wholesale (app.innerHTML), so it
-  // would otherwise reset an open detail's active tab. Preserving it is
-  // cheap (the tab toggle is a DOM class + hidden flip, no re-render), so we
-  // capture it here and restore it after the fold.
-  let activityTabWasActive = false;
-  if (state.view === 'detail') {
-    const activity = app.querySelector('.activity-tab-content');
-    activityTabWasActive = !!activity && !activity.hidden;
-  }
+  // The open detail tab lives in `state.tab` (012-01 AC1), which the wholesale
+  // phase-two re-render below does not touch — nothing to capture/restore.
   // Narrow the swallow to the NETWORK phase only (craft nit): a gh-absent /
   // offline / timeout / non-ok /api/prs must degrade silently to the disk
   // render (AC4), but a genuine bug in mergePrDeltas or render() below must
@@ -384,17 +398,6 @@ async function loadPrs() {
   if (!prs || prs.error) return;
   projects = R.mergePrDeltas(projects, prs.projects);
   render();
-  if (activityTabWasActive && state.view === 'detail') {
-    const content = app.querySelector('.overview-tab-content');
-    const activity = app.querySelector('.activity-tab-content');
-    const overviewTabBtn = app.querySelector('[data-action="show-overview-tab"]');
-    const activityTabBtn = app.querySelector('[data-action="show-activity-tab"]');
-    if (content && activity) {
-      content.hidden = true; activity.hidden = false;
-      if (activityTabBtn) activityTabBtn.classList.add('active');
-      if (overviewTabBtn) overviewTabBtn.classList.remove('active');
-    }
-  }
 }
 
 document.getElementById('refresh').addEventListener('click', load);

@@ -857,3 +857,260 @@ export function deriveWaitingStages(project, marker, ownerLogin) {
 export function deriveWaitingOn(project, marker, ownerLogin) {
   return deriveWaitingStages(project, marker, ownerLogin)[0] ?? IDLE_WAITING_ON;
 }
+
+// ===== Spec 012-01: roadmap tab — automatic order (pure, scanner-side) =====
+// The page does no derivation (ADR-0001): everything below runs in the
+// scanner and is emitted as `project.roadmap`. See docs/specs/012-project-
+// roadmap-tab/spec.md "Automatic order (layer 1)".
+
+// The current release track (A-009-01): the release-kind workstream whose
+// goalProgress is incomplete, first in emitted order; null when none. Moved
+// here from public/render.mjs (012-01 AC3) so the overview and the roadmap
+// read ONE derivation — the scanner emits `currentReleasePath` from it.
+export function currentReleaseTrack(p) {
+  for (const w of (p && p.workstreams) || []) {
+    if (w.kind === 'release' && w.goalProgress && w.goalProgress.done < w.goalProgress.total) return w;
+  }
+  return null;
+}
+
+// Slice name from the `## Slice NNN-NN — <name>` heading (A1); falls back to
+// the filename stem so a hand-made slice still gets an honest label.
+export function sliceNameFrom(body, file) {
+  const m = String(body || '').match(/^##[ \t]+Slice[ \t]+\S+[ \t]*[—–-]+[ \t]*(.+?)[ \t]*$/m);
+  if (m && m[1]) return m[1];
+  return String(file || '').replace(/\.md$/, '');
+}
+
+const PROGRESS_RANK = {
+  DRAFT: 0, READY_FOR_REVIEW: 1, READY_FOR_IMPLEMENTATION: 2,
+  IN_PROGRESS: 3, REVIEWED: 4, RECONCILED: 5, DONE: 6,
+};
+const IN_FLIGHT = new Set(['IN_PROGRESS', 'REVIEWED', 'RECONCILED']);
+const STARTED = new Set(['DONE', 'READY_FOR_REVIEW', 'READY_FOR_IMPLEMENTATION']);
+const TIER_ORDER = { 'in-flight': 0, started: 1, 'not-started': 2 };
+
+function chipFor(status) {
+  if (status === 'DONE') return 'Done';
+  if (IN_FLIGHT.has(status)) return 'In progress';
+  if (status === 'DEFERRED') return 'Parked';
+  return 'Planned';
+}
+
+function sliceNum(file) {
+  const m = String(file).match(SLICE_FILE_RE);
+  if (!m) return Infinity;
+  return parseInt(m[2] !== undefined ? m[2] : m[1], 10);
+}
+
+function specNum(id) {
+  const m = String(id).match(/^(\d+)/);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
+
+// Real slices only: a `slice-*.md` without a `status:` is not a slice.
+const realSlices = (spec) => (spec.slices || []).filter((s) => s.status);
+
+function specTier(spec) {
+  const ss = realSlices(spec);
+  if (ss.some((s) => IN_FLIGHT.has(s.status))) return 'in-flight';
+  if (ss.some((s) => STARTED.has(s.status))) return 'started';
+  return 'not-started';
+}
+
+function isUnfinished(spec) {
+  const ss = realSlices(spec);
+  if (ss.length === 0) return spec.status !== 'DONE' && spec.status !== 'ABANDONED';
+  return ss.some((s) => s.status !== 'DONE' && s.status !== 'DEFERRED' && s.status !== 'ABANDONED');
+}
+
+// Spec-id the slice belongs to is implied by the spec; a `NNN-MM` dependency
+// is same-spec when NNN matches this spec's number.
+function orderSlices(spec, slices) {
+  const byNum = new Map(slices.map((s) => [sliceNum(s.file), s]));
+  const myNum = specNum(spec.id);
+  const depsOf = new Map(
+    slices.map((s) => {
+      const out = new Set();
+      for (const d of s.dependencies || []) {
+        const m = String(d).match(/^(\d{3})-(\d{2})$/);
+        if (!m || parseInt(m[1], 10) !== myNum) continue;
+        const t = byNum.get(parseInt(m[2], 10));
+        if (t && t !== s) out.add(t);
+      }
+      return [s, out];
+    }),
+  );
+  const byNumber = (a, b) => sliceNum(a.file) - sliceNum(b.file) || a.file.localeCompare(b.file);
+  const remaining = [...slices].sort(byNumber);
+  const placed = new Set();
+  const out = [];
+  while (remaining.length) {
+    const i = remaining.findIndex((s) => [...depsOf.get(s)].every((d) => placed.has(d)));
+    if (i === -1) return [...slices].sort(byNumber); // cycle → slice-number order
+    const [s] = remaining.splice(i, 1);
+    placed.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+const card = (spec, s) => ({
+  id: sliceToken(spec.id, s.file),
+  file: s.file,
+  name: s.name || sliceNameFrom('', s.file),
+  status: s.status,
+  chip: chipFor(s.status),
+  dependsOn: Array.isArray(s.dependencies) ? s.dependencies : [],
+});
+
+// Worktree hint (012-01 AC10). `rootSpecs`: scanned spec records; `worktrees`:
+// one `[{id, slices:[{file,status}]}]` list per considered (non-root)
+// worktree, read from disk. N = slices strictly further along than root plus
+// slices only in a worktree inside a spec folder the root has; M = spec
+// folders absent from the root. DEFERRED/ABANDONED never rank as further.
+export function worktreeHint(rootSpecs, worktrees) {
+  const rootById = new Map((rootSpecs || []).map((s) => [s.id, s]));
+  const best = new Map(); // `${specId}/${file}` → highest eligible rank
+  const onlySpecs = new Set();
+  const seenNew = new Set();
+  let further = 0;
+  for (const wt of worktrees || []) {
+    for (const ws of wt || []) {
+      const rootSpec = rootById.get(ws.id);
+      if (!rootSpec) {
+        onlySpecs.add(ws.id);
+        continue;
+      }
+      const rootSlices = new Map((rootSpec.slices || []).map((s) => [s.file, s]));
+      for (const s of ws.slices || []) {
+        if (!s.status || !(s.status in PROGRESS_RANK)) continue;
+        const key = `${ws.id}/${s.file}`;
+        const rank = PROGRESS_RANK[s.status];
+        const rootSlice = rootSlices.get(s.file);
+        if (!rootSlice) {
+          if (!seenNew.has(key)) { seenNew.add(key); further++; }
+          continue;
+        }
+        const rootRank = rootSlice.status in PROGRESS_RANK ? PROGRESS_RANK[rootSlice.status] : -1;
+        if (rank > rootRank && rank > (best.get(key) ?? -1)) best.set(key, rank);
+      }
+    }
+  }
+  return { further: further + best.size, onlyInWorktrees: onlySpecs.size };
+}
+
+// Builds the roadmap model the tab renders. Inputs: `specs` (scanned records;
+// each may carry `recency`, epoch seconds), `track` (the current release
+// workstream or null; carries `includeTokens`), `branch` (root checkout's
+// branch), `worktrees` (see worktreeHint).
+export function deriveRoadmap({ specs = [], track = null, branch = null, worktrees = [] } = {}) {
+  const includeTokens = (track && Array.isArray(track.includeTokens)) ? track.includeTokens : [];
+  const inRelease = new Set();
+  const releaseSlices = [];
+  if (track) {
+    for (const t of includeTokens) {
+      const r = /^\d{3}-\d{2}$/.test(t) ? resolveToken(t, specs) : { cls: 'unresolved', spec: null };
+      if (r.slice && r.spec) {
+        inRelease.add(r.spec.id);
+        releaseSlices.push(card(r.spec, r.slice));
+      } else {
+        releaseSlices.push({ id: t, file: null, name: 'not written yet', status: null, chip: 'Planned', dependsOn: [] });
+      }
+    }
+  }
+
+  const unfinished = specs.filter(isUnfinished);
+  unfinished.sort((a, b) => {
+    const ra = inRelease.has(a.id) ? 0 : 1;
+    const rb = inRelease.has(b.id) ? 0 : 1;
+    if (ra !== rb) return ra - rb;
+    const ta = TIER_ORDER[specTier(a)];
+    const tb = TIER_ORDER[specTier(b)];
+    if (ta !== tb) return ta - tb;
+    const ca = a.recency || 0;
+    const cb = b.recency || 0;
+    if (ca !== cb) return cb - ca;
+    return specNum(a.id) - specNum(b.id) || a.id.localeCompare(b.id);
+  });
+
+  const groupOf = (spec) => {
+    const shown = realSlices(spec).filter((s) => s.status !== 'DEFERRED' && s.status !== 'ABANDONED');
+    return { id: spec.id, title: spec.title, tier: specTier(spec), slices: orderSlices(spec, shown).map((s) => card(spec, s)) };
+  };
+  const ordered = unfinished.map(groupOf);
+  const done = specs
+    .filter((s) => !isUnfinished(s) && s.status !== 'ABANDONED')
+    .filter((s) => {
+      const ss = realSlices(s);
+      return ss.length === 0 || ss.some((x) => x.status !== 'ABANDONED');
+    })
+    .map(groupOf);
+
+  const parked = specs.reduce((n, s) => n + realSlices(s).filter((x) => x.status === 'DEFERRED').length, 0);
+
+  const sequence = [];
+  if (track) {
+    sequence.push({ kind: 'release', title: track.title, label: 'Now · We are here' });
+    // Steps 2-3: the next ordered specs the release does NOT already cover.
+    for (const g of ordered.filter((x) => !inRelease.has(x.id)).slice(0, 2)) {
+      sequence.push({ kind: 'spec', id: g.id, title: g.title, label: 'Then' });
+    }
+  } else if (ordered.length) {
+    const first = ordered[0];
+    sequence.push({ kind: 'spec', id: first.id, title: first.title, label: first.tier === 'not-started' ? 'Next up' : 'Now · We are here' });
+    for (const g of ordered.slice(1, 3)) sequence.push({ kind: 'spec', id: g.id, title: g.title, label: 'Then' });
+  }
+  if (parked > 0) sequence.push({ kind: 'parked', label: `${parked} parked` });
+
+  const hint = worktreeHint(specs, worktrees);
+  return {
+    asOf: branch || null,
+    worktreeHint: hint.further || hint.onlyInWorktrees ? hint : null,
+    release: track ? { title: track.title, slices: releaseSlices } : null,
+    sequence,
+    specs: ordered,
+    done,
+    parkedCount: parked,
+    empty: specs.length === 0 ? 'no-specs' : ordered.length === 0 && !track ? 'nothing-planned' : null,
+  };
+}
+
+// One `git log --format=%ct --name-only -- docs/specs` pass → Map<specDir,
+// newest commit timestamp> (012-01 AC11: one git call per repo, not per spec).
+export function parseRecencyLog(text) {
+  const out = new Map();
+  let ts = null;
+  for (const line of String(text || '').split('\n')) {
+    if (/^\d{9,}$/.test(line)) { ts = parseInt(line, 10); continue; }
+    const m = line.match(/^docs\/specs\/([^/]+)\/./);
+    if (!m || ts === null) continue;
+    if (!(out.has(m[1]) && out.get(m[1]) >= ts)) out.set(m[1], ts);
+  }
+  return out;
+}
+
+// `git worktree list --porcelain` → the root checkout's branch (null when
+// detached / the root is not listed), whether the root is itself a worktree
+// top-level (a project in a repo SUBDIRECTORY is not), and every other path.
+export function parseWorktreeList(text, root) {
+  const norm = (p) => String(p).replace(/\/+$/, '');
+  let branch = null;
+  let rootListed = false;
+  const others = [];
+  for (const block of String(text || '').split(/\n\s*\n/)) {
+    const lines = block.split('\n');
+    const wt = lines.find((l) => l.startsWith('worktree '));
+    if (!wt) continue;
+    const p = norm(wt.slice('worktree '.length));
+    if (lines.some((l) => l === 'bare')) continue;
+    if (p === norm(root)) {
+      rootListed = true;
+      const b = lines.find((l) => l.startsWith('branch '));
+      branch = b ? b.slice('branch '.length).replace(/^refs\/heads\//, '') : null;
+    } else {
+      others.push(p);
+    }
+  }
+  return { branch, others, rootListed };
+}

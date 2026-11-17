@@ -12,8 +12,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { currentReleaseTrack as libCurrentReleaseTrack } from '../src/lib.mjs';
 import { scanProject } from '../src/scan.mjs';
-import { deriveWaitingOn, deriveWaitingStages } from '../src/lib.mjs';
+import { deriveWaitingOn, deriveWaitingStages, deriveRoadmap } from '../src/lib.mjs';
 import {
   esc,
   shorten,
@@ -33,6 +34,7 @@ import {
   sessionsDetailBlock,
   prsDetailBlock,
   activityTabPlaceholder,
+  roadmapTabHtml,
   OVERVIEW_STATE,
   openDetail,
   closeDetail,
@@ -64,7 +66,7 @@ function jig(overrides = {}) {
 // don't need a real fixture scan. Shaped exactly like scanProject/scanAll's
 // emitted object.
 function mkProject(overrides = {}) {
-  return {
+  const p = {
     name: 'Kestrel',
     path: '/projects/kestrel',
     jigManaged: true,
@@ -82,6 +84,14 @@ function mkProject(overrides = {}) {
     sessionsTotal: 0,
     ...overrides,
   };
+  // 012-01 AC3: the scanner emits `currentReleasePath` (one value); mirror it
+  // here from the lib rule so hand-built payloads look like scanner output.
+  p.workstreams = p.workstreams.map((w, i) => (w.path ? w : { ...w, path: `docs/releases/ws-${i}.md` }));
+  if (!('currentReleasePath' in overrides)) {
+    const t = libCurrentReleaseTrack(p);
+    p.currentReleasePath = t ? t.path : null;
+  }
+  return p;
 }
 
 // --- AC1: uniform-height rows, including error and not-jig-managed ---
@@ -911,4 +921,160 @@ test('setLens: does not mutate the input state (pure)', () => {
 
 test('OVERVIEW_STATE: default lens is overview (009-03 AC1)', () => {
   assert.equal(OVERVIEW_STATE.lens, 'overview');
+});
+
+
+// ===== Spec 012-01: roadmap tab =====
+const rmSl = (file, status, name, deps = []) => ({ file, status, name, dependencies: deps });
+function rmProject(specs, extra = {}) {
+  const { track, ...rest } = extra;
+  return mkProject({ specs, roadmap: deriveRoadmap({ specs, track: track || null, branch: 'main' }), ...rest });
+}
+const rmSpecs = [
+  { id: '001-core', title: 'Core engine', status: 'IN_PROGRESS', recency: 5, slices: [rmSl('slice-01-a.md', 'DONE', 'Parse input'), rmSl('slice-02-b.md', 'IN_PROGRESS', 'Emit output', ['001-01', 'adr-0004'])] },
+  { id: '002-done', title: 'Shipped bit', status: 'DONE', recency: 1, slices: [rmSl('slice-01-a.md', 'DONE', 'Old work')] },
+];
+
+test('012-01 AC1: the tab bar reads overview | roadmap | activity, overview active by default', () => {
+  const html = detailView(rmProject(rmSpecs));
+  const tabs = [...html.matchAll(/<span class="tab([^"]*)" data-action="show-(\w+)-tab">(\w+)<\/span>/g)].map((m) => [m[3], m[2], m[1]]);
+  assert.deepEqual(tabs.map((t) => t[0]), ['overview', 'roadmap', 'activity']);
+  assert.match(tabs[0][2], /active/);
+  assert.doesNotMatch(tabs[1][2], /active/);
+  assert.match(html, /<div class="roadmap-tab-content" hidden>/);
+  assert.match(html, /<div class="overview-tab-content">/);
+});
+
+test('012-01 AC1: tab=roadmap shows the roadmap, hides the overview; tab=overview restores it; the active tab is a pure function of state', () => {
+  const p = rmProject(rmSpecs);
+  const road = detailView(p, { tab: 'roadmap' });
+  assert.match(road, /<div class="roadmap-tab-content">/);
+  assert.match(road, /<div class="overview-tab-content" hidden>/);
+  assert.match(road, /data-action="show-roadmap-tab"/);
+  assert.match(road, /class="tab active" data-action="show-roadmap-tab"/);
+  const back = detailView(p, { tab: 'overview' });
+  assert.match(back, /<div class="overview-tab-content">/);
+  assert.match(back, /<div class="roadmap-tab-content" hidden>/);
+  const act = detailView(p, { tab: 'activity' });
+  assert.match(act, /<div class="activity-tab-content">/);
+});
+
+test('012-01 AC1: the open tab survives the /api/prs fold-in (mergePrDeltas leaves the roadmap and does not touch tab state)', () => {
+  const p = rmProject(rmSpecs);
+  const [merged] = mergePrDeltas([p], [{ path: p.path, waitingOn: p.waitingOn, waitingStages: p.waitingStages, prs: [] }]);
+  assert.deepEqual(merged.roadmap, p.roadmap, 'roadmap is untouched by the fold-in');
+  // the page re-renders with the SAME state.tab, so the roadmap stays visible
+  assert.match(detailView(merged, { tab: 'roadmap' }), /<div class="roadmap-tab-content">/);
+});
+
+test('012-01 AC1: index.html glue keeps the tab in app state, re-rendered through detailView, not DOM flips', () => {
+  const html = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'index.html'), 'utf8');
+  assert.match(html, /show-roadmap-tab/);
+  assert.match(html, /tab:\s*state\.tab/);
+});
+
+test('012-01 AC6: spec group shows ID, name, chip, and "Depends on" (same-spec, cross-spec, adr-*)', () => {
+  const html = roadmapTabHtml(rmProject(rmSpecs).roadmap);
+  assert.match(html, /001-core/);
+  assert.match(html, /001-02/);
+  assert.match(html, /Emit output/);
+  assert.match(html, /chip-In-progress|chip-progress/);
+  assert.match(html, /Depends on 001-01, adr-0004/);
+  assert.equal((html.match(/Depends on/g) || []).length, 1, 'no dependency line when none declared');
+});
+
+test('012-01 AC6: DEFERRED slices are not cards here; ABANDONED are not shown', () => {
+  const specs = [{ id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [rmSl('slice-01-a.md', 'DRAFT', 'Planned thing'), rmSl('slice-02-b.md', 'DEFERRED', 'Parked thing'), rmSl('slice-03-c.md', 'ABANDONED', 'Dead thing')] }];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  assert.match(html, /Planned thing/);
+  assert.doesNotMatch(html, /Parked thing/);
+  assert.doesNotMatch(html, /Dead thing/);
+});
+
+test('012-01 AC7: DONE specs fold under a closed <details> "show N done"', () => {
+  const html = roadmapTabHtml(rmProject(rmSpecs).roadmap);
+  assert.match(html, /<details class="roadmap-done">\s*<summary>show 1 done<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+  const doneIdx = html.indexOf('Shipped bit');
+  assert.ok(doneIdx > html.indexOf('<details'), 'DONE spec content sits inside the fold');
+  assert.doesNotMatch(roadmapTabHtml(rmProject([rmSpecs[0]]).roadmap), /<details/, 'no fold when there is nothing done');
+});
+
+test('012-01 AC8: empty states — "No specs yet" and "Nothing planned" (above the fold)', () => {
+  assert.match(roadmapTabHtml(rmProject([]).roadmap), /No specs yet/);
+  const only = roadmapTabHtml(rmProject([rmSpecs[1]]).roadmap);
+  assert.match(only, /Nothing planned/);
+  assert.ok(only.indexOf('Nothing planned') < only.indexOf('<details'), 'above the fold');
+  assert.doesNotMatch(roadmapTabHtml(rmProject(rmSpecs).roadmap), /Nothing planned|No specs yet/);
+});
+
+test('012-01 AC8: a missing roadmap field renders an honest line, never throws', () => {
+  assert.match(roadmapTabHtml(undefined), /No roadmap/);
+});
+
+test('012-01 AC4: sequence strip renders the steps with their labels', () => {
+  const specs = [
+    { id: '001-a', title: 'Alpha', status: 'IN_PROGRESS', recency: 3, slices: [rmSl('slice-01-a.md', 'IN_PROGRESS', 'x'), rmSl('slice-02-b.md', 'DEFERRED', 'y')] },
+    { id: '002-b', title: 'Beta', status: 'DRAFT', recency: 2, slices: [rmSl('slice-01-a.md', 'DRAFT', 'x')] },
+  ];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  assert.match(html, /class="rm-sequence"/);
+  assert.match(html, /Now · We are here/);
+  assert.match(html, /1 parked/);
+  assert.equal((html.match(/class="rm-step rm-step-/g) || []).length, 3);
+});
+
+test('012-01 AC5: release block "In front of it — <title>" lists Include slices with chips', () => {
+  const specs = [{ id: '005-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [rmSl('slice-01-a.md', 'DONE', 'First'), rmSl('slice-02-b.md', 'DRAFT', 'Second')] }];
+  const track = { title: 'Ship it', kind: 'release', includeTokens: ['005-01', '005-02'], goalProgress: { done: 1, total: 2 } };
+  const html = roadmapTabHtml(rmProject(specs, { track }).roadmap);
+  assert.match(html, /In front of it — Ship it/);
+  assert.ok(html.indexOf('In front of it') < html.indexOf('rm-spec-group'));
+  assert.doesNotMatch(roadmapTabHtml(rmProject(specs).roadmap), /In front of it/);
+});
+
+test('012-01 AC9: four chips each get a distinct class; cards use existing tokens (no palette import)', () => {
+  const specs = [{ id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [rmSl('slice-01-a.md', 'DONE', 'a'), rmSl('slice-02-b.md', 'IN_PROGRESS', 'b'), rmSl('slice-03-c.md', 'DRAFT', 'c')] }];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  const classes = new Set([...html.matchAll(/class="rm-chip (chip-[\w-]+)"/g)].map((m) => m[1]));
+  assert.equal(classes.size, 3);
+  const css = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'index.html'), 'utf8');
+  for (const c of ['chip-done', 'chip-progress', 'chip-planned', 'chip-parked']) assert.match(css, new RegExp(`\\.${c}\\b`));
+  assert.match(css, /\.rm-cards[^}]*grid-template-columns/);
+  assert.match(css, /@media \(max-width:[^)]*\)[^@]*\.rm-cards/s);
+});
+
+test('012-01 AC10: header reads "as of main" (or the branch name) plus the worktree hint', () => {
+  const p = rmProject(rmSpecs);
+  assert.match(roadmapTabHtml(p.roadmap), /as of main/);
+  const feat = deriveRoadmap({ specs: rmSpecs, branch: 'feature-x', worktrees: [[{ id: '001-core', slices: [{ file: 'slice-02-b.md', status: 'REVIEWED' }] }, { id: '009-new', slices: [] }]] });
+  const html = roadmapTabHtml(feat);
+  assert.match(html, /as of feature-x/);
+  assert.match(html, /1 slice further along in worktrees/);
+  assert.match(html, /1 spec only in worktrees/);
+  assert.doesNotMatch(roadmapTabHtml(p.roadmap), /worktrees/);
+});
+
+test('012-01 AC3: overview and roadmap read the SAME current-release value (scanner-emitted currentReleasePath)', () => {
+  const p = mkProject({
+    workstreams: [
+      { kind: 'release', path: 'docs/releases/a.md', title: 'A', goalProgress: { done: 1, total: 2 }, memberSpecIds: ['x'] },
+      { kind: 'release', path: 'docs/releases/b.md', title: 'B', goalProgress: { done: 0, total: 2 } },
+    ],
+    currentReleasePath: 'docs/releases/b.md',
+  });
+  assert.equal(currentReleaseTrack(p).title, 'B', 'render follows the emitted value; it holds no copy of the rule');
+  assert.equal(currentReleaseTrack(mkProject({ currentReleasePath: null })), null);
+});
+
+test('012-01 AC9: roadmap content is escaped', () => {
+  const specs = [{ id: '001-a', title: '<img onerror=x>', status: 'DRAFT', recency: 1, slices: [rmSl('slice-01-a.md', 'DRAFT', '<script>')] }];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  assert.doesNotMatch(html, /<script>|<img onerror/);
+});
+
+test('012-01: the activity tab keeps its disabled class (still a placeholder); overview and roadmap stay live', () => {
+  const html = detailView(rmProject(rmSpecs));
+  assert.match(html, /class="tab disabled" data-action="show-activity-tab"/);
+  assert.doesNotMatch(html, /class="tab[^"]*disabled[^"]*" data-action="show-(overview|roadmap)-tab"/);
 });

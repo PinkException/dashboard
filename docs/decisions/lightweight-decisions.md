@@ -144,3 +144,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** 008, 009 and 010 all landed under 0.5.0 without a further bump, so an installed 0.5.0 plugin would not be signalled to update. The owner first asked for 0.5.1 to ship PR #8's fixes, then chose 0.6.0 once told the unreleased range also held the 008–010 features. Distribution unchanged: marketplace is the PinkException/dashboard GitHub clone; `claude plugin marketplace update` + `claude plugin update` pull it into the cache.
 
 **Scope:** .claude-plugin/plugin.json, package.json
+
+### 2026-11-16 — Roadmap sequence strip: steps after a release skip its specs; follow-on label 'Then' (012-01)
+
+**Decision:** When the roadmap's sequence strip opens on the current release, steps 2-3 are the next two ordered specs NOT covered by the release's Include set (so no spec repeats the release step). Steps 2-3 are labelled 'Then' on both paths (with or without a release); the first step keeps 'Now · We are here' / 'Next up' per spec 012's rule, and the last stays 'N parked'. Fewer remaining specs means a shorter strip.
+
+**Context:** AC4's 'the next two ordered specs' was ambiguous: release-first ordering made step 2 usually the release's own spec, and the first build labelled follow-on steps 'Next' after a release but 'Then' otherwise. Raised as a [spec] blocker by the round-2 craft review; owner chose 'skip, use Then' on 2026-11-16. Rejected: literal reading (repeats allowed).
+
+**Scope:** src/lib.mjs deriveRoadmap sequence strip; spec 012 slice 01 AC4

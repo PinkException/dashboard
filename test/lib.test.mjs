@@ -1133,3 +1133,297 @@ test('deriveWaitingOn non-regression: forced marker head is byte-identical via d
   const p = proj({ specs: [{ id: '022-x', title: 'X', status: 'IN_PROGRESS', slices: [slice('slice-01-a.md', 'IN_PROGRESS')] }] });
   assertHeadMatchesDeriveWaitingOn(p, 'waiting on the vendor contract to be signed');
 });
+
+// ===== Spec 012-01: roadmap tab — automatic order (scanner-side, pure) =====
+import {
+  currentReleaseTrack as libCurrentReleaseTrack,
+  sliceNameFrom,
+  deriveRoadmap,
+  worktreeHint,
+  parseRecencyLog,
+  parseWorktreeList,
+} from '../src/lib.mjs';
+
+const sl = (file, status, deps = []) => ({ file, status, dependencies: deps });
+const sp = (id, status, slices, recency = 0) => ({ id, title: id, status, slices, recency });
+const ids = (r) => r.specs.map((s) => s.id);
+
+test('012-01 AC3: currentReleaseTrack lives in lib — first release workstream with an incomplete goal, else null', () => {
+  const p = {
+    workstreams: [
+      { kind: 'release', title: 'Old', goalProgress: { done: 3, total: 3 } },
+      { kind: 'release', title: 'Current', goalProgress: { done: 1, total: 4 } },
+    ],
+  };
+  assert.equal(libCurrentReleaseTrack(p).title, 'Current');
+  assert.equal(libCurrentReleaseTrack({ workstreams: [{ kind: 'runbook' }] }), null);
+  assert.equal(libCurrentReleaseTrack({}), null);
+});
+
+test('012-01 AC2: sliceNameFrom reads the "## Slice NNN-NN — name" heading, falls back to the filename stem (A1)', () => {
+  assert.equal(sliceNameFrom('# x\n\n## Slice 012-01 — roadmap tab with automatic order\n\nbody', 'slice-01-roadmap.md'), 'roadmap tab with automatic order');
+  assert.equal(sliceNameFrom('## Slice 3 - hyphen name  \n', 'slice-03-x.md'), 'hyphen name');
+  assert.equal(sliceNameFrom('no heading here', 'slice-02-thing-one.md'), 'slice-02-thing-one');
+  assert.equal(sliceNameFrom('', 'slice-02-thing-one.md'), 'slice-02-thing-one');
+});
+
+test('012-01 AC3 rule: status-less slice-*.md is ignored (no card, no effect on order)', () => {
+  const r = deriveRoadmap({ specs: [sp('001-a', 'DONE', [sl('slice-01-a.md', 'DONE'), sl('slice-02-evidence.md', null)])] });
+  assert.equal(r.specs.length, 0);
+  assert.equal(r.done.length, 1, 'the evidence note must not make a finished spec look unfinished');
+});
+
+test('012-01 AC3 rule: unfinished = any slice not DONE/DEFERRED/ABANDONED; spec with no slices unfinished unless DONE/ABANDONED', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('001-a', 'IN_PROGRESS', [sl('slice-01-a.md', 'DONE'), sl('slice-02-b.md', 'DEFERRED'), sl('slice-03-c.md', 'ABANDONED')]),
+      sp('002-b', 'DRAFT', []),
+      sp('003-c', 'DONE', []),
+      sp('004-d', 'ABANDONED', []),
+      sp('005-e', 'DRAFT', [sl('slice-01-x.md', 'DRAFT')]),
+    ],
+  });
+  assert.deepEqual(ids(r), ['002-b', '005-e']);
+  assert.deepEqual(r.done.map((s) => s.id), ['001-a', '003-c'], 'deferred tail folds as done; ABANDONED spec is not shown');
+});
+
+test('012-01 AC3 rule: release-first, then tier (in flight > started > not started), then recency, then number', () => {
+  const specs = [
+    sp('001-draft-old', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 100),
+    sp('002-draft-new', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 900),
+    sp('003-started', 'IN_PROGRESS', [sl('slice-01-a.md', 'DONE'), sl('slice-02-b.md', 'READY_FOR_REVIEW')], 50),
+    sp('004-flight', 'IN_PROGRESS', [sl('slice-01-a.md', 'REVIEWED')], 10),
+    sp('005-release', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 1),
+    sp('006-tie-a', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 900),
+  ];
+  const track = { title: 'R1', kind: 'release', includeTokens: ['005-01'], goalProgress: { done: 0, total: 1 } };
+  const r = deriveRoadmap({ specs, track });
+  // release spec first; in flight; started; then drafts newest-first, equal recency by number
+  assert.deepEqual(ids(r), ['005-release', '004-flight', '003-started', '002-draft-new', '006-tie-a', '001-draft-old']);
+});
+
+test('012-01 AC3 rule: no release → tier/recency alone; missing recency sorts last', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], null),
+      sp('002-b', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 5),
+    ],
+  });
+  assert.deepEqual(ids(r), ['002-b', '001-a']);
+});
+
+test('012-01 AC3 rule: tier boundaries — RECONCILED is in flight, READY_FOR_IMPLEMENTATION is started', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'READY_FOR_IMPLEMENTATION')], 999),
+      sp('002-b', 'DRAFT', [sl('slice-01-a.md', 'RECONCILED')], 1),
+    ],
+  });
+  assert.deepEqual(r.specs.map((s) => [s.id, s.tier]), [['002-b', 'in-flight'], ['001-a', 'started']]);
+});
+
+test('012-01 AC3 rule: in-spec dependency order, ties by slice number; DEFERRED/ABANDONED slices excluded from the cards', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('010-x', 'IN_PROGRESS', [
+        sl('slice-01-a.md', 'DRAFT', ['010-03']),
+        sl('slice-02-b.md', 'DRAFT'),
+        sl('slice-03-c.md', 'DRAFT'),
+        sl('slice-04-d.md', 'DEFERRED'),
+        sl('slice-05-e.md', 'ABANDONED'),
+      ]),
+    ],
+  });
+  assert.deepEqual(r.specs[0].slices.map((c) => c.id), ['010-02', '010-03', '010-01']);
+});
+
+test('012-01 AC3 rule: dependency cycle falls back to slice number', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('010-x', 'IN_PROGRESS', [
+        sl('slice-01-a.md', 'DRAFT', ['010-02']),
+        sl('slice-02-b.md', 'DRAFT', ['010-01']),
+        sl('slice-03-c.md', 'DRAFT'),
+      ]),
+    ],
+  });
+  assert.deepEqual(r.specs[0].slices.map((c) => c.id), ['010-01', '010-02', '010-03']);
+});
+
+test('012-01 AC3/AC6 rule: cross-spec and adr-* dependencies do not affect order but are listed in dependsOn', () => {
+  const r = deriveRoadmap({
+    specs: [
+      sp('010-x', 'IN_PROGRESS', [
+        sl('slice-01-a.md', 'DRAFT', ['011-01', 'adr-0004', '010-02']),
+        sl('slice-02-b.md', 'DRAFT'),
+      ]),
+      sp('011-y', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')]),
+    ],
+  });
+  const x = r.specs.find((s) => s.id === '010-x');
+  assert.deepEqual(x.slices.map((c) => c.id), ['010-02', '010-01']);
+  assert.deepEqual(x.slices.find((c) => c.id === '010-01').dependsOn, ['011-01', 'adr-0004', '010-02']);
+});
+
+test('012-01 AC6: cards carry id, name, status and chip per the chip table', () => {
+  const statuses = ['DONE', 'IN_PROGRESS', 'REVIEWED', 'RECONCILED', 'DRAFT', 'READY_FOR_REVIEW', 'READY_FOR_IMPLEMENTATION'];
+  const want = ['Done', 'In progress', 'In progress', 'In progress', 'Planned', 'Planned', 'Planned'];
+  const slices = statuses.map((s, i) => ({ ...sl(`slice-0${i + 1}-s.md`, s), name: `name ${i + 1}` }));
+  const r = deriveRoadmap({ specs: [sp('020-z', 'IN_PROGRESS', slices)] });
+  const cards = r.specs[0].slices;
+  assert.deepEqual(cards.map((c) => c.chip), want);
+  assert.equal(cards[0].name, 'name 1');
+  assert.equal(cards[0].id, '020-01');
+  assert.equal(cards[0].status, 'DONE');
+});
+
+test('012-01 AC3/AC5: release block lists Include slices with chips (incl. parked and unwritten tokens)', () => {
+  const specs = [
+    sp('005-a', 'IN_PROGRESS', [
+      { ...sl('slice-01-a.md', 'DONE'), name: 'first' },
+      { ...sl('slice-02-b.md', 'DEFERRED'), name: 'second' },
+    ]),
+  ];
+  const track = { title: 'Ship it', kind: 'release', includeTokens: ['005-01', '005-02', '005-09'], goalProgress: { done: 1, total: 2 } };
+  const r = deriveRoadmap({ specs, track });
+  assert.equal(r.release.title, 'Ship it');
+  assert.deepEqual(r.release.slices.map((c) => [c.id, c.chip]), [['005-01', 'Done'], ['005-02', 'Parked'], ['005-09', 'Planned']]);
+  assert.equal(r.release.slices[2].name, 'not written yet');
+  assert.equal(deriveRoadmap({ specs }).release, null);
+});
+
+test('012-01 AC4: sequence strip — release first, next two ordered specs, "N parked" last; We-are-here only for release/in-flight/started', () => {
+  const specs = [
+    sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'IN_PROGRESS'), sl('slice-02-b.md', 'DEFERRED')], 9),
+    sp('002-b', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 8),
+    sp('003-c', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 7),
+    sp('004-d', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 6),
+  ];
+  const r = deriveRoadmap({ specs });
+  assert.deepEqual(r.sequence.map((s) => s.kind), ['spec', 'spec', 'spec', 'parked']);
+  assert.equal(r.sequence[0].label, 'Now · We are here');
+  assert.equal(r.sequence[0].id, '001-a');
+  assert.equal(r.sequence[3].label, '1 parked');
+  assert.equal(r.sequence.length, 4);
+
+  const withRelease = deriveRoadmap({ specs, track: { title: 'R', kind: 'release', includeTokens: ['003-01'], goalProgress: { done: 0, total: 1 } } });
+  assert.deepEqual(withRelease.sequence.map((s) => s.kind), ['release', 'spec', 'spec', 'parked']);
+  assert.equal(withRelease.sequence[0].label, 'Now · We are here');
+  // steps 2-3 skip every spec the release covers (003-c), labelled "Then"
+  assert.deepEqual(withRelease.sequence.map((s) => s.id), [undefined, '001-a', '002-b', undefined]);
+  assert.deepEqual(withRelease.sequence.map((s) => s.label), ['Now · We are here', 'Then', 'Then', '1 parked']);
+  assert.deepEqual(r.sequence.map((s) => s.label), ['Now · We are here', 'Then', 'Then', '1 parked'], 'no-release path labels steps 2-3 "Then" too');
+});
+
+test('012-01 AC4: with a release, fewer than two specs outside it → a shorter strip; every release-covered spec is skipped', () => {
+  const specs = [
+    sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 9),
+    sp('002-b', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 8),
+    sp('003-c', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')], 7),
+  ];
+  const track = { title: 'R', kind: 'release', includeTokens: ['001-01', '003-01'], goalProgress: { done: 0, total: 2 } };
+  const r = deriveRoadmap({ specs, track });
+  assert.deepEqual(r.sequence.map((s) => [s.kind, s.id]), [['release', undefined], ['spec', '002-b']]);
+  const all = deriveRoadmap({ specs, track: { ...track, includeTokens: ['001-01', '002-01', '003-01'] } });
+  assert.deepEqual(all.sequence.map((s) => s.kind), ['release']);
+});
+
+test('012-01 AC4: first step is "Next up" when the first spec is not started; fewer steps when fewer exist', () => {
+  const r = deriveRoadmap({ specs: [sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')])] });
+  assert.equal(r.sequence.length, 1);
+  assert.equal(r.sequence[0].label, 'Next up');
+  assert.deepEqual(deriveRoadmap({ specs: [] }).sequence, []);
+});
+
+test('012-01 AC8: empty states — no specs vs only DONE specs', () => {
+  assert.equal(deriveRoadmap({ specs: [] }).empty, 'no-specs');
+  assert.equal(deriveRoadmap({ specs: [sp('001-a', 'DONE', [sl('slice-01-a.md', 'DONE')])] }).empty, 'nothing-planned');
+  assert.equal(deriveRoadmap({ specs: [sp('001-a', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')])] }).empty, null);
+});
+
+test('012-01 AC7: DONE specs are listed separately for the fold', () => {
+  const r = deriveRoadmap({ specs: [sp('001-a', 'DONE', [sl('slice-01-a.md', 'DONE')]), sp('002-b', 'DRAFT', [sl('slice-01-a.md', 'DRAFT')])] });
+  assert.deepEqual(r.done.map((s) => s.id), ['001-a']);
+  assert.deepEqual(ids(r), ['002-b']);
+});
+
+test('012-01 AC10: asOf reports the root branch', () => {
+  assert.equal(deriveRoadmap({ specs: [], branch: 'main' }).asOf, 'main');
+  assert.equal(deriveRoadmap({ specs: [], branch: 'feature-x' }).asOf, 'feature-x');
+  assert.equal(deriveRoadmap({ specs: [] }).asOf, null);
+});
+
+// --- AC10 worktree hint ---
+const wtSpec = (id, slices) => ({ id, slices });
+const root10 = [sp('001-a', 'IN_PROGRESS', [sl('slice-01-a.md', 'DONE'), sl('slice-02-b.md', 'DRAFT'), sl('slice-03-c.md', 'DRAFT')])];
+
+test('012-01 AC10: worktree at root HEAD with an uncommitted IN_PROGRESS slice → N >= 1', () => {
+  const h = worktreeHint(root10, [[wtSpec('001-a', [sl('slice-01-a.md', 'DONE'), sl('slice-02-b.md', 'IN_PROGRESS'), sl('slice-03-c.md', 'DRAFT')])]]);
+  assert.deepEqual(h, { further: 1, onlyInWorktrees: 0 });
+});
+
+test('012-01 AC10: stale worktree holding DRAFT where root has DONE is not counted', () => {
+  const h = worktreeHint(root10, [[wtSpec('001-a', [sl('slice-01-a.md', 'DRAFT')])]]);
+  assert.deepEqual(h, { further: 0, onlyInWorktrees: 0 });
+});
+
+test('012-01 AC10: highest worktree status wins, each slice counted once across worktrees', () => {
+  const a = [wtSpec('001-a', [sl('slice-02-b.md', 'READY_FOR_REVIEW')])];
+  const b = [wtSpec('001-a', [sl('slice-02-b.md', 'REVIEWED')])];
+  assert.deepEqual(worktreeHint(root10, [a, b]).further, 1);
+  // equal rank is not "further along"
+  assert.equal(worktreeHint(root10, [[wtSpec('001-a', [sl('slice-02-b.md', 'DRAFT')])]]).further, 0);
+});
+
+test('012-01 AC10: DEFERRED and ABANDONED never count as further along', () => {
+  const h = worktreeHint(root10, [[wtSpec('001-a', [sl('slice-02-b.md', 'DEFERRED'), sl('slice-03-c.md', 'ABANDONED')])]]);
+  assert.equal(h.further, 0);
+});
+
+test('012-01 AC10: slices only in a worktree inside a root spec folder add to N; spec folders absent from root go to M', () => {
+  const h = worktreeHint(root10, [
+    [wtSpec('001-a', [sl('slice-09-new.md', 'DRAFT')]), wtSpec('002-new', [sl('slice-01-x.md', 'DRAFT')])],
+    [wtSpec('002-new', [sl('slice-01-x.md', 'DRAFT')]), wtSpec('003-newer', [])],
+  ]);
+  assert.deepEqual(h, { further: 1, onlyInWorktrees: 2 });
+});
+
+test('012-01 AC10: a DEFERRED/ABANDONED slice that exists only in a worktree is not "further along" either; a new slice in two worktrees counts once', () => {
+  const onlyParked = worktreeHint(root10, [[wtSpec('001-a', [sl('slice-09-n.md', 'DEFERRED'), sl('slice-10-n.md', 'ABANDONED')])]]);
+  assert.equal(onlyParked.further, 0);
+  const dup = [wtSpec('001-a', [sl('slice-09-n.md', 'DRAFT')])];
+  assert.equal(worktreeHint(root10, [dup, dup]).further, 1);
+});
+
+test('012-01 AC10: status-less worktree slice files are ignored; no cap on counts', () => {
+  assert.deepEqual(worktreeHint(root10, [[wtSpec('001-a', [sl('slice-09-evidence.md', null)])]]), { further: 0, onlyInWorktrees: 0 });
+  const many = Array.from({ length: 60 }, (_, i) => sl(`slice-${String(i + 10).padStart(2, '0')}-n.md`, 'DRAFT'));
+  assert.equal(worktreeHint(root10, [[wtSpec('001-a', many)]]).further, 60);
+});
+
+test('012-01 AC10: deriveRoadmap carries the hint', () => {
+  const r = deriveRoadmap({ specs: root10, worktrees: [[wtSpec('001-a', [sl('slice-02-b.md', 'IN_PROGRESS')])]] });
+  assert.deepEqual(r.worktreeHint, { further: 1, onlyInWorktrees: 0 });
+  assert.equal(deriveRoadmap({ specs: root10 }).worktreeHint, null, 'both zero → no hint');
+});
+
+// --- AC11 helpers: one-pass recency parse, worktree list parse ---
+test('012-01 AC11: parseRecencyLog maps one `git log --name-only` pass to per-spec-directory newest timestamps', () => {
+  const out = '1700000300\n\ndocs/specs/001-a/spec.md\ndocs/specs/002-b/slice-01-x.md\n\n1700000200\n\ndocs/specs/001-a/slice-01-x.md\ndocs/specs/README.md\n\n1700000100\n\ndocs/specs/003-c/spec.md\n';
+  const m = parseRecencyLog(out);
+  assert.equal(m.get('001-a'), 1700000300);
+  assert.equal(m.get('002-b'), 1700000300);
+  assert.equal(m.get('003-c'), 1700000100);
+  assert.equal(m.has('README.md'), false);
+});
+
+test('012-01 AC10: parseWorktreeList finds the root branch and the non-root worktree paths', () => {
+  const out = 'worktree /r/main\nHEAD abc\nbranch refs/heads/main\n\nworktree /r/main/.claude/worktrees/w1\nHEAD def\nbranch refs/heads/feat\n\nworktree /r/other\nHEAD 123\ndetached\n\n';
+  const r = parseWorktreeList(out, '/r/main');
+  assert.equal(r.branch, 'main');
+  assert.deepEqual(r.others, ['/r/main/.claude/worktrees/w1', '/r/other']);
+  assert.equal(r.rootListed, true);
+  const other = parseWorktreeList(out, '/elsewhere');
+  assert.equal(other.branch, null);
+  assert.equal(other.rootListed, false);
+});
