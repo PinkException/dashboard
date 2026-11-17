@@ -103,7 +103,7 @@ function flightCellsSvg(count) {
   let cells = '';
   for (let i = 0; i < 6; i++) {
     const x = i * (cellW + gap);
-    const fill = i < filled ? `var(--heat-${bucket})` : 'var(--inset)';
+    const fill = i < filled ? `var(--heat-fill-${bucket})` : 'var(--inset)';
     cells += `<rect x="${x}" y="0" width="${cellW}" height="${cellH}" rx="1" fill="${fill}"></rect>`;
   }
   const totalW = 6 * cellW + 5 * gap;
@@ -297,7 +297,7 @@ export function overviewRow(p) {
     chip,
     nextmove: nextMoveCell(p),
     inflight:
-      `<span class="if-num heat-${bucket}">${heat}</span><span class="if-word heat-${bucket}">${bucket}</span>` +
+      `<span class="if-num">${heat}</span><span class="if-word heat-${bucket}">${bucket}</span>` +
       flightCellsSvg(heat) +
       `<span class="if-caption">open fronts</span>`,
     progress:

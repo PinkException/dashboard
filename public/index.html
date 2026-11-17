@@ -17,20 +17,31 @@
      and nothing here should require a network fetch beyond /api/data. */
   :root {
     --canvas: #f4f5f7;
-    --sheet: #edeff2; --topbar: #eff1f4; --hover: #dfe3e9; --inset: #d1d7df;
+    --sheet: #edeff2; --topbar: #eff1f4; --hover: #e3e6eb; --inset: #d1d7df;
     --track: #d6dbe1; --border: #d6dbe1; --border-soft: #e2e6eb; --border-faint: #e8ebef;
     --border-strong: #c5cdd5; --border-dash: #c4ccd4; --ok-border: #afdbcb;
     --warn-bg: #efeaed; --dot-border: #afbac5; --dot-off: #bec7d0;
     --text: #1f2328; --text-white: #080a0d; --text-hi: #0b0e11; --text-body: #161b20;
     --text-bright: #272e36; --text-item: #434b55; --text-subhead: #535b65;
-    --text-muted: #636b75; --text-dim: #6f7883; --text-dim2: #848e99; --text-dimmer: #7f8894;
-    --text-label: #8c95a0; --text-faint: #a1aab5; --text-faintest: #afb7c2;
-    --green: #3cb37a; --blue: #1766b3; --amber: #b27519; --orange: #a42f10;
+    /* Spec 011-01: AA (4.5:1) leaves only a narrow band for secondary grey
+       text, so the dim/dimmer/label/faint steps are MERGED onto --text-dim
+       (aliases, so the dark block's --text-dim carries them too). Secondary
+       hierarchy is carried by weight/size, not by ever-fainter grey. */
+    --text-muted: #59616b; --text-dim: #5f6771; --text-dim2: #848e99; --text-dimmer: var(--text-dim);
+    --text-label: var(--text-dim); --text-faint: var(--text-dim); --text-faintest: #afb7c2;
+    --green: #176e45; --blue: #1766b3; --amber: #b27519; --orange: #a42f10;
     --red: #9e0f1d; --blocked-bg: #efe5e8; --blocked-border: #e2c5ca; --red-soft: #3d0d13;
     --link: #2f5b90; --link-hover: #173e70; --link-dim: #5777a0; --purple: #3f1773;
-    --draft: #5f6774; --abandoned: #aa8590; --stale: #c5a575; --warn-text: #614817;
-    --heat-clear: var(--text-faint); --heat-light: var(--text-muted);
-    --heat-busy: var(--amber); --heat-hot: var(--orange);
+    --draft: #5f6774; --abandoned: #875866; --stale: #7a6040; --warn-text: #614817;
+    /* Spec 011-01 AC4b: heat splits into TEXT tokens (the bucket word, held
+       to 4.5:1; busy is the amber chip instead) and FILL tokens (the meter
+       cells, not text, so they keep the redline look). */
+    --heat-clear: var(--text-faint); --heat-light: var(--text-muted); --heat-hot: var(--orange);
+    --heat-fill-clear: #a1aab5; --heat-fill-light: #636b75;
+    --heat-fill-busy: var(--amber); --heat-fill-hot: var(--orange);
+    /* Spec 011-01 AC4 (owner decision B): amber is a CHIP, never text. Mode-
+       invariant: declared once here, never overridden in the dark block. */
+    --chip-amber-bg: #e6a94d; --on-chip-amber: #1f2328;
     --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
@@ -43,12 +54,15 @@
       --warn-bg: #151013; --dot-border: #3a4550; --dot-off: #2f3841;
       --text: #d7dbe0; --text-white: #f2f4f7; --text-hi: #eef1f4; --text-body: #dfe4e9;
       --text-bright: #c9d0d8; --text-item: #aab2bc; --text-subhead: #9aa2ac;
-      --text-muted: #8a929c; --text-dim: #7c8590; --text-dim2: #66707b; --text-dimmer: #6b7480;
-      --text-label: #5f6873; --text-faint: #4a535e; --text-faintest: #3d4550;
+      /* Spec 011-01: --text-dimmer/--text-label/--text-faint no longer
+         overridden here — they alias --text-dim (merged grey steps). */
+      --text-muted: #8a929c; --text-dim: #7c8590; --text-dim2: #66707b;
+      --text-faintest: #3d4550;
+      --heat-fill-clear: #4a535e; --heat-fill-light: #8a929c;
       --green: #4cc38a; --blue: #4c9be8; --amber: #e6a94d; --orange: #ef7a5b;
       --red: #f0616f; --blocked-bg: #1a1013; --blocked-border: #3a1d22; --red-soft: #f2c2c8;
       --link: #6f9bd0; --link-hover: #8fb6e8; --link-dim: #5f7fa8; --purple: #b48ce8;
-      --draft: #8b93a0; --abandoned: #7a5560; --stale: #8a6a3a; --warn-text: #e8cf9e;
+      --draft: #8b93a0; --abandoned: #a37d89; --stale: #a3865e; --warn-text: #e8cf9e;
     }
   }
   * { box-sizing: border-box; }
@@ -123,7 +137,8 @@
      deriveWaitingOn (src/lib.mjs) must rename its selector here too. */
   .row-verb { display: inline-block; font: 700 10.5px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; margin-right: 9px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
   .rv-DECIDE, .rv-REVIEW, .rv-MERGE { color: var(--red); background: var(--blocked-bg); border: 1px solid var(--blocked-border); }
-  .rv-REVIEW { color: var(--amber); }
+  /* Spec 011-01 AC4: amber is a chip — override the shared rule's fill AND border. */
+  .rv-REVIEW { color: var(--on-chip-amber); background: var(--chip-amber-bg); border-color: var(--chip-amber-bg); }
   .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
   .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
   /* Spec 009-04: External (a PR out for someone else's review) is recessive —
@@ -138,12 +153,12 @@
   .pr-hint { color: var(--text-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
 
   .row-inflight { display: flex; flex-direction: column; gap: 7px; }
-  .if-num { font: 600 26px/0.9 var(--mono); }
+  .if-num { font: 600 26px/0.9 var(--mono); color: var(--text-hi); }
   .if-word { font: 10px var(--mono); text-transform: uppercase; margin-left: 4px; }
   .if-caption { font: 9.5px var(--mono); letter-spacing: 0.06em; color: var(--text-faint); }
   .heat-clear { color: var(--heat-clear); }
   .heat-light { color: var(--heat-light); }
-  .heat-busy { color: var(--heat-busy); }
+  .heat-busy { color: var(--on-chip-amber); background: var(--chip-amber-bg); padding: 0 5px; border-radius: 3px; }
   .heat-hot { color: var(--heat-hot); }
   .flight-cells { display: block; }
 
@@ -218,7 +233,12 @@
   .sessions-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
   .sessions-header .meta { font: 12px var(--mono); color: var(--text-muted); }
   .session-row { display: grid; grid-template-columns: 18px 1.3fr 1.4fr 1fr auto; column-gap: 14px; padding: 9px 0; border-top: 1px solid var(--border-soft); align-items: center; }
-  .session-row.older { opacity: 0.72; }
+  /* Spec 011-01 AC3: older rows step each child down one text level (not
+     opacity, which would blend the greys below AA). The branch keeps the
+     link colour. */
+  .session-row.older .sr-title { color: var(--text-bright); }
+  .session-row.older .sr-worktree { color: var(--text-dim); }
+  .session-row.older .sr-last { color: var(--text-faint); }
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
   .dot-run { background: var(--green); animation: cpulse 1.8s ease-in-out infinite; }
   .dot-idle { background: var(--dot-off); }
@@ -247,10 +267,10 @@
   .rm-asof { font: 12px var(--mono); color: var(--text-muted); }
   .rm-hint { font: 12px var(--mono); color: var(--link); }
   .rm-sequence { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 6px; }
-  .rm-step { flex: 1 1 200px; min-width: 0; background: var(--inset); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-  .rm-step-label { display: block; font: 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
+  .rm-step { flex: 1 1 200px; min-width: 0; background: var(--hover); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+  .rm-step-label { display: block; font: 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-chip-amber); background: var(--chip-amber-bg); width: fit-content; padding: 1px 6px; border-radius: 3px; }
   .rm-step-title { display: block; margin-top: 4px; font: 13px var(--sans); color: var(--text-hi); overflow-wrap: anywhere; }
-  .rm-step-parked .rm-step-label { color: var(--text-dimmer); }
+  .rm-step-parked .rm-step-label { color: var(--text-dimmer); background: transparent; padding: 0; }
   .rm-release, .rm-spec-group { margin-top: 18px; }
   .rm-group-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
   .rm-group-id { font: 12.5px var(--mono); color: var(--text-label); }
@@ -263,7 +283,7 @@
   .rm-deps { margin-top: 6px; font: 11.5px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
   .rm-chip { font: 10.5px var(--mono); padding: 2px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
   .chip-done { color: var(--green); }
-  .chip-progress { color: var(--blue); background: var(--inset); }
+  .chip-progress { color: var(--blue); background: var(--hover); }
   .chip-planned { color: var(--draft); border-style: dashed; }
   .chip-parked { color: var(--stale); border-style: dotted; }
   .rm-empty { margin-top: 16px; font: 14px var(--sans); color: var(--text-muted); }

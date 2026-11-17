@@ -95,7 +95,7 @@ at least 4.5:1, and a test keeps it that way.
 **DoD:**
 - [ ] All ACs pass; full test suite green (`npm test`), no regressions.
 - [ ] Reviewed by `reviewer` subagent (compliance + craft).
-- [ ] Deviation log produced under this slice heading, including the before/after
+- [x] Deviation log produced under this slice heading, including the before/after
       ratio table for each changed token.
 - [ ] Lightweight decision of 2026-08-31 ("light derived by HSL-mirror … contrast
       preserved by construction"; "dark uses the redline tokens verbatim")
@@ -136,3 +136,77 @@ page in both modes, and the test is the guard that keeps it so.
 - **A2:** only the colour tokens and the one inline style colour text. Grounded
   by the enumeration in spec 011 § Current state. Re-run that grep at
   implementation start, since main may have moved.
+
+### Deviation log (after reconciliation)
+
+**Red → green.** `test/contrast.test.mjs` was written first and run against the
+unchanged tokens: **101 failing pairs** (65 light, 36 dark), plus the chip-pair,
+mode-invariance, opacity and REVIEW-chip checks failing. After the token, CSS and
+markup changes: 10/10 contrast tests pass and the full suite is green
+(`npm test`: 426 tests, 0 failures).
+
+**Changed tokens** (worst ratio = lowest over the six text-bearing surfaces; in
+light mode that is `--hover`, in dark mode `--hover` too):
+
+| Token | Light before → after | Light worst | Dark before → after | Dark worst |
+|---|---|---|---|---|
+| `--hover` (surface) | `#dfe3e9` → `#e3e6eb` | n/a (vs `--sheet` 1.118 → 1.086) | unchanged `#161a20` | n/a |
+| `--text-muted` | `#636b75` (4.19) → `#59616b` | 5.01 | unchanged `#8a929c` | 5.55 |
+| `--text-dim` | `#6f7883` (3.48) → `#5f6771` | 4.58 | unchanged `#7c8590` | 4.67 |
+| `--text-dimmer` | `#7f8894` (2.79) → `var(--text-dim)` | 4.58 | `#6b7480` (3.69) → (override removed, aliases `--text-dim`) | 4.67 |
+| `--text-label` | `#8c95a0` (2.36) → `var(--text-dim)` | 4.58 | `#5f6873` (3.09) → (override removed) | 4.67 |
+| `--text-faint` | `#a1aab5` (1.82) → `var(--text-dim)` | 4.58 | `#4a535e` (2.24) → (override removed) | 4.67 |
+| `--green` | `#3cb37a` (2.06) → `#176e45` | 5.01 | unchanged `#4cc38a` | 7.88 |
+| `--abandoned` | `#aa8590` (2.52) → `#875866` | 4.64 | `#7a5560` (2.74) → `#a37d89` | 4.87 |
+| `--stale` | `#c5a575` (1.81) → `#7a6040` | **4.70** | `#8a6a3a` (3.49) → `#a3865e` | 5.10 |
+| `--heat-clear` | alias of `--text-faint` (1.82) | 4.58 | alias (2.24) | 4.67 |
+| `--heat-light` | alias of `--text-muted` (4.19) | 5.01 | alias | 5.55 |
+| `--heat-busy` | `var(--amber)` (2.99) → **removed** (busy word is the amber chip) | n/a | n/a | n/a |
+| `--heat-fill-clear/-light/-busy/-hot` | **new** fill tokens: `#a1aab5`, `#636b75`, `var(--amber)`, `var(--orange)` (the old meter look) | not text | `#4a535e`, `#8a929c` (dark overrides) | not text |
+| `--chip-amber-bg` / `--on-chip-amber` | **new**, mode-invariant: `#e6a94d` / `#1f2328` | chip pair 7.63 | same tokens (not overridden) | 7.63 |
+
+Unchanged text tokens that already passed (e.g. `--draft` light now 4.56 on the
+lighter `--hover`, `--blue` 4.68) were not touched. No other dark token changed.
+`--text-dim2` and `--text-faintest` are not used as text anywhere, so they were
+left as-is.
+
+**Final stale:** light `#7a6040` at 4.70:1 worst (on `--hover`, gained from 4.56
+by lightening `--hover` per AC4 (a)); dark `#a3865e` at 5.10:1.
+
+**Markup/CSS changes:** `.rv-REVIEW` overrides colour, background and border to
+the amber chip; `.heat-busy` (the busy bucket word) renders as the amber chip;
+`.if-num` drops the `heat-${bucket}` class and uses `--text-hi`; the meter cells
+use `--heat-fill-${bucket}`; `.session-row.older` opacity removed — title →
+`--text-bright`, worktree → `--text-dim`, last-activity → `--text-faint`.
+
+**Deviations and judgement calls:**
+
+1. **Roadmap tab put text on `--inset`** (added to main after the spec was
+   written): `.rm-step` (step label + title) and `.chip-progress` used
+   `background: var(--inset)`, which breaks the spec's premise that no text sits
+   on `--inset`. Rather than add `--inset` to the surface list (it is darker than
+   `--hover` in light mode and would push every grey and stale below the band),
+   both now use `--hover`, a listed text-bearing surface. `--inset` stays a pure
+   fill (meter empty cells). The step boxes are a little lighter in light mode.
+2. **Roadmap step label was amber text** (`.rm-step-label`, also new): rendered as
+   the amber chip, like the other amber text; the parked variant drops the chip
+   fill and stays `--text-dimmer`.
+3. **AC3 branch link:** "keeping the link colour" was read as the branch staying
+   on `--link` in older rows (not stepped to `--link-dim`, which fails AA in
+   light mode). Title, worktree and last-activity step down one level each.
+   In light mode `--text-dim` and `--text-faint` are now the same value, so the
+   worktree/last-activity step-down is visible only in the title and worktree.
+4. **Grey merge is via aliases:** `--text-dimmer`, `--text-label` and
+   `--text-faint` alias `--text-dim` in `:root`, and their dark overrides were
+   removed, so they follow dark `--text-dim`. The remaining light grey band is
+   three values (`--text-subhead` `#535b65`, `--text-muted` `#59616b`,
+   `--text-dim` `#5f6771`); the heat `clear` and `light` words are now near-equal
+   greys and differ by label only.
+5. **`--green` darkened as a fill too** (running dots, 100% bar), as the
+   implementation notes predicted. Not split; revisit at the owner read-check.
+6. **Literal-colour guard scope:** a `color:` value passes if it is a
+   `var(--token)` or a non-colour keyword (`inherit`, `currentColor`,
+   `transparent`, `initial`, `unset`).
+
+**AC5 (owner read-check): not yet done** — pending the owner looking at both
+modes. Anything still hard to read goes here as a follow-up.

@@ -180,11 +180,16 @@ test('heatBucket: reproduces every example in the redline render (AC2)', () => {
   assert.equal(heatBucket(10), 'hot');
 });
 
-test('overviewRow: in-flight figure carries a heat class and 6 flight cells (AC2)', () => {
+test('overviewRow: in-flight bucket word carries the heat class, plus 6 flight cells (AC2; 011-01 AC4b)', () => {
   const html = overviewRow(mkProject({
     specs: [{ id: 'a', status: 'IN_PROGRESS' }, { id: 'b', status: 'IN_PROGRESS' }, { id: 'c', status: 'IN_PROGRESS' }],
   }));
-  assert.match(html, /class="if-num heat-busy"/);
+  // 011-01 AC4b: the number uses the normal text colour (no heat class); the
+  // bucket word keeps the bucket's class; the meter cells use FILL tokens.
+  assert.match(html, /<span class="if-num">3<\/span>/);
+  assert.match(html, /class="if-word heat-busy"/);
+  assert.match(html, /fill="var\(--heat-fill-busy\)"/);
+  assert.doesNotMatch(html, /fill="var\(--heat-busy\)"/);
   assert.equal((html.match(/<rect/g) || []).length >= 6, true);
 });
 
