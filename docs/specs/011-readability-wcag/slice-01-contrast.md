@@ -177,7 +177,7 @@ by lightening `--hover` per AC4 (a)); dark `#a3865e` at 5.10:1.
 the amber chip; `.heat-busy` (the busy bucket word) renders as the amber chip;
 `.if-num` drops the `heat-${bucket}` class and uses `--text-hi`; the meter cells
 use `--heat-fill-${bucket}`; `.session-row.older` opacity removed — title →
-`--text-bright`, worktree → `--text-dim`, last-activity → `--text-faint`.
+`--text-body`, worktree → `--text-dim`; last-activity is not restyled (see item 3).
 
 **Deviations and judgement calls:**
 
@@ -193,9 +193,14 @@ use `--heat-fill-${bucket}`; `.session-row.older` opacity removed — title →
    fill and stays `--text-dimmer`.
 3. **AC3 branch link:** "keeping the link colour" was read as the branch staying
    on `--link` in older rows (not stepped to `--link-dim`, which fails AA in
-   light mode). Title, worktree and last-activity step down one level each.
-   In light mode `--text-dim` and `--text-faint` are now the same value, so the
-   worktree/last-activity step-down is visible only in the title and worktree.
+   light mode). `--text-label`, `--text-faint` and `--text-dimmer` alias
+   `--text-dim` in BOTH modes, so older last-activity (`--text-label`) cannot be
+   stepped separately: its `.sr-last` override was a no-op and was removed.
+   The title steps one level (`--text-hi` -> `--text-body`, passing AA in both
+   modes via the AC1 grid) and the worktree goes to `--text-dim`.
+   The AC4c test is a unit test of the resolver helper on synthetic input; real
+   per-mode resolution of the shipped tokens is covered by the AC1 grid in the
+   dark mode run.
 4. **Grey merge is via aliases:** `--text-dimmer`, `--text-label` and
    `--text-faint` alias `--text-dim` in `:root`, and their dark overrides were
    removed, so they follow dark `--text-dim`. The remaining light grey band is
@@ -204,6 +209,12 @@ use `--heat-fill-${bucket}`; `.session-row.older` opacity removed — title →
    greys and differ by label only.
 5. **`--green` darkened as a fill too** (running dots, 100% bar), as the
    implementation notes predicted. Not split; revisit at the owner read-check.
+7. **Chip width fix (review round):** the busy-bucket chip (`.heat-busy`) sat in
+   a flex column and stretched across the in-flight cell; it now has
+   `width: fit-content` like `.rm-step-label`. Guards added: every rule with the
+   amber chip fill constrains its width, and `--on-chip-amber` text only appears
+   with the chip fill. The AC2 no-space assertion now tests the parser on a
+   literal input.
 6. **Literal-colour guard scope:** a `color:` value passes if it is a
    `var(--token)` or a non-colour keyword (`inherit`, `currentColor`,
    `transparent`, `initial`, `unset`).

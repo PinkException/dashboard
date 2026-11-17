@@ -138,7 +138,7 @@
   .row-verb { display: inline-block; font: 700 10.5px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; margin-right: 9px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
   .rv-DECIDE, .rv-REVIEW, .rv-MERGE { color: var(--red); background: var(--blocked-bg); border: 1px solid var(--blocked-border); }
   /* Spec 011-01 AC4: amber is a chip — override the shared rule's fill AND border. */
-  .rv-REVIEW { color: var(--on-chip-amber); background: var(--chip-amber-bg); border-color: var(--chip-amber-bg); }
+  .rv-REVIEW { display: inline-block; color: var(--on-chip-amber); background: var(--chip-amber-bg); border-color: var(--chip-amber-bg); }
   .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
   .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
   /* Spec 009-04: External (a PR out for someone else's review) is recessive —
@@ -158,7 +158,7 @@
   .if-caption { font: 9.5px var(--mono); letter-spacing: 0.06em; color: var(--text-faint); }
   .heat-clear { color: var(--heat-clear); }
   .heat-light { color: var(--heat-light); }
-  .heat-busy { color: var(--on-chip-amber); background: var(--chip-amber-bg); padding: 0 5px; border-radius: 3px; }
+  .heat-busy { color: var(--on-chip-amber); background: var(--chip-amber-bg); padding: 0 5px; border-radius: 3px; width: fit-content; }
   .heat-hot { color: var(--heat-hot); }
   .flight-cells { display: block; }
 
@@ -236,9 +236,8 @@
   /* Spec 011-01 AC3: older rows step each child down one text level (not
      opacity, which would blend the greys below AA). The branch keeps the
      link colour. */
-  .session-row.older .sr-title { color: var(--text-bright); }
+  .session-row.older .sr-title { color: var(--text-body); }
   .session-row.older .sr-worktree { color: var(--text-dim); }
-  .session-row.older .sr-last { color: var(--text-faint); }
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
   .dot-run { background: var(--green); animation: cpulse 1.8s ease-in-out infinite; }
   .dot-idle { background: var(--dot-off); }

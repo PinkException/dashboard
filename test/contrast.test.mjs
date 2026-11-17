@@ -98,7 +98,8 @@ const TEXT_TOKENS = [
 test('011-01 AC2: the text-token set is found in both index.html and render.mjs', () => {
   assert.ok(TEXT_TOKENS.length >= 20, `expected the full text-token set, got ${TEXT_TOKENS.length}`);
   assert.ok(colorDecls(renderSrc).length >= 1, 'render.mjs inline style colours are scanned');
-  assert.ok(colorDecls(html).some((v) => v === 'var(--text-muted)'), 'no-space `color:var(...)` is matched');
+  assert.deepEqual(colorDecls('a{color:var(--x)}'), ['var(--x)'], 'no-space `color:var(...)` is matched');
+  assert.deepEqual(colorDecls('a{border-color:var(--x)}'), [], 'border-color is not a text colour');
 });
 
 test('011-01 AC2: no `color:` declaration uses a literal colour instead of a token', () => {
@@ -155,9 +156,12 @@ test('011-01 AC3: older session rows are dimmed by text tokens, not opacity', ()
   const older = rule('.session-row.older');
   assert.ok(older === null || !/opacity/.test(older), '.session-row.older must not use opacity');
   // Each child steps down one text level; the branch keeps the link colour.
-  for (const child of ['.sr-title', '.sr-worktree', '.sr-last']) {
+  // (last-activity is not restyled: label/faint alias --text-dim, so a step is a no-op.)
+  for (const child of ['.sr-title', '.sr-worktree']) {
     assert.ok(rule(`.session-row.older ${child}`), `older rows restyle ${child}`);
   }
+  assert.equal(rule('.session-row.older .sr-last'), null, 'no no-op .sr-last override');
+  assert.match(rule('.session-row.older .sr-title'), /color\s*:\s*var\(--text-body\)/);
 });
 
 test('011-01 AC4: the amber REVIEW verb is a chip (fill, border and text all overridden)', () => {
@@ -166,4 +170,29 @@ test('011-01 AC4: the amber REVIEW verb is a chip (fill, border and text all ove
   assert.match(r, /(?<![-\w])color\s*:\s*var\(--on-chip-amber\)/);
   assert.match(r, /background\s*:\s*var\(--chip-amber-bg\)/);
   assert.match(r, /border(?:-color)?\s*:[^;]*var\(--chip-amber-bg\)/);
+});
+
+// Every top-level CSS rule in index.html as [selector, body].
+function allRules(src) {
+  const css = src.match(/<style>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]]);
+}
+
+test('011-01: every amber chip fill hugs its text (fit-content or inline-block)', () => {
+  const chips = allRules(html).filter(([, b]) => /background\s*:\s*var\(--chip-amber-bg\)/.test(b));
+  assert.ok(chips.length >= 3, 'amber chip rules found');
+  for (const [sel, body] of chips) {
+    assert.ok(
+      /width\s*:\s*fit-content/.test(body) || /display\s*:\s*inline-block/.test(body),
+      `${sel} sets the chip fill but does not constrain its width`,
+    );
+  }
+});
+
+test('011-01: on-chip-amber text is only used together with the chip fill', () => {
+  for (const [sel, body] of allRules(html)) {
+    if (/(?<![-\w])color\s*:\s*var\(--on-chip-amber\)/.test(body)) {
+      assert.match(body, /background\s*:\s*var\(--chip-amber-bg\)/, `${sel} uses --on-chip-amber without the chip fill`);
+    }
+  }
 });
