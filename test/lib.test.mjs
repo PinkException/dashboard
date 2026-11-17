@@ -25,6 +25,9 @@ import {
   resolveReleaseGoal,
   deriveWaitingOn,
   deriveWaitingStages,
+  extractSliceGoal,
+  extractSliceTrigger,
+  TEXT_CAP,
 } from '../src/lib.mjs';
 
 test('parseFrontmatter: flat keys, arrays, quotes, comments', () => {
@@ -1426,4 +1429,118 @@ test('012-01 AC10: parseWorktreeList finds the root branch and the non-root work
   const other = parseWorktreeList(out, '/elsewhere');
   assert.equal(other.branch, null);
   assert.equal(other.rootListed, false);
+});
+
+// ===== Spec 012-02: slice goal / trigger extraction + parked list =====
+test('012-02 AC1: goal = first sentence of the **Goal:** paragraph, plain text', () => {
+  const body = '## Slice 001-01 — x\n\n**Goal:** Add the **fast** path via [the docs](http://x.test) and `render()`. Then do more.\n\n**DoR:**\n';
+  assert.equal(extractSliceGoal(body), 'Add the fast path via the docs and render()…');
+});
+
+test('012-02 AC1: a single-sentence goal keeps its full text, no ellipsis', () => {
+  assert.equal(extractSliceGoal('**Goal:** Ship it.\n\nnext'), 'Ship it.');
+});
+
+test('012-02 AC1: **Goal (…):** is the fallback; plain **Goal:** wins when both exist', () => {
+  assert.equal(extractSliceGoal('**Goal (deferred):** Park the idea.\n'), 'Park the idea.');
+  assert.equal(extractSliceGoal('**Goal (deferred):** Wrong one.\n\n**Goal:** Right one.\n'), 'Right one.');
+});
+
+test('012-02 AC1: goal spanning wrapped lines is joined; absent goal -> null', () => {
+  assert.equal(extractSliceGoal('**Goal:** First half\nsecond half.\n\nx'), 'First half second half.');
+  assert.equal(extractSliceGoal('## Slice 1 — x\n\nno goal here\n'), null);
+  assert.equal(extractSliceGoal(''), null);
+  assert.equal(extractSliceGoal(undefined), null);
+});
+
+test('012-02 AC2: sentence split ignores abbreviations, filenames and versions', () => {
+  assert.equal(
+    extractSliceGoal('**Goal:** Handle inputs, e.g. a name, i.e. a label, in `server.mjs` for v0.6.0 users. Second sentence.'),
+    'Handle inputs, e.g. a name, i.e. a label, in server.mjs for v0.6.0 users…',
+  );
+});
+
+test('012-02 AC2: an abbreviation dot followed by a capital still does not split', () => {
+  assert.equal(extractSliceGoal('**Goal:** Support e.g. Alpha and i.e. Beta inputs. Extra.'), 'Support e.g. Alpha and i.e. Beta inputs…');
+});
+
+test('012-02 AC2: trigger = whole paragraph up to blank line, wraps joined, never cut to one sentence', () => {
+  const body = '**Resolution trigger:** Revisit when A lands. Or when B\nlands too.\n\n**Goal:** g\n';
+  assert.equal(extractSliceTrigger(body), 'Revisit when A lands. Or when B lands too.');
+});
+
+test('012-02 AC2: trigger paragraph stops at heading, list item, or next bold label', () => {
+  assert.equal(extractSliceTrigger('**Resolution trigger:** one\n## Heading\nmore'), 'one');
+  assert.equal(extractSliceTrigger('**Resolution trigger:** one\n- item\n'), 'one');
+  assert.equal(extractSliceTrigger('**Resolution trigger:** one\n1. item\n'), 'one');
+  assert.equal(extractSliceTrigger('**Resolution trigger:** one\n**DoR:** other\n'), 'one');
+  assert.equal(extractSliceTrigger('**Resolution trigger:**\ntwo lines\nhere\n\nx'), 'two lines here');
+});
+
+test('012-02 AC2: absent trigger -> null (never guessed)', () => {
+  assert.equal(extractSliceTrigger('**Goal:** g\n'), null);
+  assert.equal(extractSliceTrigger('**Resolution trigger:**\n\nx'), null);
+});
+
+test('012-02 AC2: over-cap text is cut with an ellipsis within the cap; under-cap is untouched', () => {
+  const long = 'word '.repeat(400).trim();
+  const g = extractSliceGoal(`**Goal:** ${long}.`);
+  assert.ok(g.length <= TEXT_CAP, `goal length ${g.length}`);
+  assert.ok(g.endsWith('…'));
+  const t = extractSliceTrigger(`**Resolution trigger:** ${long}`);
+  assert.ok(t.length <= TEXT_CAP);
+  assert.ok(t.endsWith('…'));
+  const exact = 'x'.repeat(TEXT_CAP - 10);
+  assert.equal(extractSliceTrigger(`**Resolution trigger:** ${exact}`), exact);
+});
+
+test('012-02 AC3: roadmap.parked lists every DEFERRED slice across specs (done specs too), skips ABANDONED specs; parkedCount equals its length', () => {
+  const sp = (id, status, slices) => ({ id, title: id, status, recency: 1, slices });
+  const sl = (file, status, extra = {}) => ({ file, status, name: file, dependencies: [], ...extra });
+  const r = deriveRoadmap({
+    specs: [
+      sp('001-a', 'IN_PROGRESS', [sl('slice-01-x.md', 'IN_PROGRESS'), sl('slice-02-y.md', 'DEFERRED', { goal: 'G', trigger: 'T' })]),
+      sp('002-b', 'DONE', [sl('slice-01-x.md', 'DONE'), sl('slice-03-z.md', 'DEFERRED')]),
+      sp('003-c', 'ABANDONED', [sl('slice-01-x.md', 'DEFERRED')]),
+      sp('004-d', 'DRAFT', [sl('slice-01-x.md', 'ABANDONED'), sl('slice-02-n.md', null)]),
+    ],
+  });
+  assert.deepEqual(r.parked.map((c) => c.id), ['001-02', '002-03']);
+  assert.equal(r.parked[0].chip, 'Parked');
+  assert.equal(r.parked[0].goal, 'G');
+  assert.equal(r.parked[0].trigger, 'T');
+  assert.equal(r.parkedCount, r.parked.length);
+  assert.ok(r.sequence.some((s) => s.kind === 'parked' && s.label === '2 parked'));
+});
+
+test('012-02 AC1: cards carry goal (null when absent); only parked cards carry trigger', () => {
+  const r = deriveRoadmap({
+    specs: [{ id: '001-a', title: 'a', status: 'IN_PROGRESS', recency: 1, slices: [{ file: 'slice-01-x.md', status: 'IN_PROGRESS', name: 'x', dependencies: [], goal: 'Do it.' }, { file: 'slice-02-y.md', status: 'DRAFT', name: 'y', dependencies: [] }] }],
+  });
+  assert.equal(r.specs[0].slices[0].goal, 'Do it.');
+  assert.equal(r.specs[0].slices[1].goal, null);
+  assert.ok(!('trigger' in r.specs[0].slices[0]), 'non-parked cards carry no trigger');
+});
+
+test('012-02 AC2: a wrapped line starting with bold emphasis (no label colon) continues the paragraph', () => {
+  assert.equal(extractSliceGoal('**Goal:** Add the\n**fast** path.\n\nx'), 'Add the fast path.');
+  assert.equal(extractSliceTrigger('**Resolution trigger:** Wait for\n**X** to land.\n'), 'Wait for X to land.');
+  assert.equal(extractSliceTrigger('**Resolution trigger:** one\n**Goal (deferred):** other\n'), 'one');
+});
+
+test('012-02 AC2: a cut sentence ending in ? or ! keeps it, only a trailing "." is dropped before the ellipsis', () => {
+  assert.equal(extractSliceGoal('**Goal:** Why wait? Because.'), 'Why wait?…');
+  assert.equal(extractSliceGoal('**Goal:** Ship now! Then rest.'), 'Ship now!…');
+  assert.equal(extractSliceGoal('**Goal:** Do it. Then rest.'), 'Do it…');
+});
+
+test('012-02 AC3: parked cards are ordered by spec number then in-spec order, whatever order specs arrive in', () => {
+  const sl = (file) => ({ file, status: 'DEFERRED', name: file, dependencies: [] });
+  const sp = (id, slices) => ({ id, title: id, status: 'DONE', recency: 1, slices });
+  const r = deriveRoadmap({ specs: [sp('010-z', [sl('slice-01-a.md')]), sp('002-b', [sl('slice-02-b.md'), sl('slice-01-a.md')]), sp('003-c', [sl('slice-01-a.md')])] });
+  assert.deepEqual(r.parked.map((c) => c.id), ['002-01', '002-02', '003-01', '010-01']);
+});
+
+test('012-02 AC1: code spans keep their underscores and asterisks', () => {
+  assert.equal(extractSliceGoal('**Goal:** Rename `__init__` and `a*b*c` safely.'), 'Rename __init__ and a*b*c safely.');
 });

@@ -955,6 +955,79 @@ function orderSlices(spec, slices) {
   return out;
 }
 
+// ---- 012-02: slice goal / trigger text ----
+// Fixed display cap (chars, ellipsis included) for both goal and trigger.
+export const TEXT_CAP = 300;
+
+// Markdown → plain text: links, emphasis, inline-code backticks removed.
+function plainText(t) {
+  // Code spans are lifted out first so their `_`/`*` survive emphasis stripping.
+  const code = [];
+  const out = String(t)
+    .replace(/`+([^`]*)`+/g, (_, c) => `\u0000${code.push(c) - 1}\u0000`)
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:!?]|$)/g, '$1$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => code[+i]);
+}
+
+// The paragraph after a bold label: the label line's remainder plus following
+// lines up to a blank line, heading, list item, code fence or next bold label.
+function labelParagraph(body, labelRe) {
+  const lines = String(body || '').split('\n');
+  const i = lines.findIndex((l) => labelRe.test(l));
+  if (i === -1) return null;
+  const parts = [lines[i].replace(labelRe, '')];
+  for (let j = i + 1; j < lines.length; j++) {
+    const l = lines[j];
+    if (/^\s*$/.test(l) || /^#{1,6}\s/.test(l) || /^\s*([-*+]|\d+[.)])\s/.test(l) || /^\s*```/.test(l) || /^\s*\*\*[^*]+:\*\*/.test(l)) break;
+    parts.push(l);
+  }
+  const text = plainText(parts.join(' '));
+  return text || null;
+}
+
+const ABBREV = /(?:^|[\s(])(?:e\.g|i\.e|etc|vs|cf|approx|incl|resp)\.$/i;
+
+// First sentence: ends at . ! ? followed by whitespace and a non-lowercase
+// start, unless the dot closes a known abbreviation. Dots inside filenames and
+// versions are never followed by whitespace, so they never split.
+function firstSentence(text) {
+  const re = /[.!?]+(?=\s+[^a-z\s])/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const end = m.index + m[0].length;
+    if (m[0] === '.' && ABBREV.test(text.slice(0, m.index + 1))) continue;
+    return { sentence: text.slice(0, end), cut: true };
+  }
+  return { sentence: text, cut: false };
+}
+
+function capText(text, cut) {
+  let t = text;
+  if (t.length > TEXT_CAP) {
+    t = t.slice(0, TEXT_CAP - 1);
+    const sp = t.lastIndexOf(' ');
+    if (sp > TEXT_CAP * 0.6) t = t.slice(0, sp);
+    return t.replace(/[\s.,;:]+$/, '') + '…';
+  }
+  return cut ? t.replace(/[.\s]+$/, '') + '…' : t;
+}
+
+export function extractSliceGoal(body) {
+  const t = labelParagraph(body, /^\s*\*\*Goal:\*\*[ \t]*/) ?? labelParagraph(body, /^\s*\*\*Goal\s*\([^)]*\):\*\*[ \t]*/);
+  if (!t) return null;
+  const { sentence, cut } = firstSentence(t);
+  return capText(sentence, cut);
+}
+
+export function extractSliceTrigger(body) {
+  const t = labelParagraph(body, /^\s*\*\*Resolution trigger:\*\*[ \t]*/);
+  return t ? capText(t, false) : null;
+}
+
 const card = (spec, s) => ({
   id: sliceToken(spec.id, s.file),
   file: s.file,
@@ -962,6 +1035,7 @@ const card = (spec, s) => ({
   status: s.status,
   chip: chipFor(s.status),
   dependsOn: Array.isArray(s.dependencies) ? s.dependencies : [],
+  goal: s.goal || null,
 });
 
 // Worktree hint (012-01 AC10). `rootSpecs`: scanned spec records; `worktrees`:
@@ -1047,7 +1121,17 @@ export function deriveRoadmap({ specs = [], track = null, branch = null, worktre
     })
     .map(groupOf);
 
-  const parked = specs.reduce((n, s) => n + realSlices(s).filter((x) => x.status === 'DEFERRED').length, 0);
+  // 012-02 AC3: one card per DEFERRED slice, every spec (finished ones too)
+  // except those whose own status is ABANDONED; the count is its length.
+  const parkedCards = [];
+  const bySpec = [...specs].sort((a, b) => specNum(a.id) - specNum(b.id) || String(a.id).localeCompare(String(b.id)));
+  for (const spec of bySpec) {
+    if (spec.status === 'ABANDONED') continue;
+    for (const s of orderSlices(spec, realSlices(spec).filter((x) => x.status === 'DEFERRED'))) {
+      parkedCards.push({ ...card(spec, s), trigger: s.trigger || null });
+    }
+  }
+  const parked = parkedCards.length;
 
   const sequence = [];
   if (track) {
@@ -1071,6 +1155,7 @@ export function deriveRoadmap({ specs = [], track = null, branch = null, worktre
     sequence,
     specs: ordered,
     done,
+    parked: parkedCards,
     parkedCount: parked,
     empty: specs.length === 0 ? 'no-specs' : ordered.length === 0 && !track ? 'nothing-planned' : null,
   };

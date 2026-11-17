@@ -480,7 +480,16 @@ function rmCard(c) {
   const deps = (c.dependsOn || []).length ? `<div class="rm-deps">Depends on ${esc(c.dependsOn.join(', '))}</div>` : '';
   return (
     `<div class="rm-card"><div class="rm-card-top"><span class="rm-card-id">${esc(c.id)}</span>${rmChip(c.chip)}</div>` +
-    `<div class="rm-card-name">${esc(c.name)}</div>${deps}</div>`
+    `<div class="rm-card-name">${esc(c.name)}</div>${c.goal ? `<div class="rm-card-goal">${esc(c.goal)}</div>` : ''}${deps}</div>`
+  );
+}
+
+// 012-02 AC3: dashed Parked card; trigger line only when the scanner found one.
+function rmParkedCard(c) {
+  return (
+    `<div class="rm-card rm-card-parked"><div class="rm-card-top"><span class="rm-card-id">${esc(c.id)}</span>${rmChip(c.chip)}</div>` +
+    `<div class="rm-card-name">${esc(c.name)}</div>${c.goal ? `<div class="rm-card-goal">${esc(c.goal)}</div>` : ''}` +
+    `${c.trigger ? `<div class="rm-trigger">Revisit when: ${esc(c.trigger)}</div>` : ''}</div>`
   );
 }
 
@@ -524,7 +533,11 @@ export function roadmapTabHtml(r) {
   const done = (r.done || []).length
     ? `<details class="roadmap-done"><summary>show ${r.done.length} done</summary>${r.done.map(rmGroup).join('')}</details>`
     : '';
-  return rmHeader(r) + strip + release + empty + groups + done;
+  const parked = (r.parked || []).length
+    ? `<div class="rm-parked"><div class="rm-group-title"><span class="rm-group-name">Parked</span></div>` +
+      `<div class="rm-cards">${r.parked.map(rmParkedCard).join('')}</div></div>`
+    : '';
+  return rmHeader(r) + strip + release + empty + groups + done + parked;
 }
 
 const TAB_NAMES = ['overview', 'roadmap', 'activity'];
