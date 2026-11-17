@@ -1,8 +1,9 @@
 ---
-status: READY_FOR_IMPLEMENTATION
+status: IN_PROGRESS
 dependencies: []
 last_verified:
 frame_review: true
+claimed_by: claude/011-readability-wcag
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
