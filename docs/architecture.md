@@ -136,7 +136,14 @@ One-directional, read-only coupling:
   (approved+CLEAN → MERGE; owner in `reviewRequests` → REVIEW; a non-owner
   reviewer → the previously-reserved External slot), owner-conditional so an
   owner-review PR is never mis-filed as External — so PR work surfaces in both the
-  grid head and the action-queue.
+  grid head and the action-queue. **Spec 012-01** adds the roadmap derivations,
+  all pure with injected inputs: `deriveRoadmap` (the automatic spec/slice order,
+  sequence strip, release block, spec groups and done fold — spec 012 "Automatic
+  order (layer 1)"), `worktreeHint` (the "N slices further along / M specs only in
+  worktrees" counts), `sliceNameFrom`, and the parsers `parseRecencyLog` /
+  `parseWorktreeList`. `currentReleaseTrack` (the overview's default release
+  track rule) **moved here from `public/render.mjs`**, so the overview and the
+  roadmap read one scanner-emitted value.
 - **`src/scan.mjs`** — the scanner: walks configured project roots
   (`docs/specs`, `docs/bugs`, `docs/releases`, worktrees, compass history),
   shells out to `git`, emits one JSON document. Imports lib; never writes
@@ -164,6 +171,18 @@ One-directional, read-only coupling:
   projects make no call); the resulting non-draft `prs` feed both derivations.
   Like the session-store read, it is snapshot-from-disk-category (no live
   client) and lenient — any `gh` failure yields no `prs`, never a throw.
+  **Roadmap inputs (spec 012-01):** spec recency comes from **one**
+  `git log --format=%ct --name-only --no-renames --relative -- docs/specs` per project (mtime
+  fallback when git is unavailable or a spec has no commit yet), and `gitInfo`
+  folds its former three git spawns into one `git log` to pay for it (AC11 scan
+  budget). The worktree hint is a **new content read** of worktree slice
+  frontmatter (first 2 KB; whole-file fallback when the frontmatter runs past 2 KB) — deliberately wider than 002-02 AC4's path-only
+  worktree rule; `scanWorktreeOnlyDocs` is unchanged. Worktrees are enumerated
+  from `.git/HEAD` + `.git/worktrees/*/gitdir` without spawning git (relative
+  pointers resolved against the worktree's admin dir), falling back to one
+  `git worktree list --porcelain` when the root's `.git` is a file or a read
+  fails. A project in a repo subdirectory gets no worktree hint. This couples the
+  fast path to git's on-disk layout, behind the porcelain fallback.
 - **`src/server.mjs`** — thin `node:http` wrapper: serves
   `public/index.html`, `/render.mjs` (the client render module, one explicit
   fixed-path route — no static-file server, no path-traversal surface; spec
@@ -208,11 +227,16 @@ One-directional, read-only coupling:
   `mergePrDeltas` (a keyed field-swap, no client derivation — ADR-0001 holds); any
   `/api/prs` failure is swallowed so the disk render stands. Owns the theming
   (light default + dark via `prefers-color-scheme`) and the thin click/tab
-  interaction glue; imports the render module.
+  interaction glue; imports the render module. Since spec 012-01 the open
+  detail tab is app state (`state.tab`) applied by re-render through
+  `detailView`, replacing 010's DOM capture/restore in `loadPrs` — so the
+  `/api/prs` fold-in and the auto-refresh keep the open tab by construction.
 - **`public/render.mjs`** — pure client render helpers (spec 009-01): row +
   detail-view HTML builders and derivations (`overviewRow`, `detailView`,
-  `inFlightCount`/`heatBucket`, `progressBarSvg`, `currentReleaseTrack`/
-  `detailSpecList`, `sessionsDetailBlock`, plus the spec 009-02 triage-headline +
+  `inFlightCount`/`heatBucket`, `progressBarSvg`, `currentReleaseTrack` (since
+  spec 012-01 a lookup of the scanner-emitted `currentReleasePath`, not a
+  derivation), `detailSpecList`, `sessionsDetailBlock`, `roadmapTabHtml` (spec
+  012-01, renders the scan-derived `roadmap`), plus the spec 009-02 triage-headline +
   ordering helpers `nextMoveCell`, `sortProjectsByWaitingOn`, `waitingOnRank`)
   returning strings/values with no DOM dependency, so `node:test` imports them
   directly (browser-and-node shared ES module). It **reads** the scan-derived
@@ -292,6 +316,13 @@ Stateless by design — same disk state → same page (vision principle 2):
   this surface (its documented policy is "additive evolution preferred"); it is
   acceptable because the sole consumer is `public/index.html`, updated in lockstep,
   and the removed fields are re-supplied by the phase-two surface.
+  **Spec 012-01 adds (additively):** `specs[].slices[].name` (from the slice's
+  `## Slice NNN-NN — <name>` heading, filename-stem fallback),
+  `specs[].recency`, `workstreams[].includeTokens` (release Include tokens, on
+  releases with a resolvable goal — the same releases `currentReleaseTrack` can pick),
+  `projects[].currentReleasePath` (the default release track, derived
+  scanner-side), and `projects[].roadmap` (the ordered roadmap model plus its
+  `asOf` branch and worktree hint).
 - **`GET /api/prs`** — the phase-two enrichment surface (spec 010-01 / ADR-0007):
   a full `scanAll` with the real `gh` context, returned as **per-project deltas**
   `{ generatedAt, projects: [{ path, ownerLogin?, prs?, waitingOn, waitingStages }] }`,

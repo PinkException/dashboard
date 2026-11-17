@@ -131,24 +131,17 @@ export function countsLine(p) {
   ].join(' · ');
 }
 
-// --- current-release-track determination (A-009-01) ---
-// Probed this repo for an explicit current/active marker convention inside a
-// real shaper release-plan markdown file: none exists on disk (grep across
-// docs/, 2026-08-31) — the mockup's `current: true` is synthetic design data,
-// not a markdown-authoring convention. So this implements ONLY the A-009-01
-// fallback: the release-kind workstream whose goalProgress is incomplete,
-// first in file (i.e. emitted workstreams array) order. No release
-// workstream, no goalProgress anywhere, or all goals already 100% →
-// null (no current track determinable) — callers must degrade to the full
-// spec list, never crash.
+// --- current-release-track lookup (A-009-01, 012-01 AC3) ---
+// The rule itself ("the release workstream whose goalProgress is incomplete,
+// first in file order") lives scanner-side in src/lib.mjs's
+// currentReleaseTrack; the scanner emits the winner as `currentReleasePath`
+// and this module only looks it up — overview and roadmap read that ONE value
+// (ADR-0001: the page does no derivation). No emitted path → null, callers
+// degrade to the full spec list, never crash.
 export function currentReleaseTrack(p) {
-  const workstreams = p.workstreams || [];
-  for (const w of workstreams) {
-    if (w.kind === 'release' && w.goalProgress && w.goalProgress.done < w.goalProgress.total) {
-      return w;
-    }
-  }
-  return null;
+  const want = p && p.currentReleasePath;
+  if (!want) return null;
+  return ((p && p.workstreams) || []).find((w) => w.kind === 'release' && w.path === want) || null;
 }
 
 function currentTrackSpecIds(p) {
@@ -474,8 +467,73 @@ export function activityTabPlaceholder() {
   );
 }
 
+// --- 012-01: roadmap tab ---
+// Pure presentation of the scanner-derived `p.roadmap` (src/lib.mjs
+// deriveRoadmap) — no ordering or status logic here (ADR-0001).
+const CHIP_CLASS = { Done: 'chip-done', 'In progress': 'chip-progress', Planned: 'chip-planned', Parked: 'chip-parked' };
+
+function rmChip(label) {
+  return `<span class="rm-chip ${CHIP_CLASS[label] || 'chip-planned'}">${esc(label)}</span>`;
+}
+
+function rmCard(c) {
+  const deps = (c.dependsOn || []).length ? `<div class="rm-deps">Depends on ${esc(c.dependsOn.join(', '))}</div>` : '';
+  return (
+    `<div class="rm-card"><div class="rm-card-top"><span class="rm-card-id">${esc(c.id)}</span>${rmChip(c.chip)}</div>` +
+    `<div class="rm-card-name">${esc(c.name)}</div>${deps}</div>`
+  );
+}
+
+function rmGroup(g) {
+  return (
+    `<div class="rm-spec-group"><div class="rm-group-title"><span class="rm-group-id">${esc(g.id)}</span>` +
+    `<span class="rm-group-name">${esc(g.title)}</span></div>` +
+    `<div class="rm-cards">${g.slices.map(rmCard).join('')}</div></div>`
+  );
+}
+
+function rmHeader(r) {
+  const h = r.worktreeHint;
+  const parts = [];
+  if (h && h.further) parts.push(`${h.further} slice${h.further === 1 ? '' : 's'} further along in worktrees`);
+  if (h && h.onlyInWorktrees) parts.push(`${h.onlyInWorktrees} spec${h.onlyInWorktrees === 1 ? '' : 's'} only in worktrees`);
+  return (
+    `<div class="rm-header"><span class="label">ROADMAP</span>` +
+    `<span class="rm-asof">as of ${esc(r.asOf || 'the working tree')}</span>` +
+    `${parts.length ? `<span class="rm-hint">${esc(parts.join(' · '))}</span>` : ''}</div>`
+  );
+}
+
+export function roadmapTabHtml(r) {
+  if (!r) return `<div class="rm-empty">No roadmap available for this project.</div>`;
+  const strip = (r.sequence || []).length
+    ? `<div class="rm-sequence">${r.sequence
+        .map((st) =>
+          `<div class="rm-step rm-step-${esc(st.kind)}"><span class="rm-step-label">${esc(st.label)}</span>` +
+          `${st.kind === 'parked' ? '' : `<span class="rm-step-title">${esc(st.id ? `${st.id} ${st.title}` : st.title)}</span>`}</div>`)
+        .join('')}</div>`
+    : '';
+  const release = r.release
+    ? `<div class="rm-release"><div class="label">In front of it — ${esc(r.release.title)}</div>` +
+      `<div class="rm-cards">${r.release.slices.map(rmCard).join('')}</div></div>`
+    : '';
+  let empty = '';
+  if (r.empty === 'no-specs') empty = `<div class="rm-empty">No specs yet</div>`;
+  else if (r.empty === 'nothing-planned') empty = `<div class="rm-empty">Nothing planned</div>`;
+  const groups = (r.specs || []).map(rmGroup).join('');
+  const done = (r.done || []).length
+    ? `<details class="roadmap-done"><summary>show ${r.done.length} done</summary>${r.done.map(rmGroup).join('')}</details>`
+    : '';
+  return rmHeader(r) + strip + release + empty + groups + done;
+}
+
+const TAB_NAMES = ['overview', 'roadmap', 'activity'];
+
 export function detailView(p, opts = {}) {
   const showAll = !!opts.showAll;
+  // 012-01 AC1: the open tab is app state (index.html keeps `state.tab`), so a
+  // wholesale re-render — the /api/prs fold-in — cannot reset it.
+  const tab = TAB_NAMES.includes(opts.tab) ? opts.tab : 'overview';
   if (p.error || !p.jigManaged) {
     return (
       `<div class="detail" data-path="${esc(p.path)}">` +
@@ -534,14 +592,13 @@ export function detailView(p, opts = {}) {
     `${p.description ? `<span class="detail-type">${esc(p.description)}</span>` : ''}` +
     `<span class="chip">${chip}</span></div>` +
     `<div class="detail-meta">${metaLine}</div>` +
-    `<div class="tabs"><span class="tab active" data-action="show-overview-tab">overview</span>` +
-    `<span class="tab disabled" data-action="show-activity-tab">activity</span></div>` +
+    `<div class="tabs">${TAB_NAMES.map((t) => `<span class="tab${tab === t ? ' active' : ''}${t === 'activity' ? ' disabled' : ''}" data-action="show-${t}-tab">${t}</span>`).join('')}</div>` +
     `</div>` +
     `<div class="progress-readout"><span class="readout-text">${pct === null ? '—' : pct + '%'} — ${p.progress.done}/${p.progress.denom} specs</span>` +
     progressBarSvg(pct, { w: 200, h: 5 }) +
     `</div>` +
     `</div>` +
-    `<div class="overview-tab-content">` +
+    `<div class="overview-tab-content"${tab === 'overview' ? '' : ' hidden'}>` +
     whatsNext +
     `<div class="counts-line">${esc(countsLine(p))}</div>` +
     `<div class="two-col">` +
@@ -552,7 +609,8 @@ export function detailView(p, opts = {}) {
     sessionsDetailBlock(p) +
     warningBlock(p) +
     `</div>` +
-    `<div class="activity-tab-content" hidden>${activityTabPlaceholder()}</div>` +
+    `<div class="roadmap-tab-content"${tab === 'roadmap' ? '' : ' hidden'}>${roadmapTabHtml(p.roadmap)}</div>` +
+    `<div class="activity-tab-content"${tab === 'activity' ? '' : ' hidden'}>${activityTabPlaceholder()}</div>` +
     `</div>`
   );
 }

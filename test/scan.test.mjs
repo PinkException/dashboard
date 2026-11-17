@@ -468,3 +468,200 @@ test('loadConfig: a valid config still returns the expected projects unchanged (
   assert.deepEqual(cfg.projects[0].pinnedWorkstreams, []);
   assert.deepEqual(cfg.projects[0].hiddenWorkstreams, []);
 });
+
+// ===== Spec 012-01: roadmap data emitted by the scanner =====
+import { execFileSync } from 'node:child_process';
+
+const RM_TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-roadmap-'));
+after(() => fs.rmSync(RM_TMP, { recursive: true, force: true }));
+const git = (cwd, ...args) =>
+  execFileSync('git', ['-C', cwd, '-c', 'user.email=t@example.test', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], { stdio: 'ignore' });
+const write = (p, text) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); };
+const sliceMd = (status, heading, deps = '') => `---\nstatus: ${status}\ndependencies: [${deps}]\n---\n${heading ? `\n## Slice ${heading}\n` : ''}\nbody\n`;
+const specMd = (title) => `---\nstatus: IN_PROGRESS\n---\n# Spec: ${title}\n`;
+const cfgFor = (root) => ({ path: root, label: 'p', pinnedWorkstreams: [], hiddenWorkstreams: [] });
+let rmN = 0;
+const mkRepo = () => {
+  const root = path.join(RM_TMP, `repo-${++rmN}`);
+  fs.mkdirSync(root, { recursive: true });
+  git(root, 'init', '-q', '-b', 'main');
+  return root;
+};
+
+test('012-01 AC2: scanner adds slice `name` from the heading, falling back to the filename stem (additive)', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('A'));
+  write(path.join(root, 'docs/specs/001-a/slice-01-named.md'), sliceMd('DRAFT', '001-01 — the real name'));
+  write(path.join(root, 'docs/specs/001-a/slice-02-plain.md'), sliceMd('DRAFT', ''));
+  const p = scanProject(cfgFor(root));
+  const [s1, s2] = p.specs[0].slices;
+  assert.equal(s1.name, 'the real name');
+  assert.equal(s2.name, 'slice-02-plain');
+  assert.equal(s1.status, 'DRAFT', 'existing fields untouched');
+  assert.deepEqual(s1.dependencies, []);
+});
+
+test('012-01 AC3: scanner emits currentReleasePath (the one value) and release includeTokens', () => {
+  const p = scanProject({ path: path.join(FIXTURES, 'proj-goal'), label: 'g', pinnedWorkstreams: [], hiddenWorkstreams: [] });
+  const release = p.workstreams.find((w) => w.kind === 'release');
+  assert.equal(p.currentReleasePath, release.path);
+  assert.deepEqual(release.includeTokens.slice(0, 2), ['002-01', '002-02']);
+  assert.equal(p.roadmap.release.title, 'Goal launch plan');
+  assert.equal(scanProject(cfgFor(path.join(FIXTURES, 'proj-plain'))).currentReleasePath, undefined);
+  assert.equal(jig().currentReleasePath, null, 'no incomplete goal → null, not missing');
+});
+
+test('012-01 AC3/AC11: spec recency comes from the git commit time of the spec directory (one pass), mtime fallback without git', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-old/spec.md'), specMd('old'));
+  write(path.join(root, 'docs/specs/002-new/spec.md'), specMd('new'));
+  git(root, 'add', '-A');
+  execFileSync('git', ['-C', root, '-c', 'user.email=t@example.test', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'one', '--date=2020-01-01T00:00:00Z'], { stdio: 'ignore', env: { ...process.env, GIT_COMMITTER_DATE: '2020-01-01T00:00:00Z' } });
+  write(path.join(root, 'docs/specs/002-new/slice-01-x.md'), sliceMd('DRAFT', '002-01 — x'));
+  git(root, 'add', '-A');
+  execFileSync('git', ['-C', root, '-c', 'user.email=t@example.test', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'two'], { stdio: 'ignore', env: { ...process.env, GIT_COMMITTER_DATE: '2024-06-01T00:00:00Z' } });
+  const p = scanProject(cfgFor(root));
+  const byId = Object.fromEntries(p.specs.map((s) => [s.id, s.recency]));
+  assert.equal(byId['001-old'], Math.floor(Date.parse('2020-01-01T00:00:00Z') / 1000));
+  assert.equal(byId['002-new'], Math.floor(Date.parse('2024-06-01T00:00:00Z') / 1000));
+
+  const plain = path.join(RM_TMP, 'nogit');
+  write(path.join(plain, 'docs/specs/001-a/spec.md'), specMd('a'));
+  const q = scanProject(cfgFor(plain));
+  assert.ok(Math.abs(q.specs[0].recency - Date.now() / 1000) < 3600, 'mtime fallback');
+});
+
+test('012-01 AC11: recency costs ONE git log call per scan, not one per spec', () => {
+  const root = mkRepo();
+  for (const n of ['001-a', '002-b', '003-c']) write(path.join(root, `docs/specs/${n}/spec.md`), specMd(n));
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'x');
+  const calls = [];
+  scanProject(cfgFor(root), undefined, { onGit: (args) => calls.push(args) });
+  const logCalls = calls.filter((a) => a.includes('log') && a.includes('--name-only'));
+  assert.equal(logCalls.length, 1);
+});
+
+test('012-01 AC10: asOf is the root branch; a worktree at root HEAD with an uncommitted IN_PROGRESS slice yields N >= 1', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(root, 'docs/specs/001-a/slice-01-x.md'), sliceMd('DRAFT', '001-01 — x'));
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'x');
+  const wt = path.join(RM_TMP, 'wt-fresh');
+  git(root, 'worktree', 'add', '-q', '-b', 'feat', wt);
+  write(path.join(wt, 'docs/specs/001-a/slice-01-x.md'), sliceMd('IN_PROGRESS', '001-01 — x'));
+  const p = scanProject(cfgFor(root));
+  assert.equal(p.roadmap.asOf, 'main');
+  assert.deepEqual(p.roadmap.worktreeHint, { further: 1, onlyInWorktrees: 0 });
+});
+
+test('012-01 AC10: stale worktree (DRAFT) where root has DONE is not counted; spec folder only in a worktree → M', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(root, 'docs/specs/001-a/slice-01-x.md'), sliceMd('DRAFT', '001-01 — x'));
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'x');
+  const wt = path.join(RM_TMP, 'wt-stale');
+  git(root, 'worktree', 'add', '-q', '-b', 'old', wt);
+  write(path.join(root, 'docs/specs/001-a/slice-01-x.md'), sliceMd('DONE', '001-01 — x'));
+  write(path.join(wt, 'docs/specs/002-new/spec.md'), specMd('new'));
+  const p = scanProject(cfgFor(root));
+  assert.deepEqual(p.roadmap.worktreeHint, { further: 0, onlyInWorktrees: 1 });
+});
+
+test('012-01 AC10: scanWorktreeOnlyDocs is unchanged — path-only, `.claude/worktrees` only', () => {
+  const p = scanProject({ path: path.join(FIXTURES, 'proj-jig'), label: 'x', pinnedWorkstreams: [], hiddenWorkstreams: [] });
+  assert.ok(Array.isArray(p.worktreeOnlyDocs));
+});
+
+test('012-01 AC10: a non-git project degrades — no hint, asOf null, never crashes', () => {
+  const plain = path.join(RM_TMP, 'nogit2');
+  write(path.join(plain, 'docs/specs/001-a/spec.md'), specMd('a'));
+  const p = scanProject(cfgFor(plain));
+  assert.equal(p.roadmap.asOf, null);
+  assert.equal(p.roadmap.worktreeHint, null);
+});
+
+test('012-01 AC8: a jig project with an empty docs/specs gets the no-specs empty state', () => {
+  const root = path.join(RM_TMP, 'empty-specs');
+  fs.mkdirSync(path.join(root, 'docs', 'specs'), { recursive: true });
+  const p = scanProject(cfgFor(root));
+  assert.equal(p.jigManaged, true);
+  assert.equal(p.roadmap.empty, 'no-specs');
+});
+
+test('012-01 AC10: a project in a repo SUBDIRECTORY does not inherit the enclosing repo\'s worktrees', () => {
+  const root = mkRepo();
+  write(path.join(root, 'sub/docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(root, 'sub/docs/specs/001-a/slice-01-x.md'), sliceMd('DRAFT', '001-01 — x'));
+  git(root, 'add', '-A');
+  execFileSync('git', ['-C', root, '-c', 'user.email=t@example.test', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'x'], { stdio: 'ignore', env: { ...process.env, GIT_COMMITTER_DATE: '2020-01-01T00:00:00Z' } });
+  const wt = path.join(RM_TMP, 'wt-sub');
+  git(root, 'worktree', 'add', '-q', '-b', 'subfeat', wt);
+  write(path.join(wt, 'sub/docs/specs/001-a/slice-01-x.md'), sliceMd('IN_PROGRESS', '001-01 — x'));
+  // a docs/specs at the worktree's own top level would be misread as the subdir project's worktree content
+  write(path.join(wt, 'docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(wt, 'docs/specs/001-a/slice-01-x.md'), sliceMd('IN_PROGRESS', '001-01 — x'));
+  const p = scanProject(cfgFor(path.join(root, 'sub')));
+  assert.equal(p.roadmap.worktreeHint, null);
+  // recency must come from git (paths are repo-relative), not the mtime fallback
+  assert.equal(p.specs[0].recency, Math.floor(Date.parse('2020-01-01T00:00:00Z') / 1000));
+});
+
+test('012-01 AC10: a worktree spec directory that becomes unreadable mid-scan cannot fail the scan', { skip: process.getuid && process.getuid() === 0 }, () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(root, 'docs/specs/001-a/slice-01-x.md'), sliceMd('DRAFT', '001-01 — x'));
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'x');
+  const wt = path.join(RM_TMP, 'wt-unreadable');
+  git(root, 'worktree', 'add', '-q', '-b', 'unread', wt);
+  const bad = path.join(wt, 'docs/specs/001-a');
+  fs.chmodSync(bad, 0o100); // searchable (spec.md "exists") but not listable → readdirSync throws
+  try {
+    const p = scanProject(cfgFor(root));
+    assert.ok(p.roadmap, 'scan completes');
+  } finally {
+    fs.chmodSync(bad, 0o755);
+  }
+});
+
+test('012-01 AC10: a RELATIVE .git/worktrees/*/gitdir pointer (worktree.useRelativePaths) is resolved against its own folder, independent of cwd', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('a'));
+  write(path.join(root, 'docs/specs/001-a/slice-01-x.md'), sliceMd('DRAFT', '001-01 — x'));
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'x');
+  const wt = path.join(RM_TMP, 'wt-rel');
+  git(root, 'worktree', 'add', '-q', '-b', 'relfeat', wt);
+  write(path.join(wt, 'docs/specs/001-a/slice-01-x.md'), sliceMd('IN_PROGRESS', '001-01 — x'));
+  const meta = path.join(root, '.git', 'worktrees');
+  const name = fs.readdirSync(meta)[0];
+  fs.writeFileSync(path.join(meta, name, 'gitdir'), path.relative(path.join(meta, name), path.join(wt, '.git')) + '\n');
+  const cwd = process.cwd();
+  process.chdir(os.tmpdir());
+  try {
+    const p = scanProject(cfgFor(root));
+    assert.deepEqual(p.roadmap.worktreeHint, { further: 1, onlyInWorktrees: 0 });
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test('012-01 AC11: git info (commit count, first/last commit date) is unchanged after folding three spawns into one', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('a'));
+  git(root, 'add', '-A');
+  const commit = (msg, iso) =>
+    execFileSync('git', ['-C', root, '-c', 'user.email=t@example.test', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', msg], {
+      stdio: 'ignore',
+      env: { ...process.env, GIT_COMMITTER_DATE: iso, GIT_AUTHOR_DATE: iso },
+    });
+  commit('one', '2021-03-04T12:00:00Z');
+  commit('two', '2022-05-06T12:00:00Z');
+  commit('three', '2023-07-08T12:00:00Z');
+  const p = scanProject(cfgFor(root));
+  assert.deepEqual(p.git, { firstCommit: '2021-03-04', lastCommit: '2023-07-08', commits: 3 });
+  assert.equal(scanProject(cfgFor(path.join(RM_TMP, 'nogit'))).git, null);
+});
