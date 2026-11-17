@@ -157,6 +157,6 @@ fields), so the documented shape and the helper output agree.
 
 **Decision:** Plugin version bumped 0.6.0 -> 0.7.0 (plugin.json + package.json). This release carries everything landed on main since 0.6.0. The one user-facing change is spec 012 slice 01: a roadmap tab in each project's detail view (overview | roadmap | activity) showing the road ahead in the automatic order — sequence strip, current release's slices, one group per unfinished spec, DONE specs folded, an 'as of main' header with a worktree hint. Everything else since 0.6.0 is docs (spec 012 drafting, inbox triage, bug 002 closed, primer refresh). Minor (not patch): new user-facing feature; /api/data changes are additive, no breaking change for the installed plugin.
 
-**Context:** Owner asked to cut 0.7.0 on 2026-11-17, right after PR #16 (slice 012-01) merged, so installed copies of the plugin get the roadmap tab. Distribution unchanged: marketplace is the PinkException/dashboard GitHub clone; 'claude plugin marketplace update' + 'claude plugin update' pull it into the cache.
+**Context:** Owner asked to cut 0.7.0 on 2026-11-17, right after PR #16 (slice 012-01) merged, so installed copies of the plugin get the roadmap tab. Distribution unchanged: marketplace is the PinkException/dashboard GitHub clone. Install path after the release commit is on main: 'claude plugin marketplace update', then 'claude plugin update dashboard@dashboard' (the plugin argument is required), then restart Claude Code.
 
 **Scope:** .claude-plugin/plugin.json, package.json
