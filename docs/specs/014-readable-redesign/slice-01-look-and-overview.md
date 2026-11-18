@@ -1,10 +1,10 @@
 ---
-status: REVIEWED
+status: RECONCILED
 dependencies: []
-last_verified:
+last_verified: 2026-11-18
 arch_review: true
 frame_review: true
-claimed_by: claude/slice-014-01-readable-overview
+claimed_by: claude/slice-014-01-readable-overview-v2
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
@@ -99,7 +99,7 @@ the AC wins and the gap is logged in the deviation log.
 - [x] Implementation review passed.
 - [ ] Deviation log produced under this slice heading.
 - [ ] Reconciliation sweep produced under this slice heading.
-- [ ] Reconciliation review passed.
+- [x] Reconciliation review passed.
 - [ ] `docs/refinement-todo.md` updated if any decisions were
       deferred during implementation.
 
@@ -128,26 +128,71 @@ dashboard and reads every project's state in the new, readable look.
 
 ### Deviation log (after reconciliation)
 
-The original spec is preserved above. Implementation notes:
+The original spec is preserved above. Implementation notes (2026-11-18):
 
-_TODO: numbered sections covering deviations from the planned shape,
-reviewer findings folded back in, doc updates, plan adherence._
+1. **Header ring value.** AC4 named the ring but not its value. It shows
+   overall specs done across jig-managed projects: `summary.specsDone /
+   summary.specsDenom` (new additive keys, same denominator as each row's
+   "N of M specs"). The percentage is computed page-side in `headerHtml` — a
+   small accepted exception to "the page does no derivation", recorded in
+   `docs/architecture.md`.
+2. **"All specs done" rule.** AC8 said `specs.done === specs.total > 0`; built
+   as `progress.done === progress.denom > 0` (abandoned specs excluded) so it
+   agrees with the 100 % bar and the "N of M specs" figure.
+3. **Rows follow the mockup more closely than AC8 listed.** The old verb badge
+   and gutter column are replaced by the chip; the in-flight cells SVG by
+   number + heat word. The queue keeps `.row-verb`, restyled with chip tokens,
+   until 014-02.
+4. **"Need you" subtitle** reads "a decision, a review or a merge" (mockup: "a
+   decision or a review") because Land counts there (D7).
+5. **Header, tiles and legend render in the overview lens only.** The queue
+   keeps its existing summary band with the new pill switch until 014-02.
+6. **Tokens not listed in AC1/AC2** were taken from the mockups (inset dark
+   `#232E48`, `--external`, chip bg/fg pairs, row tints `#1F2539` / `#161E31`
+   dark). Dark `--danger` / `--warn` / `--blocked-bg` are mappings of our own;
+   the Land chip in dark reuses the dark Ready ok pair (D7).
+7. **Old token names kept as aliases** of the v1.3 palette so the queue,
+   detail and roadmap views follow the new look before 014-02/03 (inbox note
+   to remove them later).
+8. **AC3 scope.** The 44 px / monospace-only rule is met on the overview
+   surface. Detail-view tabs and toggles stay small monospace until 014-03
+   (whose AC3 covers the tabs); the global `button` rule gives `.back-btn` the
+   44 px height already.
+9. **AC6 wording.** "Active pill = text colour on surface text" was read as a
+   text-colour background with surface-colour foreground (`--lens-active-*`
+   tokens), as in the mockup.
+10. **Review fix (compliance + craft nit).** `running` first counted error rows
+    with a running session, which show no running dot. Fixed in `f4277ec`:
+    error rows are excluded, so the tile always agrees with the dots (AC5's
+    round-3 promise). Also pinned the Idle fallback (no/unknown `waitingOn`
+    state → Idle tile, chip and tint) with a test, and removed a duplicate
+    `.chip-current` font size.
+11. **Known benign edges (logged, not fixed).** The `/api/prs` summary comes
+    from a later scan, so the four state tiles can briefly disagree with the
+    rows if the configured project set changes between the two scans; the
+    next refresh fixes it. The pre-existing stale-`/api/prs` overwrite race
+    now also reaches the tiles — parked in the inbox.
+12. **Fidelity (D5).** Eyeballed by the orchestrator against `Main.dc.html`
+    and `Main-dark.dc.html` in the browser pane at 1360 px, light and dark.
+    Palette, type, ring header, five tiles, pill switch, legend and rows match.
+13. **Process.** Integrated `origin/main` (012-02 parked section, 013-01 chart)
+    before reconciling; 471/471 tests green after the merge. jig's
+    review-candidate sidecars (`reviews/.candidates/*.json`, which hold local
+    paths) were caught by the leak gate before any push; they are now
+    git-ignored and were never committed to the pushed history.
 
 ### Reconciliation sweep
 
-Record the drift-prone surfaces checked during reconciliation. The transition
-gate only requires this subsection to exist; the reconciliation reviewer judges
-whether coverage and rationales are honest.
-
 | Artifact | Disposition | Rationale |
 |----------|-------------|-----------|
-| `README.md` | `no-op` | _TODO: why this slice did not affect the project front door, or summarize the update._ |
-| `docs/specs/README.md` | `updated` | _TODO: regenerated by `workflow.py status-board`, or explain why deferred._ |
-| `docs/product-vision.md` | `no-op` | _TODO: checked for behavior / scope drift._ |
-| `docs/architecture.md` | `no-op` | _TODO: checked for module-boundary / public-contract drift._ |
-| Primer surfaces: `CLAUDE.md` / `AGENTS.md` / scaffold templates | `no-op` | _TODO: primer hygiene checked; note compression or template updates if any._ |
-| `docs/inbox.md` | `no-op` | _TODO: checked for items resolved by this slice._ |
-| `docs/refinement-todo.md` | `no-op` | _TODO: checked for resolved items or new deferred decisions._ |
-| `docs/memory/**` | `no-op` | _TODO: note memory-sync result or why nothing was worth capturing._ |
-| `docs/decisions/README.md` / ADR index | `no-op` | _TODO: use `updated` when the slice touched ADRs; otherwise mark checked._ |
-| Additional live prose / generated templates touched by this slice | `deferred` | _TODO: name owner or trigger when real cleanup remains; otherwise replace with `no-op`._ |
+| `README.md` | `no-op` | No install, command or first-run change; the look is described by the page itself. |
+| `docs/specs/README.md` | `updated` | Regenerated by `workflow.py status-board`. |
+| `docs/product-vision.md` | `no-op` | Same promise (one page, what's next); no scope change. |
+| `docs/architecture.md` | `updated` | `/api/data` and `/api/prs` gain the additive `summary`; ring % noted as a page-side exception; `running` vs `runningNowCount` difference noted. |
+| Primer surfaces: `CLAUDE.md` / `AGENTS.md` / scaffold templates | `updated` | `CLAUDE.md` had no spec 014 entry (it arrived on main via the merge, unchanged by this branch); added one Active-specs line. "Next pickable work: 012-03" is already current. No `AGENTS.md`. |
+| `docs/inbox.md` | `updated` | Parked three 014-01 leftovers (stale `/api/prs` race, token aliases, inline style). No inbox item was resolved by this slice. |
+| `docs/refinement-todo.md` | `no-op` | No decision deferred. |
+| `docs/memory/**` | `no-op` | No new domain term; "Land / Need you" are spec vocabulary recorded in spec 014. |
+| `docs/decisions/README.md` / ADR index | `no-op` | No ADR touched. ADR-0001/0007 respected (keyed swap, additive fields). UI copy choices are owner decisions D1–D11 in spec 014, so no lightweight-decision entry. |
+| Merge-inherited and spec-authoring paths | `no-op` | `feedback-notes.md`, `docs/bugs/*`, spec 012/013 docs, the 014 spec/slice/frame-critique docs and `docs/designs/dashboard-v1.3/*` appear in `origin/main...HEAD` only through the merge or spec 014's authoring (PR #23); this slice did not edit them. Tile subtitles were checked against `Main.dc.html` and match except "Need you" (item 4). |
+| `.gitignore` | `updated` | Ignores `docs/specs/*/reviews/.candidates/` (review sidecars hold local paths). |
