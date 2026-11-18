@@ -97,6 +97,18 @@ test('013-03 AC2: scanned provenance: null branch outside git; branch name and w
   assert.deepEqual(lastLine(repo).scanned, { branch: 'feature-x', worktree: true });
 });
 
+test('013-03 AC2: a project configured at a repo SUBDIRECTORY records branch null', () => {
+  const repo = project([]);
+  const git = (...a) => execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...a], { stdio: 'pipe' });
+  git('init', '-b', 'trunk');
+  const sub = path.join(repo, 'pkg');
+  const d = path.join(sub, 'docs', 'specs', '001-a');
+  fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(d, 'spec.md'), '---\nstatus: DONE\n---\n# Spec\n');
+  run(['--project', sub, '--auto']);
+  assert.equal(lastLine(sub).scanned.branch, null);
+});
+
 // --- AC3 ---
 const base = { v: 1, ts: '2026-01-01T00:00:00Z', headline: 'h' };
 test('013-03 AC3: validator accepts well-formed new fields and old entries; rejects malformed ones', () => {
@@ -197,6 +209,13 @@ test('013-03 AC6: slice lines drawn from 1 slice-carrying point (dashed only), a
   assert.ok(cls(one, 'evo-done') && cls(one, 'evo-total'));
   const d = one.match(/<path class="evo-slice-done-live"[^>]*? d="([^"]*)"/)[1];
   assert.match(d, /^M[\d.]+ [\d.]+H[\d.]+V[\d.]+$/);
+  // Own y-scale: slice max is 9 (spec max 3), so the live slice-total ends at the
+  // top (y=10) and the right-axis max label reads 9, independent of the spec scale.
+  const tl = one.match(/<path class="evo-slice-total-live"[^>]*? d="([^"]*)"/)[1];
+  assert.match(tl, /V10$/);
+  assert.match(one, /text-anchor="start"[^>]*>9</);
+  // slice-done is distinct from the (green) narrative dots
+  assert.match(one, /<path class="evo-slice-done"[^>]*stroke="var\(--purple\)"/);
 });
 
 test('013-03 AC6: slice line starts at the first slice-carrying point and has a solid part from 2 points', () => {
@@ -242,4 +261,9 @@ test('013-03 AC8: precise down-step wording when both points carry scanned and d
   // AC8 refinement (orchestrator, 2026-11-18): equal `scanned` rules out the branch cause.
   assert.match(same, /count went down: a spec was reopened or abandoned, or the counting rule changed</);
   assert.doesNotMatch(same, /another branch or worktree/);
+  // Null branches (detached/unknown) cannot rule the branch cause out: generic wording.
+  const nul = evolutionChartSvg(hist([pt(0, 3, 4, sc(null, false)), pt(10, 2, 4, sc(null, false))], { done: 2, total: 4 }), NOW);
+  assert.match(nul, /a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed/);
+  const half = evolutionChartSvg(hist([pt(0, 3, 4, sc(null, false)), pt(10, 2, 4, sc('trunk', false))], { done: 2, total: 4 }), NOW);
+  assert.match(half, /counted on another branch or worktree: trunk/);
 });

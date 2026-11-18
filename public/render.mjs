@@ -477,13 +477,15 @@ const EVO = { W: 560, H: 160, L: 34, R: 10, T: 10, B: 24 };
 const EVO_DOWN_TIP =
   'count went down: a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed';
 const evoNum = (n) => Number(n.toFixed(1)).toString();
-// Spec 013-03 AC8: only when both points carry `scanned` and they differ.
+// Spec 013-03 AC8: precise wording only when both points carry `scanned`.
 const evoDownTip = (a, b) => {
   if (a && b && a.scanned && b.scanned) {
     if (a.scanned.branch !== b.scanned.branch || a.scanned.worktree !== b.scanned.worktree) {
       return `counted on another branch or worktree: ${b.scanned.branch ?? 'unknown branch'}`;
     }
-    // Same branch and worktree on both sides: that cause is ruled out.
+    // Same non-null branch and worktree on both sides: that cause is ruled out.
+    // A null branch (detached/unknown) cannot rule it out: keep the generic text.
+    if (typeof a.scanned.branch !== 'string' || typeof b.scanned.branch !== 'string') return EVO_DOWN_TIP;
     return 'count went down: a spec was reopened or abandoned, or the counting rule changed';
   }
   return EVO_DOWN_TIP;
@@ -573,17 +575,21 @@ export function evolutionChartSvg(history, now = Date.now()) {
       : '') +
     `<text x="${L}" y="${H - 8}" fill="var(--text-muted)" font-size="10">${esc(pts[0].ts.slice(0, 10))}</text>` +
     `<text x="${W - R}" y="${H - 8}" text-anchor="end" fill="var(--text-muted)" font-size="10">now</text>`;
-  const sliceLines = hasSlices
-    ? stepLine(sliceIdx, (p) => p.slices.total, live.slices ? live.slices.total : last.slices ? last.slices.total : pts[sliceIdx[sliceIdx.length - 1]].slices.total, ys, 'evo-slice-total', 'var(--text-muted)', 1.2, ' opacity="0.5"') +
-      stepLine(sliceIdx, (p) => p.slices.done, live.slices ? live.slices.done : pts[sliceIdx[sliceIdx.length - 1]].slices.done, ys, 'evo-slice-done', 'var(--green)', 2)
-    : '';
+  let sliceLines = '';
+  if (hasSlices) {
+    const lastS = pts[sliceIdx[sliceIdx.length - 1]].slices;
+    const liveS = live.slices ?? lastS;
+    sliceLines =
+      stepLine(sliceIdx, (p) => p.slices.total, liveS.total, ys, 'evo-slice-total', 'var(--text-muted)', 1.2, ' opacity="0.5"') +
+      stepLine(sliceIdx, (p) => p.slices.done, liveS.done, ys, 'evo-slice-done', 'var(--purple)', 2);
+  }
   const keyItem = (color, label, faint) =>
     `<span class="evo-key-item"><i class="evo-swatch" style="background:${color}${faint ? ';opacity:.5' : ''}"></i>${label}</span>`;
   const key =
     `<div class="evo-key">` +
     keyItem('var(--blue)', 'spec done') +
     keyItem('var(--track)', 'spec total') +
-    (hasSlices ? keyItem('var(--green)', 'slice done') + keyItem('var(--text-muted)', 'slice total', true) : '') +
+    (hasSlices ? keyItem('var(--purple)', 'slice done') + keyItem('var(--text-muted)', 'slice total', true) : '') +
     `</div>`;
   return (
     `<div class="evo-chart"><svg class="evo-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${hasSlices ? 'specs and slices' : 'specs'} done and total over time">` +

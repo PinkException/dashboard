@@ -135,7 +135,7 @@ slices inside one long spec shows a rising line instead of a flat one.
    `src/scan.mjs` (wraps `listWorktrees`), so the payload from `scanProject` is
    unchanged; only the writer calls it.
 3. **Chart choices not fixed by the ACs:** with slice lines shown, the right
-   margin widens (10 to 34) for a slice scale; slice lines use `--green` (done)
+   margin widens (10 to 34) for a slice scale; slice lines use `--purple` (done; `--green` is taken by the narrative dots, review fix)
    and `--text-muted` at 50% opacity (total); no down-step markers for the
    slice lines (AC8 speaks of spec steps only); the key is an HTML row under the
    SVG. Those four are choices, not spec text.
@@ -143,7 +143,18 @@ slices inside one long spec shows a rising line instead of a flat one.
    when both points carry `scanned` and they are equal, the marker reads "count
    went down: a spec was reopened or abandoned, or the counting rule changed"
    (the branch cause is ruled out). The 013-01 generic wording stays only when
-   `scanned` is missing on either side. Mutation-checked.
+   `scanned` is missing on either side. Review fix: the "ruled out" wording
+   applies only when BOTH branches are non-null strings; a null branch
+   (detached, unknown, subdirectory project) cannot rule the cause out, so it
+   gets the generic wording. Mutation-checked.
+3c. **Live segment:** a down-step on the dashed stretch to the live value always
+   uses the generic wording (live carries no `scanned`), matching AC8's "both
+   points" wording.
+3d. **Review-round fixes folded in:** slice-scale and null-branch tests added
+   (slice-total live end and right-axis max checked; swapping `ys` to `y` fails
+   it), a subdirectory-provenance test (characterization, passed on first run),
+   `realSliceCounts` reuses `realSlices`, duplicate call hoisted, live-slice
+   fallback simplified.
 4. **Number check.** The shared shape checks require finite numbers (`NaN` and
    `Infinity` rejected), slightly stricter than `typeof === 'number'`.
 

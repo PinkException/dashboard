@@ -289,6 +289,12 @@ Stateless by design — same disk state → same page (vision principle 2):
   deterministic `snapshot.mjs --auto` line), or `dashboard` (the narrative
   `/dashboard:snapshot` skill, slice 005-03). `validateSnapshot` does not
   constrain the value — this is a documented convention, not a validated enum.
+  Since spec 013-03 entries may also carry optional `slices`, `bugs` and
+  `scanned` (additive; ADR-0002 allows extra fields; see the `history`
+  contract above). `scanned.branch` is `null` for a subdirectory project, a
+  non-git project or a detached HEAD. `scannedProvenance` (`src/scan.mjs`) is
+  writer-only: it costs one extra git call per write, so never call it from the
+  server scan path.
 - **`~/.claude/my-dashboard/config.json`** — local config contract (see
   [dashboard.config.example.json](../dashboard.config.example.json));
   consumed by scanner, server, and `snapshot.mjs --all`.

@@ -695,13 +695,14 @@ export function scanProject(projectCfg, gh, { onGit } = {}) {
     : null;
   // Spec 013-01: additive `history` (store-only series + the live counts the
   // writer would store as `specs`).
+  const liveSlices = realSliceCounts(specs);
   result.history = {
     ...buildProgressSeries(compass.storeText),
     live: {
       done: result.progress.done,
       total: result.progress.denom,
       // Spec 013-03: the same real-slice counts the writer stores as `slices`.
-      ...(realSliceCounts(specs) ? { slices: realSliceCounts(specs) } : {}),
+      ...(liveSlices ? { slices: liveSlices } : {}),
     },
   };
   result.warnings = [];

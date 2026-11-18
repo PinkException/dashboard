@@ -60,12 +60,15 @@ export function progressOf(items) {
   return { done, total, abandoned, deferred, denom, pct, by };
 }
 
+// Real slices only: a `slice-*.md` without a `status:` is not a slice.
+const realSlices = (spec) => (spec.slices || []).filter((s) => s.status);
+
 // Spec 013-03: slice counts for the snapshot series. Real slices only (a
 // `slice-*.md` with a `status:`), ABANDONED out of `total` as for specs.
 // Null when the project has no real slices. `sliceProgress` is not reused:
 // it also counts status-less files as UNKNOWN and would inflate `total`.
 export function realSliceCounts(specs) {
-  const real = specs.flatMap((s) => (s.slices || []).filter((x) => x.status));
+  const real = specs.flatMap(realSlices);
   if (!real.length) return null;
   const p = progressOf(real);
   return { done: p.done, total: p.denom };
@@ -982,8 +985,6 @@ function specNum(id) {
   return m ? parseInt(m[1], 10) : Infinity;
 }
 
-// Real slices only: a `slice-*.md` without a `status:` is not a slice.
-const realSlices = (spec) => (spec.slices || []).filter((s) => s.status);
 
 function specTier(spec) {
   const ss = realSlices(spec);
