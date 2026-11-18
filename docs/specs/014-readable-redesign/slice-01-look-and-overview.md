@@ -25,7 +25,7 @@ the AC wins and the gap is logged in the deviation log.
 - ✅ Design v1.3 committed under `docs/designs/dashboard-v1.3/`.
 - ✅ D1 (font) settled.
 - ✅ D3 (queue order) settled — the chip legend follows today's order.
-- ✅ D6 (header eyebrow) settled.
+- ✅ D6 (header eyebrow) and D7 (Land) settled.
 
 **Acceptance Criteria:**
 
@@ -48,25 +48,30 @@ the AC wins and the gap is logged in the deviation log.
 4. **Header.** Progress ring (66px, accent arc on border track), eyebrow
    "Dashboard" (D6), h1 "Every project's next move", tagline "Nearly-done work
    sits above just-started work, so you finish before you start."
-5. **Summary tiles.** Five tiles — **Need you** (DECIDE + REVIEW),
+5. **Summary tiles.** Five tiles — **Need you** (MERGE + REVIEW + DECIDE, D7),
    **Ready to start** (Ready), **Waiting on others** (External), **Idle**,
    **Running now** (projects with ≥ 1 running session, green dot). Counts are
    computed **scanner-side** (`src/lib.mjs`, pure, fixture-tested) and emitted
    as an additive `/api/data` field (ADR-0001: the page does no derivation).
    Tile: surface, border, radius 16px, number 38px/800 in the state colour.
+   The first four tiles partition the jig-managed, error-free projects by
+   their head state (`waitingOn.state`), so they sum to that count; error
+   rows and not-jig-managed rows are counted in no tile. "Running now" is an
+   independent count and overlaps the others. (Frame-critique round 1.)
 6. **Lens switch.** A pill nav "By project | Action queue" (inset track,
    active pill = text colour on surface text) replaces today's lens control;
    behaviour unchanged.
 7. **Chip vocabulary.** One mapping, in one place, from waiting-on state to
    chip label + colours: DECIDE → "Your call", REVIEW → "Your review", MERGE
-   → "Land", Ready → "Ready", External → "Waiting on others", Idle → "Idle".
+   → "Land" (ok-green: `#23704F` on a light green tint; dark from the dark
+   file's ok values — not in the mockup, D7), Ready → "Ready", External → "Waiting on others", Idle → "Idle".
    A chip legend renders beside the lens switch.
 8. **Rows.** Each project row shows: name + type (description), chip, next
-   action (17px/700), wait line ("Waiting on you" for DECIDE/REVIEW, "You can
+   action (17px/700), wait line ("Ready to land" for MERGE (D7), "Waiting on you" for DECIDE/REVIEW, "You can
    start it now" for Ready, "Waiting on others" for External, "All specs done"
    / "Nothing open" for Idle), in-flight count + heat word, progress bar
    (accent, ok-green at 100%) + "N of M specs", running count with dot, last
-   touched. Row tint: owner states (DECIDE/REVIEW) `#FDF6EE`, Idle `#F7F3EA`
+   touched. Row tint: owner states (MERGE/REVIEW/DECIDE, D7) `#FDF6EE`, Idle `#F7F3EA`
    (dark equivalents from the dark file).
 9. **Unchanged states.** Error rows and not-jig-managed rows still render,
    using the new tokens and type (not designed in v1.3; layout kept).

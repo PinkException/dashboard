@@ -77,6 +77,25 @@ this decision blocks" link (parked, D4); the restyle ships without them. The moc
   "Dashboard" — the mockup's "RosieBits ·" prefix is dropped, since the
   plugin ships publicly. A config-set title is a possible later add-on.
 
+Decisions D7-D10 come from the round-1 frame-critique (2026-11-17), accepted
+by the owner as recommended:
+
+- **D7 — Land (MERGE) is owner work.** The mockup never shows MERGE. It
+  counts in the **Need you** tile, gets an ok-green chip "Land", the wait
+  line "Ready to land", and the same owner-row tint as Your call / Your review.
+- **D8 — Resume joins "Finish & unblock".** Today's queue has separate rank-4
+  (resume an IN_PROGRESS slice) and rank-5 (start) groups; v1.3 has no resume
+  step. Rank 3 (DECIDE) and rank 4 (resume) share the **Finish & unblock**
+  section, DECIDE first; **Start new** is rank 5 only. Finish-first holds.
+- **D9 — Queue shows Merge (External) and Idle.** Both sections render, as
+  the mockup does: Merge from rank-6 stages (present only after the
+  `/api/prs` fold-in; with no `gh` it honestly reads "Nothing here right
+  now."), Idle from projects whose `waitingOn.state` is `Idle`. The
+  per-project cap of 3 stays, but a capped project shows "+N more" so nothing
+  vanishes silently.
+- **D10 — 012-02 and 012-03 land before 014-03.** 014-03 then restyles every
+  roadmap section present at implementation time.
+
 ## Assumptions
 
 - **A1 — Dark mapping.** The `*-dark.dc.html` files use hard-coded colours, no

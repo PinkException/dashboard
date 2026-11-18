@@ -1,6 +1,6 @@
 ---
 status: DRAFT
-dependencies: [014-01, 012-01]
+dependencies: [014-01, 012-01, 012-02, 012-03]
 last_verified:
 frame_review: true
 ---
@@ -21,6 +21,7 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
 **DoR:**
 - ⬜ 014-01 DONE.
 - ✅ 012-01 DONE (roadmap tab + `deriveRoadmap`).
+- ⬜ 012-02 and 012-03 DONE (D10), so every roadmap section exists.
 
 **Acceptance Criteria:**
 
@@ -43,9 +44,19 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
    - Sessions as a table (title, branch, worktree, running, last activity)
      with "Show N older" (keeps spec 003-02's honest overflow counts).
    - PR state (spec 009-04) stays visible, styled as a card in the new look.
+   - Every other overview section that renders today keeps rendering,
+     restyled — at least: the un-merged-worktree warning, the "Discovered,
+     not pinned" workstream block (mockup: "Found, not pinned yet"), and the
+     "Blocked:" line in What's next. (Frame-critique round 1.)
 5. **Activity tab.** Existing content, new tokens/type.
-6. **Roadmap tab (D2).** Same data and rules as 012-01, rebuilt from v1.3
-   parts: the sequence strip uses the queue's step-tile style (014-02 AC2);
+6. **Roadmap tab (D2, D10).** Every roadmap section present at
+   implementation time — 012-01's, plus 012-02's Parked section and goal
+   lines and 012-03's Order label — keeps its data and rules, rebuilt from v1.3
+   parts: the sequence strip uses the queue's step-tile style (014-02 AC2),
+   with the roadmap's decided label ("Now · We are here" / "Next up" /
+   "Then" / "N parked", lightweight decision 2026-11-16) in the tile's
+   small top line where the queue shows "Step N", and the spec title in the
+   name line; no "Step N" ordinal is added; the parked tile has no title;
    the release block and each spec group use the section heading + card grid
    style; slice status uses pill chips; "show N done" stays a native
    `<details>`; empty states keep 012-01's wording.

@@ -19,7 +19,7 @@ v1.3 look.
 
 **DoR:**
 - ⬜ 014-01 DONE (tokens, chip vocabulary).
-- ✅ D3 settled (today's order, new names).
+- ✅ D3, D8, D9 settled (order, resume placement, Merge + Idle sections).
 
 **Acceptance Criteria:**
 
@@ -28,19 +28,26 @@ v1.3 look.
    last." (the mockup's "land and merge first" assumed External at step 2,
    which D3 did not adopt).
 2. **Step strip.** One tile per step, numbered "Step N", with the step name
-   and a count ("N items" / "Nothing here"). Names: **Land** (MERGE),
-   **Review** (REVIEW), **Finish & unblock** (DECIDE), **Start new** (Ready),
-   **Merge** (External — "out for someone else to review and merge"),
-   **Idle**. Order = today's rank (D3).
+   and a count ("N items" / "Nothing here"). Steps, in order (D3, D8, D9):
+   1 **Land** (rank 1, MERGE); 2 **Review** (rank 2); 3 **Finish & unblock**
+   (rank 3 DECIDE, then rank 4 resume); 4 **Start new** (rank 5); 5 **Merge**
+   (rank 6, External — "out for someone else to review and merge"); 6 **Idle**
+   (projects whose `waitingOn.state` is `Idle`). A step's count includes items
+   hidden by the per-project cap (AC6).
 3. **Sections.** Per step: coloured square, h2 name, count, "— description"
    (mockup text). An empty step shows "Nothing here right now." (dashed inset
    box).
 4. **Cards.** Grid `minmax(320px, 1fr)`; each card: project name (links to
    the detail view), chip, type line, action (17px/700), wait line, in-flight
    count. Radius 16px, surface, border.
-5. **Source.** Cards come from the existing `deriveWaitingStages` output (a
-   project with several stages appears once per stage, as today); no page-side
-   derivation.
+5. **Source.** Cards come from each project's emitted `waitingStages`
+   (ranks 1-6) and, for Idle, its emitted `waitingOn` — no new derivation in
+   the page beyond today's grouping in `actionQueue`. Merge cards appear after
+   the `/api/prs` fold-in; with no `gh` the Merge section reads "Nothing here
+   right now." (D9).
+6. **Cap.** The per-project cap of 3 stays (`actionQueue` `capPerProject`).
+   A capped project's last shown card carries "+N more" linking to its detail
+   view, so no stage vanishes silently (D9).
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).
