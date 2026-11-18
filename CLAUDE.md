@@ -24,6 +24,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 Only work still in flight; the [status board](docs/specs/README.md) is the source of truth for everything else.
 - [012-project-roadmap-tab](docs/specs/012-project-roadmap-tab/spec.md) - roadmap tab in the detail view; 012-01 and 012-02 (Parked section + slice goals) DONE, 012-03..04 READY.
 - [013-evolution-graphs](docs/specs/013-evolution-graphs/spec.md) - progress-over-time chart in the Activity tab; 013-01 and 013-03 (slice counts, labels + key) DONE; 013-02 (sparkline) DRAFT, gated on an owner ask. Slice data fills once 012-04 runs.
+- [014-readable-redesign](docs/specs/014-readable-redesign/spec.md) - the v1.3 "readable" look (design `docs/designs/dashboard-v1.3/`); owner decisions D1-D11 in spec.md. 014-01 (tokens + overview) DONE, 014-02 (queue) READY, 014-03 (detail, after 012-03) READY, 014-04 (blocking flag) DEFERRED.
 - [007-plugin-onboarding](docs/specs/007-plugin-onboarding/spec.md) - 007-03 (converge the missing-config message) DRAFT; the rest DONE.
 - Specs 001-006 and 008-010 are DONE. [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) is the worked example to imitate.
 

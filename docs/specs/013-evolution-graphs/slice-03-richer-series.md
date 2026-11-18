@@ -167,8 +167,8 @@ slices inside one long spec shows a rising line instead of a flat one.
 3f. **Leak-gate catch:** the review-tool sidecars
    (`reviews/.candidates/*.json`, which hold a local home path) were committed
    by accident; `npm test`'s leak test caught them. They were removed from the
-   unpushed commit (never published), and `.gitignore` now ignores
-   `**/reviews/.candidates/`.
+   unpushed commit (never published), and `.gitignore` ignores them (main added the same rule,
+   `docs/specs/*/reviews/.candidates/`, in parallel; the merge kept main's).
 4. **Number check.** The shared shape checks require finite numbers (`NaN` and
    `Infinity` rejected), slightly stricter than `typeof === 'number'`.
 
@@ -185,6 +185,6 @@ slices inside one long spec shows a rising line instead of a flat one.
 | `docs/inbox.md` | `updated` | Follow-up parked: down-step markers on the slice lines. The 2026-11-18 "chart does not say what it measures" item is addressed by AC7 and removed. |
 | `docs/refinement-todo.md` | `no-op` | No deferred decision; the cadence choice is recorded in DoR and A1. |
 | `docs/memory/**` | `no-op` | Nothing new beyond the existing leak-gate and `npm test` memories, both applied. |
-| `.gitignore` | `updated` | Ignores `**/reviews/.candidates/` (deviation 3f). |
+| `.gitignore` | `no-op` | The sidecar ignore rule arrived from `origin/main` (`docs/specs/*/reviews/.candidates/`); this slice's equivalent rule was dropped at merge (deviation 3f). |
 | `skills/snapshot/SKILL.md` | `no-op` | The skill calls `snapshot.mjs`, which now adds the fields itself; no instruction change needed. |
 | Merge of `origin/main` (012-02, spec 014 docs, v1.3 designs, bug 003, `feedback-notes.md`) | `no-op` | Not this slice's work: everything on `origin/main` since the branch point, integrated before reconciling; no conflicts; suite 465/465 after the merge. |

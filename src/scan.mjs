@@ -38,6 +38,7 @@ import {
   parseWorktreeList,
   deriveWaitingOn,
   deriveWaitingStages,
+  summarizeProjects,
 } from './lib.mjs';
 
 export function expandHome(p) {
@@ -961,7 +962,16 @@ export function scanAll(config, { gh } = {}) {
   return {
     generatedAt: new Date().toISOString(),
     projects,
+    // Spec 014-01: overview tile counts, scanner-side (additive field).
+    summary: summarizeProjects(projects),
   };
+}
+
+// Spec 014-01: the /api/prs payload — the existing per-project deltas plus the
+// summary recomputed over the gh-enriched projects (additive; the page swaps
+// the four state tiles only, Running now keeps the /api/data value).
+export function prsPayload(scanResult) {
+  return { generatedAt: scanResult.generatedAt, projects: prDeltas(scanResult), summary: scanResult.summary };
 }
 
 // Spec 010-01: two-phase load, phase-two delta extraction. Pure — maps a
