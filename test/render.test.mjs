@@ -1073,8 +1073,7 @@ test('012-01 AC9: roadmap content is escaped', () => {
   assert.doesNotMatch(html, /<script>|<img onerror/);
 });
 
-test('012-01: the activity tab keeps its disabled class (still a placeholder); overview and roadmap stay live', () => {
+test('012-01 (superseded by 013-01 AC3): no tab is disabled any more; the activity tab is live', () => {
   const html = detailView(rmProject(rmSpecs));
-  assert.match(html, /class="tab disabled" data-action="show-activity-tab"/);
-  assert.doesNotMatch(html, /class="tab[^"]*disabled[^"]*" data-action="show-(overview|roadmap)-tab"/);
+  assert.doesNotMatch(html, /class="tab[^"]*disabled[^"]*" data-action="show-(overview|roadmap|activity)-tab"/);
 });
