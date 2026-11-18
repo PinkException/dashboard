@@ -39,3 +39,6 @@ credentials/
 .jig/semantic-index-events.jsonl
 .jig/servo-hint-shown
 # <<< jig secret-ignore <<<
+
+# jig review-candidate sidecars (contain local paths; regenerated per run)
+docs/specs/*/reviews/.candidates/

@@ -343,10 +343,24 @@ Stateless by design — same disk state → same page (vision principle 2):
   placeholder has none), and `projects[].roadmap.parked` (one card per DEFERRED slice
   from every spec except ABANDONED ones, sorted by spec number;
   `roadmap.parkedCount === roadmap.parked.length`).
+  **Spec 014-01 adds (additively)** a top-level `summary: { needYou, ready,
+  external, idle, running, specsDone, specsDenom }` from the pure
+  `summarizeProjects` (`src/lib.mjs`). The first four partition the
+  jig-managed, error-free projects by `waitingOn.state` (MERGE/REVIEW/DECIDE →
+  `needYou`; Ready → `ready`; External → `external`; anything else → `idle`) and
+  feed the overview's summary tiles. `running` counts non-error projects with
+  ≥ 1 running session (it overlaps the others, and differs on purpose from the
+  detail view's `runningNowCount`, which counts sessions). `specsDone` /
+  `specsDenom` sum each project's `progress.done` / `progress.denom` for the
+  header ring; the ring's percentage is the one small page-side computation
+  this adds.
 - **`GET /api/prs`** — the phase-two enrichment surface (spec 010-01 / ADR-0007):
   a full `scanAll` with the real `gh` context, returned as **per-project deltas**
-  `{ generatedAt, projects: [{ path, ownerLogin?, prs?, waitingOn, waitingStages }] }`,
-  keyed on `path`. `prs` (the 009-04 open-non-draft-PR array
+  `{ generatedAt, projects: [{ path, ownerLogin?, prs?, waitingOn, waitingStages }], summary }`,
+  keyed on `path`. `summary` (spec 014-01, additive) is `summarizeProjects` over
+  the `gh`-enriched scan; the page swaps in only its four state counts via the
+  pure `mergePrSummary` (`running` and the ring figures keep their `/api/data`
+  values, so they agree with the rows), and keeps the disk summary on failure. `prs` (the 009-04 open-non-draft-PR array
   `{ number, title, url, author, reviewDecision, mergeStateStatus, reviewRequests }`)
   and `ownerLogin` are present **only when `gh` is available**; `waitingOn`/
   `waitingStages` are the `gh`-enriched recomputation and are always carried

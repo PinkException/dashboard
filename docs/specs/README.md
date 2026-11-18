@@ -46,7 +46,7 @@
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | **DONE** |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
-| [014-readable-redesign](014-readable-redesign/spec.md) | 014-01 — new look + overview by project | READY_FOR_IMPLEMENTATION |  |
+| [014-readable-redesign](014-readable-redesign/spec.md) | 014-01 — new look + overview by project | **DONE** |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-02 — action queue in the new look | READY_FOR_IMPLEMENTATION |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-03 — project detail in the new look (incl. roadmap) | READY_FOR_IMPLEMENTATION |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-04 — blocking flag and blocked-spec link | DEFERRED |  |
@@ -72,7 +72,7 @@
 Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/slice-*.md` `substrate:` fields.
 
 - **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
-- **4** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
+- **6** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
 - **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review

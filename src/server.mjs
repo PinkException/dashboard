@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, resolveConfigPath, scanAll, prDeltas } from './scan.mjs';
+import { loadConfig, resolveConfigPath, scanAll, prsPayload } from './scan.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG_PATH = resolveConfigPath();
@@ -64,7 +64,7 @@ const server = http.createServer((req, res) => {
         'content-type': 'application/json; charset=utf-8',
         'cache-control': 'no-store',
       });
-      res.end(JSON.stringify({ generatedAt: data.generatedAt, projects: prDeltas(data) }));
+      res.end(JSON.stringify(prsPayload(data)));
     } catch (err) {
       res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: String(err && err.message || err) }));
