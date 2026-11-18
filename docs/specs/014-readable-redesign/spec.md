@@ -61,17 +61,16 @@ them. The mockup also omits spec 012's roadmap tab — kept and restyled (D2).
   numbered step strip for the sequence strip). Detail tabs read
   `Overview | Roadmap | Activity`. Owner: "just reuse the designs for the
   roadmap." Lands in 014-03.
+- **D3 — Queue order (2026-11-17).** Keep today's finish-first order
+  (ADR-0006, `deriveWaitingStages` ranks) and adopt only the v1.3 step
+  names: Land → Review → Finish & unblock → Start new → Merge (External) →
+  Idle. The mockup's move of External to step 2 is not adopted (it needs
+  nothing from the owner, so it would push owner work down). No ADR change.
 
 ## Owner decisions (open — answer before READY_FOR_IMPLEMENTATION)
 
 Asked one at a time. Each has a recommendation.
 
-- **OQ2 — Queue order.** The mockup moves "out for someone else's review"
-  (External) from last-before-Idle up to step 2. That changes ADR-0006's
-  finish-first order. Options: (a) keep today's order, use only the new names;
-  (b) adopt the mockup order (needs a superseding/amending ADR).
-  **Recommend (a)**: External needs nothing from the owner, so putting it
-  above "Your review" pushes owner work down — against the page's purpose.
 - **OQ3 — "Blocking" flag + blocked-spec link.** The mockup marks items whose
   delay holds other work ("Blocking") and names the spec a decision holds
   ("Spec 021 can't move until you choose"). Neither is read today. Options:

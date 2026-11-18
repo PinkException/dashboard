@@ -24,8 +24,7 @@ the AC wins and the gap is logged in the deviation log.
 **DoR:**
 - ✅ Design v1.3 committed under `docs/designs/dashboard-v1.3/`.
 - ✅ D1 (font) settled.
-- ⬜ OQ2 (queue order) answered — 014-01 only uses the chip names, but the
-  legend order follows the queue order.
+- ✅ D3 (queue order) settled — the chip legend follows today's order.
 - ⬜ OQ6 (header eyebrow text) answered.
 
 **Acceptance Criteria:**

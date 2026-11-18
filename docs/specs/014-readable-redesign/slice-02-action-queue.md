@@ -19,18 +19,19 @@ v1.3 look.
 
 **DoR:**
 - ⬜ 014-01 DONE (tokens, chip vocabulary).
-- ⬜ OQ2 answered (step order).
+- ✅ D3 settled (today's order, new names).
 
 **Acceptance Criteria:**
 
 1. **Header.** h1 "Everything waiting, in one queue"; tagline "Every waiting
-   item across all projects. Work top to bottom: land and merge first, start
-   new work last." (wording follows OQ2's order).
+   item across all projects. Work top to bottom: land first, start new work
+   last." (the mockup's "land and merge first" assumed External at step 2,
+   which D3 did not adopt).
 2. **Step strip.** One tile per step, numbered "Step N", with the step name
    and a count ("N items" / "Nothing here"). Names: **Land** (MERGE),
    **Review** (REVIEW), **Finish & unblock** (DECIDE), **Start new** (Ready),
    **Merge** (External — "out for someone else to review and merge"),
-   **Idle**. Order = today's rank (OQ2-a) unless OQ2 says otherwise.
+   **Idle**. Order = today's rank (D3).
 3. **Sections.** Per step: coloured square, h2 name, count, "— description"
    (mockup text). An empty step shows "Nothing here right now." (dashed inset
    box).
