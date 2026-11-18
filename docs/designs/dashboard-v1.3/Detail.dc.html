@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Project detail — Trailhead</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4EFE4;}
+a{color:#3F5379;text-decoration:none;}
+a:hover{color:#B04A24;}
+</style>
+</helmet>
+<div style="background: #F4EFE4; color: #1C2A47; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; line-height: 1.5; padding: clamp(20px, 4vw, 52px); min-height: 100%; box-sizing: border-box">
+<div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+<!-- Back -->
+<nav aria-label="Breadcrumb" style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px">
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; background: #FBF8F1; border: 1px solid #E4DAC7; color: #1C2A47; font-size: 15px; font-weight: 700">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"></path></svg>All projects</a>
+<span style="font-size: 15px; color: #4E5A7C">Projects / Trailhead</span>
+</nav>
+
+<!-- Header -->
+<header style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between">
+<div style="display: flex; gap: 22px; align-items: center">
+<div style="position: relative; width: 84px; height: 84px; flex: none">
+<svg width="84" height="84" viewBox="0 0 84 84" role="img" aria-label="62 percent done"><circle cx="42" cy="42" r="35" fill="none" stroke="#E4DAC7" stroke-width="8"></circle><circle cx="42" cy="42" r="35" fill="none" stroke="#E16B43" stroke-width="8" stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="84" transform="rotate(-90 42 42)"></circle></svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800">62%</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #B04A24; font-weight: 800">Hiking route planner · 18 of 28 specs done</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<h1 style="margin: 0; font-size: 38px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15">Trailhead</h1>
+<span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #E7E9F0; color: #3F5379">Active</span>
+</div>
+<p style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; color: #4E5A7C"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2F8A63"></span>6 sessions running · 10 in flight · last touched just now</p>
+</div>
+</div>
+</header>
+
+<!-- Tabs -->
+<div role="tablist" aria-label="Project sections" style="display: inline-flex; align-self: flex-start; background: #EFE7D6; border: 1px solid #E4DAC7; border-radius: 999px; padding: 4px; gap: 4px">
+<button type="button" role="tab" aria-selected="{{overviewSel}}" onClick="{{showOverview}}" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; {{overviewTabStyle}}">Overview</button>
+<button type="button" role="tab" aria-selected="{{activitySel}}" onClick="{{showActivity}}" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; {{activityTabStyle}}">Activity</button>
+</div>
+
+<sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 28px">
+
+<!-- Decision banner -->
+<section aria-label="Waiting on you" style="background: #FBF8F1; border: 1px solid #E16B43; box-shadow: 0 0 0 2px #E16B43 inset, 0 6px 20px rgba(28,42,71,.06); border-radius: 18px; padding: 22px 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px">
+<span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; background: #B04A24; color: #FFFFFF">Your call</span>
+<div style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 360px">
+<span style="font-size: 22px; font-weight: 800; line-height: 1.3">Decide the routing-engine approach</span>
+<span style="font-size: 16px; color: #4E5A7C">Waiting on you. Spec 021 can't move until you choose.</span>
+</div>
+</section>
+
+<!-- What's next -->
+<section aria-label="What's next" style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 18px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4E5A7C">What's next</h2>
+<span style="font-size: 14px; color: #4E5A7C">updated 40 min ago</span>
+</div>
+<p style="margin: 0; font-size: 19px; font-weight: 600; line-height: 1.45; max-width: 70ch">18 of 28 specs done. Elevation and offline maps are the two live fronts before the beta cut.</p>
+<p style="margin: 0; font-size: 17px; line-height: 1.5"><b style="color: #23704F">Next:</b> Finish 014 elevation smoothing, then merge 019 offline tiles and run the Public Beta checklist.</p>
+<div style="background: #FBE7E3; border-radius: 12px; padding: 14px 18px; font-size: 17px; color: #8E2A1E"><b>Blocked:</b> The routing-engine approach is parked on your call before 021 can proceed.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px">
+<sc-for list="{{counts}}" as="c" hint-placeholder-count="7">
+<span style="display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 14px; border-radius: 999px; background: #EFE7D6; font-size: 15px; color: #4E5A7C"><b style="color: #1C2A47; font-size: 16px">{{c.n}}</b>{{c.label}}</span>
+</sc-for>
+</div>
+</section>
+
+<!-- Specs + Workstreams -->
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<section aria-label="Specs" style="flex: 999 1 560px; min-width: 0; background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 18px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4E5A7C">Open specs <span style="text-transform: none; letter-spacing: 0; font-weight: 700; color: #1C2A47">· Public Beta (v0.9)</span></h2>
+<a href="#specs" style="font-size: 15px; font-weight: 700">Show all 28 specs</a>
+</div>
+<sc-for list="{{specs}}" as="s" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid #E4DAC7">
+<span style="font-size: 15px; font-weight: 700; color: #4E5A7C; font-variant-numeric: tabular-nums">{{s.n}}</span>
+<span style="font-size: 17px; font-weight: 700">{{s.name}}</span>
+<span style="font-size: 15px; color: #4E5A7C">{{s.slices}}</span>
+<span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; white-space: nowrap; {{s.chipStyle}}">{{s.status}}</span>
+</div>
+</sc-for>
+</section>
+
+<section aria-label="Workstreams" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4E5A7C">Release plans &amp; runbooks</h2>
+<sc-for list="{{workstreams}}" as="w" hint-placeholder-count="3">
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="font-size: 18px; font-weight: 800">{{w.title}}</span>
+<sc-if value="{{w.current}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: #E2EFE7; color: #23704F">Current</span></sc-if>
+<span style="font-size: 14px; color: #4E5A7C">{{w.kind}}</span>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{w.items}}" as="i" hint-placeholder-count="3">
+<li style="display: flex; gap: 10px; align-items: flex-start; font-size: 16px"><span aria-hidden="true" style="flex: none; width: 16px; height: 16px; margin-top: 4px; border: 2px solid #8C8676; border-radius: 4px; box-sizing: border-box"></span>{{i.text}}</li>
+</sc-for>
+</ul>
+</div>
+</sc-for>
+<div style="background: #EFE7D6; border: 1px dashed #D6CAB2; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #4E5A7C">Found, not pinned yet</span>
+<span style="font-size: 16px">Weather-overlay spike <span style="color: #4E5A7C">· 2 of 6</span></span>
+<span style="font-size: 16px">Import-format survey <span style="color: #4E5A7C">· 0 of 4</span></span>
+</div>
+</section>
+
+</div>
+
+<!-- Worktree warning -->
+<section aria-label="Warning" style="background: #F5EBD3; border-radius: 16px; padding: 18px 22px; display: flex; gap: 14px; align-items: flex-start">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A5A08" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M12 3l10 18H2L12 3z"></path><path d="M12 10v5"></path><path d="M12 18h.01"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<span style="font-size: 17px; font-weight: 800; color: #6E4806">3 docs exist only in an unmerged worktree</span>
+<span style="font-size: 15px; color: #6E4806; overflow-wrap: anywhere">For example <code style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px">docs/specs/019-offline-tiles/plan.md</code> in <code style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px">trailhead-offline-c3d4</code></span>
+</div>
+</section>
+
+<!-- Sessions -->
+<section aria-label="Sessions" style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 18px; padding: 24px 26px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #4E5A7C">Sessions</h2>
+<span style="font-size: 15px; color: #4E5A7C"><b style="color: #1C2A47">6 running</b> · 14 older (51 more not shown)</span>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 860px">
+<div style="display: grid; grid-template-columns: 20px minmax(220px, 1.3fr) minmax(240px, 1.4fr) minmax(180px, 1fr) 90px; gap: 14px; padding: 8px 0; font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #4E5A7C">
+<span></span><span>Session</span><span>Branch</span><span>Worktree</span><span style="text-align: right">Last</span>
+</div>
+<sc-for list="{{sessions}}" as="r" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 20px minmax(220px, 1.3fr) minmax(240px, 1.4fr) minmax(180px, 1fr) 90px; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid #E4DAC7; {{r.rowStyle}}">
+<span style="width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; {{r.dotStyle}}"></span>
+<span style="font-size: 16px; font-weight: 700">{{r.title}}</span>
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px; color: #3F5379; overflow-wrap: anywhere">{{r.branch}}</span>
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px; color: #4E5A7C; overflow-wrap: anywhere">{{r.worktree}}</span>
+<span style="font-size: 15px; color: #4E5A7C; text-align: right">{{r.last}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<button type="button" style="align-self: flex-start; margin-top: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #E4DAC7; background: #EFE7D6; color: #1C2A47; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Show 14 older sessions</button>
+</section>
+
+</div>
+</sc-if>
+
+<sc-if value="{{isActivity}}" hint-placeholder-val="{{false}}">
+<section aria-label="Activity" style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 18px; padding: 56px 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<div style="width: 56px; height: 56px; border: 2px dashed #C9BFAA; border-radius: 14px; display: flex; align-items: center; justify-content: center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4E5A7C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 20V12"></path><path d="M10 20V6"></path><path d="M15 20v-9"></path><path d="M20 20V4"></path></svg>
+</div>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">Activity is coming soon</h2>
+<p style="margin: 0; font-size: 17px; color: #4E5A7C; max-width: 46ch">This tab will show what changed in Trailhead over time: specs shipped, slices reviewed, bugs found.</p>
+</section>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":2000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'overview' }; }
+  renderVals() {
+    var self = this;
+    var tab = this.state.tab;
+    var on = 'background:#1C2A47;color:#FBF8F1;';
+    var off = 'background:transparent;color:#1C2A47;';
+    var status = {
+      IN_PROGRESS: ['In progress', 'background:#F5EBD3;color:#7A4F06;'],
+      DRAFT: ['Draft', 'background:#E7E9F0;color:#3F5379;'],
+      DONE: ['Done', 'background:#E2EFE7;color:#23704F;'],
+      DEFERRED: ['Deferred', 'background:#ECE7DB;color:#625C4E;']
+    };
+    var specs = [
+      { n: '014', name: 'Elevation profile', st: 'IN_PROGRESS', slices: '2 of 4 slices' },
+      { n: '019', name: 'Offline tiles', st: 'IN_PROGRESS', slices: '1 of 3 slices' },
+      { n: '021', name: 'GPX import', st: 'IN_PROGRESS', slices: '0 of 2 slices' },
+      { n: '022', name: 'Trail conditions', st: 'DRAFT', slices: '0 of 2 slices' },
+      { n: '027', name: '3D flyover', st: 'DRAFT', slices: '0 of 5 slices' }
+    ].map(function (s) { return { n: s.n, name: s.name, slices: s.slices, status: status[s.st][0], chipStyle: status[s.st][1] }; });
+    var ws = [
+      { title: 'Public Beta (v0.9)', kind: 'release', current: true, items: ['Finalize elevation smoothing', 'Offline-tiles QA', 'Store screenshots'] },
+      { title: 'iOS App Store submission', kind: 'release', current: false, items: ['Privacy manifest', 'TestFlight build', 'Reviewer notes'] },
+      { title: 'Onboarding runbook', kind: 'runbook · 8 phases', current: false, items: ['Phase 4 — first-route tutorial copy', 'Phase 5 — empty states'] }
+    ].map(function (w) { return { title: w.title, kind: w.kind, current: w.current, items: w.items.map(function (t) { return { text: t }; }) }; });
+    var sessions = [
+      { title: 'Elevation profile smoothing', branch: 'claude/014-elevation-smoothing', worktree: 'trailhead-elev-a1b2', running: true, last: 'just now' },
+      { title: 'Offline tile cache eviction', branch: 'claude/019-offline-tiles', worktree: 'trailhead-offline-c3d4', running: true, last: '12m ago' },
+      { title: 'GPX import edge cases', branch: 'claude/021-gpx-import', worktree: 'trailhead-gpx-e5f6', running: true, last: '38m ago' },
+      { title: 'Fix route snapping jitter', branch: 'claude/bug-route-snap', worktree: 'main', running: true, last: '1h ago' },
+      { title: 'Beta release checklist', branch: 'claude/release-beta-prep', worktree: 'trailhead-beta-7h8i', running: true, last: '2h ago' },
+      { title: 'Trail-conditions API research', branch: 'claude/022-conditions', worktree: 'trailhead-cond-9j0k', running: true, last: '4h ago' },
+      { title: 'Waypoint drag polish', branch: 'claude/003-waypoint-polish', worktree: 'trailhead-way-l1m2', running: false, last: '2 days ago' }
+    ].map(function (r) {
+      return { title: r.title, branch: r.branch, worktree: r.worktree, last: r.last,
+        dotStyle: r.running ? 'background:#2F8A63;' : 'border:2px solid #8C8676;',
+        rowStyle: r.running ? '' : 'color:#4E5A7C;' };
+    });
+    var counts = [
+      { n: 18, label: 'done' }, { n: 3, label: 'in progress' }, { n: 7, label: 'draft' },
+      { n: 9, label: 'deferred' }, { n: 2, label: 'open bugs' }, { n: 14, label: 'in the inbox' }
+    ];
+    return {
+      isOverview: tab === 'overview', isActivity: tab === 'activity',
+      overviewSel: tab === 'overview' ? 'true' : 'false', activitySel: tab === 'activity' ? 'true' : 'false',
+      overviewTabStyle: tab === 'overview' ? on : off, activityTabStyle: tab === 'activity' ? on : off,
+      showOverview: function () { self.setState({ tab: 'overview' }); },
+      showActivity: function () { self.setState({ tab: 'activity' }); },
+      specs: specs, workstreams: ws, sessions: sessions, counts: counts
+    };
+  }
+}
+</script>
+</body>
+</html>
