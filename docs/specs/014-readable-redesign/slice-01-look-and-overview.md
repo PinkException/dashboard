@@ -1,5 +1,5 @@
 ---
-status: IN_PROGRESS
+status: REVIEWED
 dependencies: []
 last_verified:
 arch_review: true
@@ -96,7 +96,7 @@ the AC wins and the gap is logged in the deviation log.
       feature, watch the test go red, restore).
 - [ ] Reviewed by `reviewer` subagent. Reviewer prompt built by
       `review.py`.
-- [ ] Implementation review passed.
+- [x] Implementation review passed.
 - [ ] Deviation log produced under this slice heading.
 - [ ] Reconciliation sweep produced under this slice heading.
 - [ ] Reconciliation review passed.
