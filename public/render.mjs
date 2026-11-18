@@ -94,22 +94,6 @@ export function progressBarSvg(pct, { w = 118, h = 4 } = {}) {
   );
 }
 
-function flightCellsSvg(count) {
-  const bucket = heatBucket(count);
-  const filled = Math.max(0, Math.min(6, count));
-  const cellW = 11;
-  const cellH = 5;
-  const gap = 3;
-  let cells = '';
-  for (let i = 0; i < 6; i++) {
-    const x = i * (cellW + gap);
-    const fill = i < filled ? `var(--heat-${bucket})` : 'var(--inset)';
-    cells += `<rect x="${x}" y="0" width="${cellW}" height="${cellH}" rx="1" fill="${fill}"></rect>`;
-  }
-  const totalW = 6 * cellW + 5 * gap;
-  return `<svg class="flight-cells" width="${totalW}" height="${cellH}" viewBox="0 0 ${totalW} ${cellH}" aria-hidden="true">${cells}</svg>`;
-}
-
 // --- counts-line (detail view) ---
 export function countsLine(p) {
   const by = (p.progress && p.progress.by) || {};
@@ -175,26 +159,59 @@ export function detailSpecList(p, { showAll = false } = {}) {
   return { specs: all.filter((s) => idSet.has(s.id)), filtered: true, trackTitle: track.title, total: all.length };
 }
 
-// --- 009-02 AC1: waiting-on headline (the next-move column's new content) ---
-// A non-Idle waiting-on state with a real action REPLACES the plain compass
-// line with "<VERB> <action>" — the card's headline (AC1). Idle, or a
-// project with no `waitingOn` at all (a hand-built/legacy payload — real
-// scanProject output always carries it), degrades to the exact pre-009-02
-// compass-headline display: Idle is deliberately the quiet, badge-free state
-// (AC1 "Idle renders quietest"), not a hollow phrase to suppress.
-function nextMoveCell(p) {
+// --- 014-01: chip vocabulary — ONE mapping, waiting-on state -> label + class ---
+// Colours live as tokens in public/index.html (`.chip-you` etc.), light + dark.
+// Land (MERGE) is not in the v1.3 mockup (owner decision D7): ok-green pair,
+// same family as Ready but its own class so it can diverge. Unknown / missing
+// state degrades to Idle (the quiet state), never throws.
+export const CHIPS = {
+  MERGE: { label: 'Land', cls: 'chip-merge' },
+  REVIEW: { label: 'Your review', cls: 'chip-you' },
+  DECIDE: { label: 'Your call', cls: 'chip-you' },
+  Ready: { label: 'Ready', cls: 'chip-ready' },
+  External: { label: 'Waiting on others', cls: 'chip-external' },
+  Idle: { label: 'Idle', cls: 'chip-idle' },
+};
+// Legend order follows the queue order (D3): finish-first.
+const CHIP_LEGEND_ORDER = ['MERGE', 'REVIEW', 'DECIDE', 'Ready', 'External', 'Idle'];
+
+export function chipFor(state) {
+  return Object.hasOwn(CHIPS, state) ? CHIPS[state] : CHIPS.Idle;
+}
+
+const chipSpan = (c) => `<span class="chip ${c.cls}">${esc(c.label)}</span>`;
+
+export function chipLegendHtml() {
+  return `<div class="chip-legend" aria-label="State key">${CHIP_LEGEND_ORDER.map((k) => chipSpan(CHIPS[k])).join('')}</div>`;
+}
+
+// 014-01 AC8: the one-line "wait" sentence under a row's action. Reads only
+// `waitingOn` (state + rank) and the spec progress already on the payload.
+export function waitLine(p) {
+  const w = p && p.waitingOn;
+  const state = w && w.state;
+  if (state === 'MERGE') return 'Ready to land';
+  if (state === 'DECIDE' || state === 'REVIEW') return 'Waiting on you';
+  if (state === 'Ready') return w.rank === 4 ? 'Started \u2014 you can pick it back up' : 'You can start it now';
+  if (state === 'External') return 'Waiting on others';
+  const pr = p && p.progress;
+  return pr && pr.denom > 0 && pr.done === pr.denom ? 'All specs done' : 'Nothing open';
+}
+
+const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+
+// --- 009-02 AC1 / 014-01 AC8: the row's next action ---
+// A non-Idle waiting-on state with a real action shows that action (the chip
+// carries the state now, not a verb badge); Idle, or a project with no
+// `waitingOn` at all (hand-built/legacy payload), degrades to the quiet
+// compass-headline display.
+function nextActionLine(p) {
   const w = p.waitingOn;
   if (w && w.state !== 'Idle' && w.action) {
-    return (
-      // `w.state` doubles as the CSS class suffix here (`rv-${state}`) —
-      // renaming a state (e.g. deriveWaitingOn's 'Ready') must stay in sync
-      // with the matching `.rv-*` selectors in public/index.html.
-      `<span class="row-verb rv-${esc(w.state)}">${esc(w.verb)}</span>` +
-      `<span class="row-action">${esc(w.action)}</span>`
-    );
+    return `<span class="row-action">${esc(capFirst(w.action))}</span>`;
   }
   const nextLine = (p.compass && (p.compass.headline || p.compass.next)) || 'no compass snapshot yet';
-  return `<span class="row-action">${esc(shorten(nextLine, 140))}</span>`;
+  return `<span class="row-action muted">${esc(shorten(nextLine, 140))}</span>`;
 }
 
 // --- 009-02 AC2: finish-first grid ordering ---
@@ -238,25 +255,28 @@ export function mergePrDeltas(projects, deltas) {
   });
 }
 
-// --- overview row (AC1/AC2/AC3/AC7) ---
+// --- overview row (AC1/AC2/AC3/AC7; restyled 014-01) ---
+// Presentation-only heat words (v1.3 mockup); the bucket thresholds are
+// heatBucket's above.
+const HEAT_WORDS = { hot: 'in flight \u00b7 a lot open', busy: 'in flight \u00b7 busy', light: 'in flight \u00b7 light', clear: 'in flight \u00b7 clear' };
+
 function activityCell(p) {
   const { activeCount } = sessionCounts(p);
+  const running = (p.sessions || []).filter((s) => s.running).length;
   const last = (p.sessions || []).length ? relativeTime(p.sessions[0].lastActivity) : null;
-  const primary = activeCount > 0 ? `${activeCount} active` : 'idle';
+  const text = running > 0 ? `<span>${running} running</span>` : '<span class="row-run-text">Idle</span>';
   return (
-    `<span class="act-primary">${esc(primary)}</span>` +
-    `<span class="act-last">${esc(last || '')}</span>`
+    `<span class="act-primary"><span class="run-dot${running > 0 ? ' on' : ''}"></span>${text}</span>` +
+    `<span class="act-last">${last ? esc('touched ' + last) : ''}</span>`
   );
 }
 
-function rowShell(p, { chip, nextmove, inflight, progress, activity }) {
+function rowShell(p, { cls = '', chip, nextmove, inflight, progress, activity }) {
   return (
-    `<div class="project-row" data-path="${esc(p.path)}">` +
-    `<div class="row-gutter"></div>` +
+    `<div class="project-row${cls}" data-path="${esc(p.path)}">` +
     `<div class="row-project"><span class="row-name">${esc(p.name)}</span>` +
-    `${p.description ? `<span class="row-type">${esc(p.description)}</span>` : ''}` +
-    `${chip}</div>` +
-    `<div class="row-nextmove">${nextmove}</div>` +
+    `${p.description ? `<span class="row-type">${esc(p.description)}</span>` : ''}</div>` +
+    `<div class="row-nextmove"><div class="row-chips">${chip}</div>${nextmove}</div>` +
     `<div class="row-inflight">${inflight}</div>` +
     `<div class="row-progress">${progress}</div>` +
     `<div class="row-activity">${activity}</div>` +
@@ -269,7 +289,7 @@ function rowShell(p, { chip, nextmove, inflight, progress, activity }) {
 export function overviewRow(p) {
   if (p.error) {
     return rowShell(p, {
-      chip: '<span class="chip chip-error">ERROR</span>',
+      chip: '<span class="chip chip-error">Error</span>',
       nextmove: `<span class="row-action muted">${esc(p.error)}</span>`,
       inflight: '',
       progress: '',
@@ -278,34 +298,82 @@ export function overviewRow(p) {
   }
   if (!p.jigManaged) {
     return rowShell(p, {
-      chip: '<span class="chip chip-muted">NOT JIG-MANAGED</span>',
+      chip: '<span class="chip chip-muted">Not jig-managed</span>',
       nextmove: '<span class="row-action muted">no docs/specs found</span>',
       inflight: '',
       progress: '',
       activity: activityCell(p),
     });
   }
+  const state = p.waitingOn && p.waitingOn.state;
+  // Row tint (token-backed): owner states (incl. Land, D7) and Idle.
+  const cls = state === 'MERGE' || state === 'REVIEW' || state === 'DECIDE' ? ' row-owner' : state === 'Idle' || !state ? ' row-idle' : '';
   const pct = p.progress.pct;
-  const chip =
-    pct === 100
-      ? '<span class="chip chip-done">ALL SPECS DONE</span>'
-      : '<span class="chip chip-active">ACTIVE</span>';
   const heat = inFlightCount(p);
   const bucket = heatBucket(heat);
-  const specFraction = `${p.progress.done}/${p.progress.denom}`;
+  const specFraction = `${p.progress.done} of ${p.progress.denom} specs`;
+  const fill = Math.max(0, Math.min(100, pct ?? 0));
   return rowShell(p, {
-    chip,
-    nextmove: nextMoveCell(p),
+    cls,
+    chip: chipSpan(chipFor(state)),
+    nextmove: nextActionLine(p) + `<span class="row-wait">${esc(waitLine(p))}</span>`,
     inflight:
-      `<span class="if-num heat-${bucket}">${heat}</span><span class="if-word heat-${bucket}">${bucket}</span>` +
-      flightCellsSvg(heat) +
-      `<span class="if-caption">open fronts</span>`,
+      `<span class="if-num heat-${bucket}">${heat}</span>` +
+      `<span class="if-word">${esc(HEAT_WORDS[bucket])}</span>`,
     progress:
-      `<span class="pct">${pct === null ? '—' : pct + '%'}</span>` +
-      `<span class="caption">${esc(specFraction)}</span>` +
-      progressBarSvg(pct),
+      `<div class="pct-line"><span class="pct">${pct === null ? '\u2014' : pct + '%'}</span>` +
+      `<span class="caption">${esc(specFraction)}</span></div>` +
+      `<div class="pbar-track"><div class="pbar-fill${fill >= 100 ? ' full' : ''}" style="width:${fill}%"></div></div>`,
     activity: activityCell(p),
   });
+}
+
+// --- 014-01: header + summary tiles (counts computed scanner-side) ---
+const RING_C = 170; // dasharray, per the v1.3 mockup (r=27 circumference ~169.6)
+
+export function headerHtml(summary) {
+  const denom = (summary && summary.specsDenom) || 0;
+  const pct = denom > 0 ? Math.max(0, Math.min(100, ((summary.specsDone || 0) / denom) * 100)) : 0;
+  const offset = Number((RING_C * (1 - pct / 100)).toFixed(1));
+  return (
+    `<header class="hdr"><svg class="hdr-ring" width="66" height="66" viewBox="0 0 66 66" aria-hidden="true">` +
+    `<circle class="ring-track" cx="33" cy="33" r="27" fill="none" stroke-width="6"></circle>` +
+    `<circle class="ring-arc" cx="33" cy="33" r="27" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="${RING_C}" stroke-dashoffset="${offset}" transform="rotate(-90 33 33)"></circle></svg>` +
+    `<div class="hdr-text"><p class="hdr-eyebrow">Dashboard</p>` +
+    `<h1 class="hdr-title">Every project's next move</h1>` +
+    `<p class="hdr-tagline">Nearly-done work sits above just-started work, so you finish before you start.</p></div></header>`
+  );
+}
+
+const TILES = [
+  { key: 'needYou', label: 'Need you', sub: 'a decision, a review or a merge', cls: 'tile-need' },
+  { key: 'ready', label: 'Ready to start', sub: 'nothing blocking them', cls: 'tile-ready' },
+  { key: 'external', label: 'Waiting on others', sub: "out for someone's review", cls: 'tile-external' },
+  { key: 'idle', label: 'Idle', sub: 'nothing open', cls: 'tile-idle' },
+  { key: 'running', label: 'Running now', sub: 'projects with live sessions', cls: 'tile-running', dot: true },
+];
+
+export function summaryTilesHtml(summary) {
+  if (!summary) return '';
+  const tiles = TILES.map(
+    (t) =>
+      `<div class="tile"><span class="tile-num ${t.cls}">${t.dot ? '<span class="tile-dot"></span>' : ''}${Number(summary[t.key]) || 0}</span>` +
+      `<span class="tile-label">${esc(t.label)}</span><span class="tile-sub">${esc(t.sub)}</span></div>`,
+  ).join('');
+  return `<section class="tiles" aria-label="Summary">${tiles}</section>`;
+}
+
+// ADR-0007 phase-two: swap the FOUR state tiles from the gh-enriched summary;
+// Running now (and the ring figures) keep the /api/data value so they always
+// agree with the rows' running dots. A missing or partial delta leaves the
+// base untouched. Pure — no input mutated.
+export function mergePrSummary(base, delta) {
+  if (!base) return base;
+  const keys = ['needYou', 'ready', 'external', 'idle'];
+  if (!delta || !keys.every((k) => typeof delta[k] === 'number')) return base;
+  const merged = { ...base };
+  for (const k of keys) merged[k] = delta[k];
+  return merged;
 }
 
 export function runningNowCount(projects) {
@@ -824,9 +892,9 @@ export function actionQueueHtml(projects) {
 export function lensToggleHtml(activeLens) {
   const cls = (l) => `lens-btn${activeLens === l ? ' active' : ''}`;
   return (
-    `<div class="lens-toggle">` +
-    `<button class="${cls('overview')}" data-action="set-lens-overview">overview</button>` +
-    `<button class="${cls('queue')}" data-action="set-lens-queue">action queue</button>` +
-    `</div>`
+    `<nav class="lens-pills" aria-label="View">` +
+    `<button class="${cls('overview')}" data-action="set-lens-overview">By project</button>` +
+    `<button class="${cls('queue')}" data-action="set-lens-queue">Action queue</button>` +
+    `</nav>`
   );
 }

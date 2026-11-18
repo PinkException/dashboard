@@ -101,17 +101,17 @@ test('overviewRow: every project shape (normal, error, not-jig-managed) renders 
   const err = overviewRow({ name: 'Broken', path: '/x', error: 'path does not exist' });
   const notManaged = overviewRow({ name: 'Plain', path: '/y', jigManaged: false, sessions: [] });
   for (const html of [normal, err, notManaged]) {
-    assert.match(html, /^<div class="project-row"/);
-    // Six direct grid cells every time: gutter, project, nextmove, inflight, progress, activity.
-    assert.equal((html.match(/<div class="row-/g) || []).length, 6);
+    assert.match(html, /^<div class="project-row/);
+    // Five direct grid cells every time (014-01: the gutter column is gone): project, nextmove, inflight, progress, activity.
+    assert.equal((html.match(/<div class="row-(project|nextmove|inflight|progress|activity)"/g) || []).length, 5);
   }
 });
 
 test('mutation check: removing the shared shell breaks row-count uniformity', () => {
   // Demonstrates the AC1 test actually discriminates: a row missing a column
   // fails the assertion above.
-  const brokenHtml = '<div class="project-row"><div class="row-gutter"></div></div>';
-  assert.notEqual((brokenHtml.match(/<div class="row-/g) || []).length, 6);
+  const brokenHtml = '<div class="project-row"><div class="row-project"></div></div>';
+  assert.notEqual((brokenHtml.match(/<div class="row-(project|nextmove|inflight|progress|activity)"/g) || []).length, 5);
 });
 
 // --- AC2: glance row content ---
@@ -139,15 +139,16 @@ test('overviewRow: no compass snapshot yet is shown honestly, not blank (AC2 reg
 test('overviewRow: progress column shows pct + done\\/denom + an inline svg bar (AC2/AC3)', () => {
   const html = overviewRow(mkProject({ progress: { done: 18, total: 28, denom: 28, abandoned: 0, pct: 64, by: {} } }));
   assert.match(html, /<span class="pct">64%<\/span>/);
-  assert.match(html, /18\/28/);
-  assert.match(html, /<svg class="pbar"/);
+  assert.match(html, /18 of 28 specs/);
+  assert.match(html, /<div class="pbar-fill" style="width:64%"/);
 });
 
 test('overviewRow: activity column shows active count + last activity, or "idle" (AC2)', () => {
   const active = overviewRow(mkProject({ sessions: [{ active: true, running: true, lastActivity: new Date().toISOString() }] }));
-  assert.match(active, /1 active/);
+  assert.match(active, /1 running/);
+  assert.match(active, /touched just now/);
   const idle = overviewRow(mkProject({ sessions: [] }));
-  assert.match(idle, />idle</);
+  assert.match(idle, />Idle</);
 });
 
 test('inFlightCount: sums in-progress specs + active sessions + worktree-only docs (AC2)', () => {
@@ -180,12 +181,12 @@ test('heatBucket: reproduces every example in the redline render (AC2)', () => {
   assert.equal(heatBucket(10), 'hot');
 });
 
-test('overviewRow: in-flight figure carries a heat class and 6 flight cells (AC2)', () => {
+test('overviewRow: in-flight figure carries a heat class and a heat word (AC2, 014-01)', () => {
   const html = overviewRow(mkProject({
     specs: [{ id: 'a', status: 'IN_PROGRESS' }, { id: 'b', status: 'IN_PROGRESS' }, { id: 'c', status: 'IN_PROGRESS' }],
   }));
   assert.match(html, /class="if-num heat-busy"/);
-  assert.equal((html.match(/<rect/g) || []).length >= 6, true);
+  assert.match(html, /<span class="if-word">in flight · busy<\/span>/);
 });
 
 // --- AC3: charts are zero-dep inline SVG ---
@@ -460,7 +461,7 @@ test('detailView + overviewRow: spec fraction uses the SAME (abandoned-excluded)
   });
   const overviewHtml = overviewRow(p);
   const detailHtml = detailView(p);
-  assert.match(overviewHtml, /2\/4/, 'overview shows done\\/denom (abandoned excluded)');
+  assert.match(overviewHtml, /2 of 4 specs/, 'overview shows done of denom (abandoned excluded)');
   assert.match(detailHtml, /2\/4 specs/, 'detail must agree with the overview\'s denominator');
   assert.ok(!detailHtml.includes('2/5 specs'), 'detail must not fall back to done/total (abandoned included)');
 });
@@ -628,35 +629,36 @@ function withWaitingOn(state, verb, action, rank) {
 
 test('overviewRow: a You-state (DECIDE/REVIEW/MERGE) headlines the verb + named action, replacing the old compass-only next-move (009-02 AC1)', () => {
   const html = overviewRow(withWaitingOn('DECIDE', 'DECIDE', 'decide the currency-rounding rule', 3));
-  assert.match(html, /<span class="row-verb rv-DECIDE">DECIDE<\/span>/);
-  assert.match(html, /<span class="row-action">decide the currency-rounding rule<\/span>/);
+  assert.match(html, /<span class="chip chip-you">Your call<\/span>/);
+  assert.match(html, /<span class="row-action">Decide the currency-rounding rule<\/span>/);
 });
 
 test('overviewRow: REVIEW and MERGE headline the same way, each with their own verb (009-02 AC1)', () => {
   const review = overviewRow(withWaitingOn('REVIEW', 'REVIEW', 'review 2 finished slices', 2));
-  assert.match(review, /<span class="row-verb rv-REVIEW">REVIEW<\/span>/);
-  assert.match(review, /review 2 finished slices/);
+  assert.match(review, /<span class="chip chip-you">Your review<\/span>/);
+  assert.match(review, /Review 2 finished slices/);
   const merge = overviewRow(withWaitingOn('MERGE', 'MERGE', 'land 1 reconciled slice', 1));
-  assert.match(merge, /<span class="row-verb rv-MERGE">MERGE<\/span>/);
-  assert.match(merge, /land 1 reconciled slice/);
+  assert.match(merge, /<span class="chip chip-merge">Land<\/span>/);
+  assert.match(merge, /Land 1 reconciled slice/);
 });
 
 test('overviewRow: Ready headlines calmer than a You-state — still a named action, distinct verb class (009-02 AC1)', () => {
   const html = overviewRow(withWaitingOn('Ready', 'READY', 'resume 009-02', 4));
-  assert.match(html, /<span class="row-verb rv-Ready">READY<\/span>/);
-  assert.match(html, /resume 009-02/);
+  assert.match(html, /<span class="chip chip-ready">Ready<\/span>/);
+  assert.match(html, /Resume 009-02/);
 });
 
 test('overviewRow: Idle never shows a verb badge — falls back to the quiet compass-headline display, never a hollow phrase (009-02 AC1)', () => {
   const html = overviewRow(withWaitingOn('Idle', 'IDLE', '', 7));
-  assert.ok(!html.includes('row-verb'), 'Idle renders quietest — no state badge at all');
-  assert.match(html, /<span class="row-action">build the search index<\/span>/, 'falls back to the existing compass-headline display');
+  assert.ok(!html.includes('row-verb'), 'no verb badge in overview rows (chip carries the state)');
+  assert.match(html, /<span class="chip chip-idle">Idle<\/span>/);
+  assert.match(html, /<span class="row-action muted">build the search index<\/span>/, 'falls back to the existing compass-headline display');
 });
 
 test('overviewRow: no waitingOn field at all (legacy/hand-built payload) degrades to the pre-009-02 compass display, unchanged (backward compat)', () => {
   const html = overviewRow(mkProject());
   assert.ok(!html.includes('row-verb'));
-  assert.match(html, /<span class="row-action">build the search index<\/span>/);
+  assert.match(html, /<span class="row-action muted">build the search index<\/span>/);
 });
 
 test('sortProjectsByWaitingOn: orders finish-first by rank ascending — MERGE > REVIEW > DECIDE > Ready > Idle (009-02 AC2)', () => {

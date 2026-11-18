@@ -1,9 +1,10 @@
 ---
-status: READY_FOR_IMPLEMENTATION
+status: IN_PROGRESS
 dependencies: []
 last_verified:
 arch_review: true
 frame_review: true
+claimed_by: claude/slice-014-01-readable-overview
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->

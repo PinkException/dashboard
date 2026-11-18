@@ -4,131 +4,181 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Project dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* Spec 009-01: Console-direction theme, matching the v1.2 redline token
-     cascade (docs/designs/dashboard-v1.2/redlines/base.md). The redline is
-     dark-only, so :root below carries a DERIVED light palette (each dark
-     token's role/contrast preserved — background/surface/text/border ramp
-     inverted, accent hues kept but re-lit for a light surface); the
-     `@media (prefers-color-scheme: dark)` block below restores the redline's
-     dark values verbatim (spec 009-01 follow-up, owner-requested). Fonts use
-     a monospace/sans system-font stack rather than a Google Fonts import —
-     the dashboard is a local, potentially offline tool (ADR-0001 zero-dep)
-     and nothing here should require a network fetch beyond /api/data. */
+  /* Spec 014-01: v1.3 "readable" look (docs/designs/dashboard-v1.3/). Light
+     palette in :root, dark values from Main-dark.dc.html in the media query;
+     no hard-coded colour anywhere else (the old token names below are kept as
+     aliases of the new palette so the detail/queue/roadmap views, restyled in
+     014-02/014-03, follow the shared tokens automatically). Nunito loads from
+     Google Fonts (owner decision D1); the stack falls back offline. */
   :root {
-    --canvas: #f4f5f7;
-    --sheet: #edeff2; --topbar: #eff1f4; --hover: #dfe3e9; --inset: #d1d7df;
-    --track: #d6dbe1; --border: #d6dbe1; --border-soft: #e2e6eb; --border-faint: #e8ebef;
-    --border-strong: #c5cdd5; --border-dash: #c4ccd4; --ok-border: #afdbcb;
-    --warn-bg: #efeaed; --dot-border: #afbac5; --dot-off: #bec7d0;
-    --text: #1f2328; --text-white: #080a0d; --text-hi: #0b0e11; --text-body: #161b20;
-    --text-bright: #272e36; --text-item: #434b55; --text-subhead: #535b65;
-    --text-muted: #636b75; --text-dim: #6f7883; --text-dim2: #848e99; --text-dimmer: #7f8894;
-    --text-label: #8c95a0; --text-faint: #a1aab5; --text-faintest: #afb7c2;
-    --green: #3cb37a; --blue: #1766b3; --amber: #b27519; --orange: #a42f10;
-    --red: #9e0f1d; --blocked-bg: #efe5e8; --blocked-border: #e2c5ca; --red-soft: #3d0d13;
-    --link: #2f5b90; --link-hover: #173e70; --link-dim: #5777a0; --purple: #3f1773;
-    --draft: #5f6774; --abandoned: #aa8590; --stale: #c5a575; --warn-text: #614817;
-    --heat-clear: var(--text-faint); --heat-light: var(--text-muted);
-    --heat-busy: var(--amber); --heat-hot: var(--orange);
-    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --canvas: #F4EFE4; --surface: #FBF8F1; --inset: #EFE7D6; --border: #E4DAC7;
+    --text: #1C2A47; --muted: #4E5A7C;
+    --accent: #E16B43; --accent-strong: #B04A24;
+    --ok: #2F8A63; --ok-strong: #23704F; --idle: #625C4E; --external: #3F5379;
+    --danger: #B5372B; --warn: #8A5A08; --dot-off: #C9BFAA;
+    --row-owner: #FDF6EE; --row-idle: #F7F3EA; --blocked-bg: #FCEFE9;
+    --chip-you-bg: #FBE3D8; --chip-you-fg: #A3401C;
+    --chip-merge-bg: #E2EFE7; --chip-merge-fg: #23704F;
+    --chip-ready-bg: #E2EFE7; --chip-ready-fg: #23704F;
+    --chip-external-bg: #E7E9F0; --chip-external-fg: #3F5379;
+    --chip-idle-bg: #ECE7DB; --chip-idle-fg: #625C4E;
+    --lens-active-bg: #1C2A47; --lens-active-fg: #FBF8F1; --lens-track: #EFE7D6;
+    --on-danger: #FFFFFF;
+    --shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'Nunito', ui-rounded, system-ui, sans-serif;
+    --heat-hot: var(--accent-strong); --heat-busy: var(--warn); --heat-light: var(--text); --heat-clear: var(--muted);
+    /* aliases for views not yet restyled */
+    --sheet: var(--surface); --topbar: var(--surface); --hover: var(--inset); --track: var(--border);
+    --border-soft: var(--border); --border-faint: var(--border); --border-strong: var(--border); --border-dash: var(--border);
+    --ok-border: var(--ok); --warn-bg: var(--inset); --warn-text: var(--text); --dot-border: var(--muted);
+    --text-white: var(--text); --text-hi: var(--text); --text-body: var(--text); --text-bright: var(--text);
+    --text-item: var(--muted); --text-subhead: var(--muted); --text-muted: var(--muted); --text-dim: var(--muted);
+    --text-dim2: var(--muted); --text-dimmer: var(--muted); --text-label: var(--muted); --text-faint: var(--muted); --text-faintest: var(--muted);
+    --green: var(--ok); --blue: var(--accent-strong); --amber: var(--accent); --orange: var(--accent-strong);
+    --red: var(--danger); --blocked-border: var(--border); --red-soft: var(--text);
+    --link: var(--accent-strong); --link-hover: var(--text); --link-dim: var(--muted); --purple: var(--muted);
+    --draft: var(--idle); --abandoned: var(--muted); --stale: var(--accent-strong);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --canvas: #08090b;
-      --sheet: #0d0f12; --topbar: #0b0d10; --hover: #161a20; --inset: #20262e;
-      --track: #1e2329; --border: #1e2329; --border-soft: #14181d; --border-faint: #101317;
-      --border-strong: #2a323a; --border-dash: #2b333b; --ok-border: #245040;
-      --warn-bg: #151013; --dot-border: #3a4550; --dot-off: #2f3841;
-      --text: #d7dbe0; --text-white: #f2f4f7; --text-hi: #eef1f4; --text-body: #dfe4e9;
-      --text-bright: #c9d0d8; --text-item: #aab2bc; --text-subhead: #9aa2ac;
-      --text-muted: #8a929c; --text-dim: #7c8590; --text-dim2: #66707b; --text-dimmer: #6b7480;
-      --text-label: #5f6873; --text-faint: #4a535e; --text-faintest: #3d4550;
-      --green: #4cc38a; --blue: #4c9be8; --amber: #e6a94d; --orange: #ef7a5b;
-      --red: #f0616f; --blocked-bg: #1a1013; --blocked-border: #3a1d22; --red-soft: #f2c2c8;
-      --link: #6f9bd0; --link-hover: #8fb6e8; --link-dim: #5f7fa8; --purple: #b48ce8;
-      --draft: #8b93a0; --abandoned: #7a5560; --stale: #8a6a3a; --warn-text: #e8cf9e;
+      --canvas: #121A2B; --surface: #1A2338; --inset: #232E48; --border: #2C374F;
+      --text: #EFE9DC; --muted: #A9B3CA;
+      --accent: #EE7E56; --accent-strong: #F08A63;
+      --ok: #5BBB8D; --ok-strong: #7DD3A8; --idle: #C9C2B2; --external: #B4C3E6;
+      --danger: #FFB497; --warn: #E3AC44; --dot-off: #4A5470;
+      --row-owner: #1F2539; --row-idle: #161E31; --blocked-bg: #2B1F27;
+      --chip-you-bg: #4A2618; --chip-you-fg: #FFB497;
+      --chip-merge-bg: #1B3830; --chip-merge-fg: #7DD3A8;
+      --chip-ready-bg: #1B3830; --chip-ready-fg: #7DD3A8;
+      --chip-external-bg: #26314C; --chip-external-fg: #B4C3E6;
+      --chip-idle-bg: #2A303E; --chip-idle-fg: #C9C2B2;
+      --lens-active-bg: #EFE9DC; --lens-active-fg: #1A2338; --lens-track: #232E48;
+      --on-danger: #121A2B;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.28);
     }
   }
   * { box-sizing: border-box; }
   html, body { background: var(--canvas); }
-  body {
-    margin: 0; padding: 24px; color: var(--text);
-    font: 14px/1.5 var(--sans);
-  }
-  #app { max-width: 1360px; margin: 0 auto; }
-  .toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; max-width: 1360px; margin: 0 auto 10px; }
-  .toolbar .meta { font-size: 11px; color: var(--text-label); font-family: var(--mono); }
-  button { background: none; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text-subhead); font: 12px var(--mono); padding: 5px 11px; cursor: pointer; }
-  button:hover { background: var(--hover); }
+  body { margin: 0; padding: clamp(20px, 4vw, 52px); color: var(--text); font-size: 15px; line-height: 1.5; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; }
+  #app { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+  .toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; max-width: 1240px; margin: 0 auto 10px; }
+  .toolbar .meta { font-size: 13px; color: var(--muted); }
+  button { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; color: var(--text); font: 700 15px var(--sans); min-height: 44px; padding: 0 20px; cursor: pointer; }
+  button:hover { background: var(--inset); }
+  a { color: var(--text); text-decoration: none; }
+  a:hover { color: var(--accent-strong); }
 
-  .sheet { background: var(--sheet); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .err { color: var(--red); padding: 20px; }
+  .sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+  .err { color: var(--danger); padding: 20px; }
 
-  /* --- summary band + header --- */
-  .summary-band { display: flex; justify-content: space-between; align-items: center; padding: 22px 26px; border-bottom: 1px solid var(--border); }
-  .summary-path { font: 11px var(--mono); color: var(--text-label); letter-spacing: 0.04em; }
-  .summary-title { font: 600 21px/1.2 var(--sans); color: var(--text-hi); margin-top: 4px; }
-  .summary-right { display: flex; align-items: center; gap: 18px; }
-  .summary-stats { display: flex; align-items: center; }
+  /* --- header --- */
+  .hdr { display: flex; gap: 22px; align-items: center; }
+  .hdr-text { display: flex; flex-direction: column; gap: 4px; }
+  .ring-track { stroke: var(--border); }
+  .ring-arc { stroke: var(--accent); }
+  .hdr-eyebrow { margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-strong); font-weight: 800; }
+  .hdr-title { margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+  .hdr-tagline { margin: 0; font-size: 17px; color: var(--muted); }
 
-  /* --- 009-03: lens toggle (overview grid <-> action queue) --- */
-  .lens-toggle { display: flex; gap: 4px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 3px; }
-  .lens-btn { border: none; border-radius: 5px; background: none; color: var(--text-dim); font: 11.5px var(--mono); padding: 6px 12px; cursor: pointer; }
-  .lens-btn:hover { background: var(--hover); color: var(--text-bright); }
-  .lens-btn.active { background: var(--hover); color: var(--text-hi); }
+  /* --- summary tiles --- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 2px; }
+  .tile-num { display: flex; align-items: center; gap: 10px; font-size: 38px; font-weight: 800; line-height: 1.1; }
+  .tile-need { color: var(--accent-strong); }
+  .tile-ready { color: var(--ok-strong); }
+  .tile-external { color: var(--external); }
+  .tile-idle { color: var(--idle); }
+  .tile-running { color: var(--text); }
+  .tile-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ok); }
+  .tile-label { font-size: 16px; font-weight: 700; }
+  .tile-sub { font-size: 14px; color: var(--muted); }
 
-  /* --- 009-03: action-queue rows, grouped by pipeline stage --- */
+  /* --- lens switch + legend --- */
+  .lens-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+  .lens-pills { display: inline-flex; background: var(--lens-track); border: 1px solid var(--border); border-radius: 999px; padding: 4px; gap: 4px; }
+  .lens-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: none; border-radius: 999px; background: none; color: var(--text); font: 700 15px var(--sans); cursor: pointer; }
+  .lens-btn:hover { background: var(--border); }
+  .lens-btn.active { background: var(--lens-active-bg); color: var(--lens-active-fg); }
+  .chip-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 14px; color: var(--muted); }
+
+  /* --- chips (one vocabulary; see CHIPS in render.mjs) --- */
+  .chip { display: inline-flex; align-items: center; font: 800 13px var(--sans); letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--inset); color: var(--muted); }
+  .chip-you { background: var(--chip-you-bg); color: var(--chip-you-fg); }
+  .chip-merge { background: var(--chip-merge-bg); color: var(--chip-merge-fg); }
+  .chip-ready { background: var(--chip-ready-bg); color: var(--chip-ready-fg); }
+  .chip-external { background: var(--chip-external-bg); color: var(--chip-external-fg); }
+  .chip-idle, .chip-muted { background: var(--chip-idle-bg); color: var(--chip-idle-fg); }
+  .chip-error { background: var(--danger); color: var(--on-danger); }
+  .chip-current { background: var(--chip-ready-bg); color: var(--chip-ready-fg); font-size: 13px; }
+
+  /* --- action-queue rows (layout restyled in 014-02) --- */
   .queue-list { display: flex; flex-direction: column; }
-  .queue-group { border-top: 1px solid var(--border-soft); }
+  .queue-group { border-top: 1px solid var(--border); }
   .queue-group:first-child { border-top: none; }
-  .queue-group-header { padding: 12px 26px 4px; font: 10px var(--mono); letter-spacing: 0.13em; color: var(--text-label); text-transform: uppercase; }
-  .queue-row { display: flex; align-items: center; gap: 14px; padding: 12px 26px; border-top: 1px solid var(--border-faint); cursor: pointer; }
+  .queue-group-header { padding: 12px 26px 4px; font: 800 13px var(--sans); letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .queue-row { display: flex; align-items: center; gap: 14px; padding: 12px 26px; border-top: 1px solid var(--border); cursor: pointer; }
   .queue-row:first-of-type { border-top: none; }
-  .queue-row:hover { background: var(--hover); }
-  .queue-project { font: 600 13.5px var(--mono); color: var(--text-hi); }
-  .queue-action { font: 13.5px var(--sans); color: var(--text-bright); }
-  .stat-cell { padding: 0 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-  .stat-cell .stat-count { font: 600 26px/0.9 var(--mono); color: var(--text-hi); }
-  .stat-cell .stat-label { font: 10px var(--mono); letter-spacing: 0.13em; color: var(--text-label); text-transform: uppercase; }
-  .running-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; animation: cpulse 1.8s ease-in-out infinite; }
+  .queue-row:hover { background: var(--inset); }
+  .queue-project { font: 800 17px var(--sans); }
+  .queue-action { font: 400 15px var(--sans); }
+  .summary-band { display: flex; justify-content: space-between; align-items: center; padding: 22px 26px; border-bottom: 1px solid var(--border); }
+  .summary-path { font: 13px var(--mono); color: var(--muted); }
+  .summary-title { font: 800 21px/1.2 var(--sans); margin-top: 4px; }
+  .summary-right { display: flex; align-items: center; gap: 18px; }
+  .running-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; animation: cpulse 1.8s ease-in-out infinite; }
   @keyframes cpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
-  .col-header { display: grid; grid-template-columns: 3px 248px minmax(300px,1fr) 132px 140px 150px; column-gap: 20px; padding: 11px 26px; border-bottom: 1px solid var(--border); font: 10px var(--mono); letter-spacing: 0.12em; color: var(--text-label); text-transform: uppercase; }
-
   /* --- overview rows --- */
+  .overview-list { min-width: 1000px; }
+  .sheet-scroll { overflow-x: auto; }
+  .col-header, .project-row { display: grid; grid-template-columns: 230px minmax(300px, 1fr) 140px 180px 160px; column-gap: 24px; padding: 16px 26px; }
+  .col-header { border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .project-list { display: flex; flex-direction: column; }
-  .project-row { display: grid; grid-template-columns: 3px 248px minmax(300px,1fr) 132px 140px 150px; column-gap: 20px; align-items: center; min-height: 104px; padding: 0 26px; border-top: 1px solid var(--border-soft); cursor: pointer; }
-  .project-row:hover { background: var(--hover); }
-  .row-gutter { align-self: stretch; width: 3px; margin: 21px 0; border-radius: 2px; background: transparent; }
-  .row-project { display: flex; flex-direction: column; gap: 7px; }
-  .row-name { font: 600 15px var(--mono); color: var(--text-hi); }
-  .row-type { font: 12.5px var(--sans); color: var(--text-muted); }
-  .chip { align-self: flex-start; font: 400 9.5px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 8px; border: 1px solid var(--border-strong); color: var(--text-muted); }
-  .chip-active { color: var(--text-muted); border-color: var(--border-strong); }
-  .chip-done { color: var(--green); border-color: var(--ok-border); }
-  .chip-error { color: var(--red); border-color: var(--blocked-border); }
-  .chip-muted { color: var(--text-faint); border-color: var(--border-soft); }
-  .chip-current { color: var(--green); border-color: var(--ok-border); font-size: 9px; }
+  .project-row { align-items: center; padding-top: 20px; padding-bottom: 20px; border-top: 1px solid var(--border); cursor: pointer; }
+  .col-header + .project-list > .project-row:first-child { border-top: none; }
+  .project-row:hover { background: var(--inset); }
+  .project-row.row-owner { background: var(--row-owner); }
+  .project-row.row-idle { background: var(--row-idle); }
+  .project-row.row-owner:hover, .project-row.row-idle:hover { background: var(--inset); }
+  .row-project { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .row-name { font: 800 19px/1.25 var(--sans); }
+  .row-type { font: 400 15px var(--sans); color: var(--muted); }
+  .row-nextmove { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .row-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .row-action { font: 700 17px/1.35 var(--sans); color: var(--text); }
+  .row-action.muted { color: var(--muted); font-weight: 600; }
+  .row-wait { font-size: 15px; color: var(--muted); }
+  .row-inflight { display: flex; flex-direction: column; gap: 2px; }
+  .if-num { font: 800 24px/1.1 var(--sans); }
+  .if-word { font-size: 14px; color: var(--muted); }
+  .heat-clear { color: var(--heat-clear); }
+  .heat-light { color: var(--heat-light); }
+  .heat-busy { color: var(--heat-busy); }
+  .heat-hot { color: var(--heat-hot); }
+  .row-progress { display: flex; flex-direction: column; gap: 6px; }
+  .pct-line { display: flex; align-items: baseline; gap: 8px; }
+  .row-progress .pct { font: 800 19px var(--sans); }
+  .row-progress .caption { font-size: 14px; color: var(--muted); }
+  .pbar-track { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .pbar-fill { height: 8px; border-radius: 999px; background: var(--accent); }
+  .pbar-fill.full { background: var(--ok); }
+  .row-activity { display: flex; flex-direction: column; gap: 3px; }
+  .act-primary { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .run-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--dot-off); }
+  .run-dot.on { background: var(--ok); }
+  .act-last { font-size: 14px; color: var(--muted); }
+  .overview-hint { margin: 0; font-size: 15px; color: var(--muted); }
 
-  .row-nextmove .row-action { font: 400 14px/1.35 var(--sans); color: var(--text-bright); }
-  .row-action.muted { color: var(--text-dim); font-style: italic; }
-
-  /* Spec 009-02 AC1: the waiting-on verb badge — You-states (DECIDE/REVIEW/
-     MERGE) carry the strongest emphasis, Ready calmer; Idle renders no badge
-     at all (nextMoveCell falls back to the plain compass line — the
-     quietest state, per AC1). Selectors below are keyed on the exact state
-     name render.mjs emits as `rv-${state}` — renaming a state in
-     deriveWaitingOn (src/lib.mjs) must rename its selector here too. */
-  .row-verb { display: inline-block; font: 700 10.5px var(--mono); letter-spacing: 0.09em; text-transform: uppercase; margin-right: 9px; padding: 2px 8px; border-radius: 4px; vertical-align: middle; }
-  .rv-DECIDE, .rv-REVIEW, .rv-MERGE { color: var(--red); background: var(--blocked-bg); border: 1px solid var(--blocked-border); }
-  .rv-REVIEW { color: var(--amber); }
-  .rv-MERGE { color: var(--green); border-color: var(--ok-border); }
-  .rv-Ready { color: var(--blue); background: transparent; border: 1px solid var(--border-strong); }
-  /* Spec 009-04: External (a PR out for someone else's review) is recessive —
-     quieter than the You-states, louder than Idle (which shows no badge). */
-  .rv-External { color: var(--text-muted); background: transparent; border: 1px solid var(--border-soft); }
+  /* Waiting-on verb badge: still used by the action-queue rows (014-02). */
+  .row-verb { display: inline-block; font: 800 13px var(--sans); letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
+  .rv-DECIDE, .rv-REVIEW { background: var(--chip-you-bg); color: var(--chip-you-fg); }
+  .rv-MERGE, .rv-Ready { background: var(--chip-ready-bg); color: var(--chip-ready-fg); }
+  .rv-External { background: var(--chip-external-bg); color: var(--chip-external-fg); }
 
   /* Spec 009-04: detail-view open-PR list. */
   .prs { margin-top: 14px; }
@@ -136,24 +186,7 @@
   .pr-link { color: var(--blue); text-decoration: none; }
   .pr-title { color: var(--text-subhead); }
   .pr-hint { color: var(--text-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
-
-  .row-inflight { display: flex; flex-direction: column; gap: 7px; }
-  .if-num { font: 600 26px/0.9 var(--mono); }
-  .if-word { font: 10px var(--mono); text-transform: uppercase; margin-left: 4px; }
-  .if-caption { font: 9.5px var(--mono); letter-spacing: 0.06em; color: var(--text-faint); }
-  .heat-clear { color: var(--heat-clear); }
-  .heat-light { color: var(--heat-light); }
-  .heat-busy { color: var(--heat-busy); }
-  .heat-hot { color: var(--heat-hot); }
   .flight-cells { display: block; }
-
-  .row-progress { display: flex; flex-direction: column; gap: 8px; }
-  .row-progress .pct { font: 500 16px var(--mono); color: var(--text-bright); }
-  .row-progress .caption { font: 11px var(--mono); color: var(--text-label); margin-left: 6px; }
-
-  .row-activity { display: flex; flex-direction: column; gap: 7px; font: 12px var(--mono); }
-  .act-primary { color: var(--text-bright); display: block; }
-  .act-last { color: var(--text-label); font-size: 11.5px; display: block; }
 
   /* --- detail view --- */
   .detail { background: var(--sheet); }
@@ -294,29 +327,23 @@ const scannedEl = document.getElementById('scanned');
 let state = { ...R.OVERVIEW_STATE };
 let projects = [];
 let generatedAt = null;
+let summary = null; // 014-01: scanner-side tile counts
 
 function overviewHtml() {
   // Spec 009-02 AC2: finish-first ordering — MERGE > REVIEW > DECIDE >
   // Ready(resume) > Ready(start) > External > Idle, via each project's
   // waitingOn.rank (derived scan-side, src/lib.mjs's deriveWaitingOn).
   const rows = R.sortProjectsByWaitingOn(projects).map(R.overviewRow).join('');
-  const running = R.runningNowCount(projects);
-  return `<div class="sheet">
-    <div class="summary-band">
-      <div>
-        <div class="summary-path">~/projects</div>
-        <div class="summary-title">Overview</div>
-      </div>
-      <div class="summary-right">
-        <div class="summary-stats">
-          <div class="stat-cell"><span class="stat-count"><span class="running-dot"></span>${running}</span><span class="stat-label">RUNNING NOW</span></div>
-        </div>
-        ${R.lensToggleHtml('overview')}
-      </div>
-    </div>
-    <div class="col-header"><span></span><span>PROJECT</span><span>NEXT MOVE</span><span>IN FLIGHT</span><span>PROGRESS</span><span>ACTIVITY</span></div>
-    <div class="project-list">${rows || '<p style="padding:20px 26px;color:var(--text-muted)">No projects configured.</p>'}</div>
-  </div>`;
+  // Spec 014-01: header + five tiles + lens switch + chip legend; all counts
+  // come from the scanner-side `summary` (ADR-0001, the page derives nothing).
+  return `${R.headerHtml(summary)}
+    ${R.summaryTilesHtml(summary)}
+    <div class="lens-row">${R.lensToggleHtml('overview')}${R.chipLegendHtml()}</div>
+    <section class="sheet sheet-scroll" aria-label="Projects"><div class="overview-list">
+      <div class="col-header"><span>Project</span><span>Next move</span><span>In flight</span><span>Progress</span><span>Activity</span></div>
+      <div class="project-list">${rows || '<p style="padding:20px 26px;color:var(--muted)">No projects configured.</p>'}</div>
+    </div></section>
+    <p class="overview-hint">Click a project to open its detail page.</p>`;
 }
 
 function render() {
@@ -372,6 +399,7 @@ async function load() {
     return;
   }
   projects = data.projects;
+  summary = data.summary || null;
   generatedAt = data.generatedAt;
   scannedEl.textContent = 'scanned ' + new Date(generatedAt).toLocaleString();
   render();
@@ -400,6 +428,9 @@ async function loadPrs() {
   }
   if (!prs || prs.error) return;
   projects = R.mergePrDeltas(projects, prs.projects);
+  // 014-01: swap the four state tiles from the gh-enriched summary; Running
+  // now keeps the /api/data value (a failed /api/prs never reaches here).
+  summary = R.mergePrSummary(summary, prs.summary);
   render();
 }
 
