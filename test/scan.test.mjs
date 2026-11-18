@@ -665,3 +665,21 @@ test('012-01 AC11: git info (commit count, first/last commit date) is unchanged 
   assert.deepEqual(p.git, { firstCommit: '2021-03-04', lastCommit: '2023-07-08', commits: 3 });
   assert.equal(scanProject(cfgFor(path.join(RM_TMP, 'nogit'))).git, null);
 });
+
+test('012-02 AC1/AC2: scanner adds slice `goal` (all) and `trigger` (DEFERRED only); absent -> null; plain slices unaffected', () => {
+  const root = mkRepo();
+  write(path.join(root, 'docs/specs/001-a/spec.md'), specMd('A'));
+  const body = (st, extra) => `---\nstatus: ${st}\ndependencies: []\n---\n\n## Slice 001-0 — n\n\n**Goal:** Do the *thing* well. Then more.\n\n${extra}`;
+  write(path.join(root, 'docs/specs/001-a/slice-01-a.md'), body('DRAFT', '**Resolution trigger:** ignored for non-deferred\n'));
+  write(path.join(root, 'docs/specs/001-a/slice-02-b.md'), body('DEFERRED', '**Resolution trigger:** Revisit when X lands.\nOr Y.\n'));
+  write(path.join(root, 'docs/specs/001-a/slice-03-c.md'), '---\nstatus: DEFERRED\n---\n\n## Slice 001-03 — c\n\nnothing\n');
+  const p = scanProject(cfgFor(root));
+  const [a, b, c] = p.specs[0].slices;
+  assert.equal(a.goal, 'Do the thing well…');
+  assert.equal(a.trigger, undefined, 'trigger only on DEFERRED slices');
+  assert.equal(b.trigger, 'Revisit when X lands. Or Y.');
+  assert.equal(c.goal, null);
+  assert.equal(c.trigger, null);
+  assert.deepEqual(p.roadmap.parked.map((x) => x.id), ['001-02', '001-03']);
+  assert.equal(p.roadmap.parked[0].trigger, 'Revisit when X lands. Or Y.');
+});

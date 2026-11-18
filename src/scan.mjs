@@ -30,6 +30,8 @@ import {
   resolveReleaseGoal,
   currentReleaseTrack,
   sliceNameFrom,
+  extractSliceGoal,
+  extractSliceTrigger,
   deriveRoadmap,
   parseRecencyLog,
   parseWorktreeList,
@@ -278,13 +280,18 @@ function scanSpecs(root, onGit) {
       if (!/^slice-.*\.md$/.test(f)) continue;
       const parsed = parseFrontmatter(readIf(path.join(dir, f)) || '');
       const fm = parsed.data;
-      slices.push({
+      const status = normStatus(fm.status);
+      const rec = {
         file: f,
         name: sliceNameFrom(parsed.body, f),
-        status: normStatus(fm.status),
+        status,
         dependencies: Array.isArray(fm.dependencies) ? fm.dependencies : [],
         lastVerified: fm.last_verified || null,
-      });
+        goal: extractSliceGoal(parsed.body),
+      };
+      // `trigger` exists only on DEFERRED slice records (absent, not null, elsewhere) — on purpose.
+      if (status === 'DEFERRED') rec.trigger = extractSliceTrigger(parsed.body);
+      slices.push(rec);
     }
     specs.push({ id: entry.name, title, status: normStatus(data.status), slices });
   }
