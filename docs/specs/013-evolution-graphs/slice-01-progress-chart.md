@@ -1,10 +1,9 @@
 ---
-status: RECONCILED
+status: DONE
 dependencies: []
 last_verified: 2026-11-17
 frame_review: true
 arch_review: true
-claimed_by: claude/slice-013-01-progress-chart
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only): expand each acronym on
