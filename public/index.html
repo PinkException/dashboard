@@ -168,7 +168,6 @@
   .tabs { margin-top: 14px; display: flex; gap: 2px; }
   .tab { font: 12.5px var(--mono); padding: 9px 16px; border-bottom: 2px solid transparent; color: var(--text-dimmer); cursor: pointer; }
   .tab.active { color: var(--text-hi); border-bottom-color: var(--amber); }
-  .tab.disabled { cursor: default; }
   .progress-readout { text-align: right; }
   .readout-text { font: 13px var(--mono); color: var(--text-bright); }
 
@@ -238,6 +237,10 @@
   .activity-tab-content { padding: 60px 26px; text-align: center; }
   .activity-icon { width: 52px; height: 52px; margin: 0 auto 14px; border: 1px dashed var(--border-dash); border-radius: 12px; }
   .activity-heading { font: 16px var(--sans); color: var(--text-bright); }
+  .evo-chart, .evo-empty, .evo-skipped { margin: 0 auto 26px; max-width: 560px; text-align: left; font: 12.5px var(--sans); color: var(--text-muted); }
+  .evo-svg { display: block; max-width: 100%; height: auto; }
+  .evo-caption { margin-top: 6px; font: 11px var(--mono); }
+  .evo-skipped { margin-top: -14px; font-size: 11.5px; }
   .activity-desc { margin-top: 6px; font: 12.5px var(--sans); color: var(--text-muted); }
 
   /* --- 012-01 roadmap tab (existing tokens only; chips differ by hue AND label) --- */

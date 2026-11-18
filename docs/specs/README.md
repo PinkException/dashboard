@@ -43,7 +43,7 @@
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
-| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | READY_FOR_IMPLEMENTATION |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | **DONE** |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
 
@@ -60,7 +60,7 @@
 Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/slice-*.md` `substrate:` fields.
 
 - **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
-- **2** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
+- **4** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
 - **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review

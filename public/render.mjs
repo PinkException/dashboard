@@ -467,6 +467,95 @@ export function activityTabPlaceholder() {
   );
 }
 
+// --- 013-01: progress-over-time chart (Activity tab) ---
+// Pure presentation of the scanner-built `p.history` (src/lib.mjs
+// buildProgressSeries). Beyond layout, the page computes exactly two things,
+// both required by the 013-01 signature evolutionChartSvg(history, now):
+// down-step markers (comparing consecutive counts) and the "last snapshot N
+// days ago" caption. Do not widen this without a spec. Colours are CSS tokens.
+const EVO = { W: 560, H: 160, L: 34, R: 10, T: 10, B: 24 };
+const EVO_DOWN_TIP =
+  'count went down: a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed';
+const evoNum = (n) => Number(n.toFixed(1)).toString();
+
+export function evolutionChartSvg(history, now = Date.now()) {
+  const h = history || { points: [], live: null, skipped: { noNumbers: 0, malformed: 0 } };
+  const pts = h.points || [];
+  const live = h.live || { done: 0, total: 0 };
+  const sk = h.skipped || { noNumbers: 0, malformed: 0 };
+  const skipParts = [];
+  if (sk.noNumbers > 0) skipParts.push(`${sk.noNumbers} ${sk.noNumbers === 1 ? 'entry' : 'entries'} without progress numbers`);
+  if (sk.malformed > 0) skipParts.push(`${sk.malformed} unreadable ${sk.malformed === 1 ? 'line' : 'lines'}`);
+  const skipLine = skipParts.length ? `<div class="evo-skipped">Not shown: ${skipParts.join(', ')}.</div>` : '';
+  if (!pts.length) {
+    return (
+      `<div class="evo-empty">No progress history yet. Today: ${esc(live.done)} of ${esc(live.total)} specs done. ` +
+      `Run <code>/dashboard:snapshot</code> to start one.</div>` + skipLine
+    );
+  }
+  const { W, H, L, R, T, B } = EVO;
+  const t0 = Date.parse(pts[0].ts);
+  const lastT = Date.parse(pts[pts.length - 1].ts);
+  const tEnd = Math.max(now, lastT);
+  const span = tEnd - t0 > 0 ? tEnd - t0 : 86400000;
+  const maxY = Math.max(1, live.total, ...pts.map((p) => p.total));
+  const x = (t) => L + ((t - t0) / span) * (W - L - R);
+  const y = (v) => H - B - (v / maxY) * (H - T - B);
+  const xs = pts.map((p) => x(Date.parse(p.ts)));
+  const xNow = x(tEnd);
+  const last = pts[pts.length - 1];
+
+  const line = (key, cls, stroke, width) => {
+    let d = `M${evoNum(xs[0])} ${evoNum(y(pts[0][key]))}`;
+    for (let i = 1; i < pts.length; i++) d += `H${evoNum(xs[i])}V${evoNum(y(pts[i][key]))}`;
+    const dl = `M${evoNum(xs[xs.length - 1])} ${evoNum(y(last[key]))}H${evoNum(xNow)}V${evoNum(y(live[key]))}`;
+    const common = `fill="none" stroke="${stroke}" stroke-width="${width}"`;
+    return (
+      `<path class="${cls}" ${common} d="${d}"></path>` +
+      `<path class="${cls}-live" ${common} stroke-dasharray="4 3" d="${dl}"></path>`
+    );
+  };
+
+  const downs = [];
+  for (const key of ['done', 'total']) {
+    const seq = pts.map((p, i) => ({ v: p[key], x: xs[i] })).concat([{ v: live[key], x: xNow }]);
+    for (let i = 1; i < seq.length; i++) {
+      if (seq[i].v < seq[i - 1].v) {
+        downs.push(
+          `<circle class="evo-down" cx="${evoNum(seq[i].x)}" cy="${evoNum(y(seq[i].v))}" r="4" fill="none" stroke="var(--blue)" stroke-width="1.5"><title>${esc(EVO_DOWN_TIP)}</title></circle>`,
+        );
+      }
+    }
+  }
+  const dots = pts
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.source !== 'auto' && typeof p.headline === 'string')
+    .map(({ p, i }) =>
+      `<circle class="evo-dot" cx="${evoNum(xs[i])}" cy="${evoNum(y(p.done))}" r="3" fill="var(--green)"><title>${esc(p.ts.slice(0, 10))}: ${esc(p.headline)}</title></circle>`,
+    )
+    .join('');
+
+  const days = Math.floor((now - lastT) / 86400000);
+  const ago = days <= 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
+  const axis =
+    `<line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--track)"></line>` +
+    `<text x="${L - 4}" y="${evoNum(y(0) + 3)}" text-anchor="end" fill="var(--text-muted)" font-size="10">0</text>` +
+    `<text x="${L - 4}" y="${evoNum(y(maxY) + 3)}" text-anchor="end" fill="var(--text-muted)" font-size="10">${maxY}</text>` +
+    `<text x="${L}" y="${H - 8}" fill="var(--text-muted)" font-size="10">${esc(pts[0].ts.slice(0, 10))}</text>` +
+    `<text x="${W - R}" y="${H - 8}" text-anchor="end" fill="var(--text-muted)" font-size="10">now</text>`;
+  return (
+    `<div class="evo-chart"><svg class="evo-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="specs done and total over time">` +
+    axis +
+    line('total', 'evo-total', 'var(--track)', 1.5) +
+    line('done', 'evo-done', 'var(--blue)', 2) +
+    dots +
+    downs.join('') +
+    `</svg>` +
+    `<div class="evo-caption">last snapshot ${ago}</div></div>` +
+    skipLine
+  );
+}
+
 // --- 012-01: roadmap tab ---
 // Pure presentation of the scanner-derived `p.roadmap` (src/lib.mjs
 // deriveRoadmap) — no ordering or status logic here (ADR-0001).
@@ -592,7 +681,7 @@ export function detailView(p, opts = {}) {
     `${p.description ? `<span class="detail-type">${esc(p.description)}</span>` : ''}` +
     `<span class="chip">${chip}</span></div>` +
     `<div class="detail-meta">${metaLine}</div>` +
-    `<div class="tabs">${TAB_NAMES.map((t) => `<span class="tab${tab === t ? ' active' : ''}${t === 'activity' ? ' disabled' : ''}" data-action="show-${t}-tab">${t}</span>`).join('')}</div>` +
+    `<div class="tabs">${TAB_NAMES.map((t) => `<span class="tab${tab === t ? ' active' : ''}" data-action="show-${t}-tab">${t}</span>`).join('')}</div>` +
     `</div>` +
     `<div class="progress-readout"><span class="readout-text">${pct === null ? '—' : pct + '%'} — ${p.progress.done}/${p.progress.denom} specs</span>` +
     progressBarSvg(pct, { w: 200, h: 5 }) +
@@ -610,7 +699,7 @@ export function detailView(p, opts = {}) {
     warningBlock(p) +
     `</div>` +
     `<div class="roadmap-tab-content"${tab === 'roadmap' ? '' : ' hidden'}>${roadmapTabHtml(p.roadmap)}</div>` +
-    `<div class="activity-tab-content"${tab === 'activity' ? '' : ' hidden'}>${activityTabPlaceholder()}</div>` +
+    `<div class="activity-tab-content"${tab === 'activity' ? '' : ' hidden'}>${evolutionChartSvg(p.history, opts.now ?? Date.now())}${activityTabPlaceholder()}</div>` +
     `</div>`
   );
 }
