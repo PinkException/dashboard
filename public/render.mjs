@@ -473,7 +473,7 @@ export function activityTabPlaceholder() {
 // both required by the 013-01 signature evolutionChartSvg(history, now):
 // down-step markers (comparing consecutive counts) and the "last snapshot N
 // days ago" caption. Do not widen this without a spec. Colours are CSS tokens.
-const EVO = { W: 560, H: 160, L: 34, R: 10, T: 10, B: 24 };
+const EVO = { W: 560, H: 160, L: 34, R: 10, T: 22, B: 24 }; // T leaves room for the axis-unit labels above the max label
 const EVO_DOWN_TIP =
   'count went down: a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed';
 const evoNum = (n) => Number(n.toFixed(1)).toString();
@@ -567,11 +567,11 @@ export function evolutionChartSvg(history, now = Date.now()) {
     `<line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--track)"></line>` +
     tx(L - 4, evoNum(y(0) + 3), 'end', '0') +
     tx(L - 4, evoNum(y(maxY) + 3), 'end', maxY) +
-    tx(L - 4, T - 1, 'end', 'specs', ' class="evo-ylabel"') +
+    tx(L - 4, T - 10, 'end', 'specs', ' class="evo-ylabel"') +
     (hasSlices
       ? tx(W - R + 4, evoNum(ys(0) + 3), 'start', '0') +
         tx(W - R + 4, evoNum(ys(maxS) + 3), 'start', maxS) +
-        tx(W - R + 4, T - 1, 'start', 'slices', ' class="evo-ylabel"')
+        tx(W - R + 4, T - 10, 'start', 'slices', ' class="evo-ylabel"')
       : '') +
     `<text x="${L}" y="${H - 8}" fill="var(--text-muted)" font-size="10">${esc(pts[0].ts.slice(0, 10))}</text>` +
     `<text x="${W - R}" y="${H - 8}" text-anchor="end" fill="var(--text-muted)" font-size="10">now</text>`;

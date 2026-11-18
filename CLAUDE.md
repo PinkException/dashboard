@@ -23,7 +23,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 ### Active specs
 Only work still in flight; the [status board](docs/specs/README.md) is the source of truth for everything else.
 - [012-project-roadmap-tab](docs/specs/012-project-roadmap-tab/spec.md) - roadmap tab in the detail view; 012-01 and 012-02 (Parked section + slice goals) DONE, 012-03..04 READY.
-- [013-evolution-graphs](docs/specs/013-evolution-graphs/spec.md) - progress-over-time chart in the Activity tab; 013-01 DONE, 013-02 (sparkline, gated on owner verdict) and 013-03 DRAFT.
+- [013-evolution-graphs](docs/specs/013-evolution-graphs/spec.md) - progress-over-time chart in the Activity tab; 013-01 and 013-03 (slice counts, labels + key) DONE; 013-02 (sparkline) DRAFT, gated on an owner ask. Slice data fills once 012-04 runs.
 - [007-plugin-onboarding](docs/specs/007-plugin-onboarding/spec.md) - 007-03 (converge the missing-config message) DRAFT; the rest DONE.
 - Specs 001-006 and 008-010 are DONE. [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) is the worked example to imitate.
 

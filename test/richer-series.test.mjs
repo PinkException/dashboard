@@ -210,9 +210,9 @@ test('013-03 AC6: slice lines drawn from 1 slice-carrying point (dashed only), a
   const d = one.match(/<path class="evo-slice-done-live"[^>]*? d="([^"]*)"/)[1];
   assert.match(d, /^M[\d.]+ [\d.]+H[\d.]+V[\d.]+$/);
   // Own y-scale: slice max is 9 (spec max 3), so the live slice-total ends at the
-  // top (y=10) and the right-axis max label reads 9, independent of the spec scale.
+  // top (y=22, the plot top EVO.T) and the right-axis max label reads 9, independent of the spec scale.
   const tl = one.match(/<path class="evo-slice-total-live"[^>]*? d="([^"]*)"/)[1];
-  assert.match(tl, /V10$/);
+  assert.match(tl, /V22$/);
   assert.match(one, /text-anchor="start"[^>]*>9</);
   // slice-done is distinct from the (green) narrative dots
   assert.match(one, /<path class="evo-slice-done"[^>]*stroke="var\(--purple\)"/);
