@@ -1,5 +1,5 @@
 ---
-status: IN_PROGRESS
+status: DRAFT
 skill:
 use_cases: [UC-1, UC-6]
 ---

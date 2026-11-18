@@ -39,8 +39,8 @@
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-03 — cross-project action-queue lens | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-04 — gh-optional PR enrichment (un-defers 003-03) | **DONE** |  |
 | [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
-| [011-readability-wcag](011-readability-wcag/spec.md) | 011-01 — contrast: every text colour passes WCAG AA in both modes | REVIEWED (claude/011-readability-wcag) |  |
-| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | READY_FOR_IMPLEMENTATION |  |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-01 — contrast: every text colour passes WCAG AA in both modes | DEFERRED |  |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | DEFERRED |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-01 — roadmap tab with automatic order | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
@@ -48,6 +48,15 @@
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | READY_FOR_IMPLEMENTATION |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
+
+## Deferred slices
+
+> Slices parked with a stated resolution trigger. Re-open by transitioning to DRAFT.
+
+| Spec | Slice | Resolution trigger |
+|------|-------|--------------------|
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-01 — contrast: every text colour passes WCAG AA in both modes | paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, rerun `test/contrast.test.mjs` (and this slice's token findings) against the new design rather than reviving these token edits as-is. State at pause: REVIEWED (compliance + craft pass; owner read-check AC5 not done). |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, apply this slice's rules (12px floor, sans labels, tabular digits) to the new design if it still needs them. |
 
 ## Abandoned slices
 

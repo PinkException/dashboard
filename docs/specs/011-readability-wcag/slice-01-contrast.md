@@ -1,15 +1,17 @@
 ---
-status: REVIEWED
+status: DEFERRED
 dependencies: []
 last_verified:
 frame_review: true
-claimed_by: claude/011-readability-wcag
+review_reopened_at: 2026-11-18T02:52:28Z
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
 <!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
 
 ## Slice 011-01 — contrast: every text colour passes WCAG AA in both modes
+
+**Resolution trigger:** paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, rerun `test/contrast.test.mjs` (and this slice's token findings) against the new design rather than reviving these token edits as-is. State at pause: REVIEWED (compliance + craft pass; owner read-check AC5 not done).
 
 **Goal:** the owner can read every piece of text on the overview and detail views
 in light and in dark mode. Every text colour meets WCAG 2.1 AA, a contrast ratio of

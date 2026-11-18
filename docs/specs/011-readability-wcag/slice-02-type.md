@@ -1,5 +1,5 @@
 ---
-status: READY_FOR_IMPLEMENTATION
+status: DEFERRED
 dependencies: [011-01]
 last_verified:
 frame_review: true
@@ -9,6 +9,8 @@ frame_review: true
 <!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
 
 ## Slice 011-02 — type: 12px floor, sans-serif labels
+
+**Resolution trigger:** paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, apply this slice's rules (12px floor, sans labels, fixed-width digits) to the new design if it still needs them.
 
 **Goal:** the owner can read labels and metadata without squinting. No text is
 smaller than 12px, and labels use the sans-serif font. Monospace stays only
@@ -29,7 +31,7 @@ where the text is literally code-like.
    literal code-like strings: file paths, branch names, slice/spec ids (`009-04`),
    commit hashes and command snippets. Large numerals (`.stat-count`,
    `.if-num`, `.pct`) either stay mono or switch to sans with
-   `font-variant-numeric: tabular-nums`, so digits stay aligned. Where one
+   the CSS numeric-variant setting for fixed-width digits, so digits stay aligned. Where one
    selector wraps both kinds of text (e.g. `.pr-row` holds a PR number and a
    prose `.pr-title`, `render.mjs:446-447`), the split is done on child elements.
    Labels moved to sans may also lose their wide letter-spacing and uppercase
