@@ -49,7 +49,15 @@
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-01 — new look + overview by project | DRAFT |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-02 — action queue in the new look | DRAFT |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-03 — project detail in the new look (incl. roadmap) | DRAFT |  |
-| [014-readable-redesign](014-readable-redesign/spec.md) | 014-04 — blocking flag and blocked-spec link | DRAFT |  |
+| [014-readable-redesign](014-readable-redesign/spec.md) | 014-04 — blocking flag and blocked-spec link | DEFERRED |  |
+
+## Deferred slices
+
+> Slices parked with a stated resolution trigger. Re-open by transitioning to DRAFT.
+
+| Spec | Slice | Resolution trigger |
+|------|-------|--------------------|
+| [014-readable-redesign](014-readable-redesign/spec.md) | 014-04 — blocking flag and blocked-spec link | the owner asks for the blocking flag, and a rule for |
 
 ## Abandoned slices
 

@@ -28,9 +28,8 @@ glance (vision: one page answering "where is every project and what's next").
 
 **Main tradeoff.** Mostly render/CSS work over data the scanner already
 provides — but a few things in the mockup are **new behaviour**, not paint:
-a queue re-order, a "blocking" flag and a "which spec this decision blocks"
-link. Those are open owner decisions (below); the restyle can ship without
-them. The mockup also omits spec 012's roadmap tab — kept and restyled (D2).
+a queue re-order (not adopted, D3) and a "blocking" flag with a "which spec
+this decision blocks" link (parked, D4); the restyle ships without them. The mockup also omits spec 012's roadmap tab — kept and restyled (D2).
 
 ## Current state (verified 2026-11-17)
 
@@ -66,17 +65,16 @@ them. The mockup also omits spec 012's roadmap tab — kept and restyled (D2).
   names: Land → Review → Finish & unblock → Start new → Merge (External) →
   Idle. The mockup's move of External to step 2 is not adopted (it needs
   nothing from the owner, so it would push owner work down). No ADR change.
+- **D4 — Blocking flag parked (2026-11-17).** The mockup's red "Blocking"
+  chip and the banner's "Spec NNN can't move until you choose" are not built
+  now: today's DECIDE comes from free-text compass blockers with no spec id
+  (`src/lib.mjs:801-804`), so "blocking" needs a rule designed first. Slice
+  014-04 is `DEFERRED`; inbox note under "Future spec: Blocking flag".
 
 ## Owner decisions (open — answer before READY_FOR_IMPLEMENTATION)
 
 Asked one at a time. Each has a recommendation.
 
-- **OQ3 — "Blocking" flag + blocked-spec link.** The mockup marks items whose
-  delay holds other work ("Blocking") and names the spec a decision holds
-  ("Spec 021 can't move until you choose"). Neither is read today. Options:
-  (a) build it in slice 014-04, rule to be defined there; (b) drop both from
-  this spec (park in the inbox). **Recommend (b) for now**: the restyle stands
-  without it, and "blocking" needs a rule we haven't designed.
 - **OQ6 — Header eyebrow.** The mockup reads "RosieBits · Dashboard". The
   plugin ships publicly, so a hard-coded org name would show on every
   user's page. Options: (a) "Dashboard" only; (b) an optional `title` in
@@ -111,7 +109,7 @@ screen the owner can see), **Rules/Data** last for the new behaviour:
   slice by "existing state keeps rendering, in v1.3 tokens".
 - **Interface** — 014-01 overview-by-project (carries the shared token +
   font + chip system); 014-02 action queue; 014-03 project detail.
-- **Data/Rules** — 014-04 blocking flag + blocked-spec link (OQ3-gated).
+- **Data/Rules** — 014-04 blocking flag + blocked-spec link (DEFERRED, D4).
 
 The tokens land in 014-01, so 014-02/03 screens get the new palette at once
 but keep their v1.2 layout until their slice ships. That interim is readable

@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: DEFERRED
 dependencies: [014-01, 014-02, 014-03]
 last_verified:
 frame_review: true
@@ -14,11 +14,11 @@ frame_review: true
 queue card carry a red **Blocking** chip and a stronger tint, and the detail
 banner says which spec is held ("Spec 021 can't move until you choose").
 
-**Gated by OQ3.** If the owner picks OQ3-b, this slice moves to `DEFERRED`
-with the trigger "owner asks for the blocking flag", and an inbox note.
+**Resolution trigger:** the owner asks for the blocking flag, and a rule for
+"blocking" (see Open rule below) has been probed against real compass
+blockers and confirmed by the owner. Parked 2026-11-17 (spec 014 D4).
 
 **DoR:**
-- ⬜ OQ3 answered (build it).
 - ⬜ A written rule for "blocking" (see Open rule below), owner-confirmed.
 
 **Open rule (to settle before READY):** today DECIDE comes from free-text
