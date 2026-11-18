@@ -70,6 +70,9 @@ this decision blocks" link (parked, D4); the restyle ships without them. The moc
   now: today's DECIDE comes from free-text compass blockers with no spec id
   (`src/lib.mjs:801-804`), so "blocking" needs a rule designed first. Slice
   014-04 is `DEFERRED`; inbox note under "Future spec: Blocking flag".
+- **D5 — Fidelity by eyeball (2026-11-17).** The mockup's values are ACs in
+  each slice; fidelity is attested by eye at review against the v1.3 files.
+  No servo `design-eval`, no `design_review: true`.
 
 ## Owner decisions (open — answer before READY_FOR_IMPLEMENTATION)
 
@@ -80,10 +83,6 @@ Asked one at a time. Each has a recommendation.
   user's page. Options: (a) "Dashboard" only; (b) an optional `title` in
   `~/.claude/my-dashboard/config.json`, default "Dashboard". **Recommend (a)**
   now; (b) is a small follow-up if wanted.
-- **OQ5 — Fidelity gate.** Design values go into ACs (always). Should fidelity
-  also be a hard gate (servo `design-eval`, `design_review: true`)?
-  **Recommend no**: eyeball attestation at review is enough for a personal
-  tool.
 
 ## Assumptions
 
