@@ -1,9 +1,10 @@
 ---
-status: DRAFT
+status: READY_FOR_REVIEW
 dependencies: []
 last_verified:
 arch_review: true
 frame_review: true
+claimed_by: claude/dashboard-v1-3-design-911ebf
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
@@ -57,7 +58,9 @@ the AC wins and the gap is logged in the deviation log.
    Because `/api/data` is disk-only (ADR-0007), `/api/prs` also returns the
    summary recomputed over the `gh`-enriched projects, and the page swaps it
    in alongside the project deltas (same keyed-swap rule as `mergePrDeltas`);
-   on any `/api/prs` failure the disk summary stands. (Round 2.)
+   on any `/api/prs` failure the disk summary stands. (Round 2.) The swap
+   replaces the four state tiles only; **Running now** keeps its `/api/data`
+   value, so it always agrees with the rows' running dots (round 3).
    Tile: surface, border, radius 16px, number 38px/800 in the state colour.
    The first four tiles partition the jig-managed, error-free projects by
    their head state (`waitingOn.state`), so they sum to that count; error
@@ -75,10 +78,10 @@ the AC wins and the gap is logged in the deviation log.
    action (17px/700), wait line ("Ready to land" for MERGE (D7), "Waiting on you" for DECIDE/REVIEW, "Started — you
    can pick it back up" for rank-4 Ready (resume, D8), "You can start it now"
    for rank-5 Ready, "Waiting on others" for External, "All specs done"
-   / "Nothing open" for Idle), in-flight count + heat word, progress bar
+   for Idle when `specs.done === specs.total > 0`, else "Nothing open"), in-flight count + heat word, progress bar
    (accent, ok-green at 100%) + "N of M specs", running count with dot, last
    touched. Row tint: owner states (MERGE/REVIEW/DECIDE, D7) `#FDF6EE`, Idle `#F7F3EA`
-   (dark equivalents from the dark file).
+   — both as `:root` tokens with dark equivalents from the dark file (AC1).
 9. **Unchanged states.** Error rows and not-jig-managed rows still render,
    using the new tokens and type (not designed in v1.3; layout kept).
 10. **No regression.** Existing render tests pass (updated for new labels);

@@ -1,8 +1,9 @@
 ---
-status: DRAFT
+status: READY_FOR_REVIEW
 dependencies: [014-01]
 last_verified:
 frame_review: true
+claimed_by: claude/dashboard-v1-3-design-911ebf
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
@@ -43,14 +44,20 @@ v1.3 look.
 5. **Source.** Cards come from each project's emitted `waitingStages`
    (ranks 1-6) and, for Idle, its emitted `waitingOn` — no new derivation in
    the page beyond today's grouping in `actionQueue`, whose rows grow to carry
-   the per-project fields a card shows (type, wait line, in-flight count). Merge cards appear after
+   the per-project fields a card shows (name, path, type, in-flight count).
+   The **wait line is per card**, from that card's own stage (state + rank),
+   using the same mapping as 014-01 AC8 — never the project's head wait line
+   (round 3). Merge cards appear after
    the `/api/prs` fold-in; with no `gh` the Merge section reads "Nothing here
    right now." (D9).
 6. **Cap (D11).** The cap of 3 applies per project **per step**
    (`actionQueue` caps within each step, not across a project's whole stage
    list). When a project has more than 3 items in one step, its last shown
    card in that step carries "+N more" linking to its detail view. A step
-   with any items never shows the "Nothing here right now." box.
+   with any items never shows the "Nothing here right now." box. Future-proofing
+   guard: today no step emits more than 2 items per project
+   (`src/lib.mjs:760-793`), so "+N more" is tested with a synthetic fixture
+   only (round 3).
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).

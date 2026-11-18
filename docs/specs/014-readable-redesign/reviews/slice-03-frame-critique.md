@@ -1,10 +1,10 @@
 ---
 slice: 014-03 — project detail in the new look (incl. roadmap)
 pass: frame-critique
-verdict: needs-changes
+verdict: pass
 reviewer: jig:reviewer
-reviewed_at: 2026-11-18T04:39:08Z
+reviewed_at: 2026-11-18T04:47:44Z
 prompt_source: review.py frame-critique
 ---
 
-Round 2 (2026-11-17). Round-1 issues resolved (D10, AC4 sections, AC6 mapping). New gap: AC4 banner fires for DECIDE/REVIEW only, contradicting D7 (MERGE is owner work); also unstated whether it reads the head stage only or all waitingStages (a DECIDE below a MERGE head would never show). Secondary: "unfinished specs" filter would replace today's current-release-track filter (detailSpecList, render.mjs:164-176; tests render.test.mjs:499-617), conflicting with AC7.
+Round 3 (2026-11-17): PASS. Attacked assumption — the detail view needs no new scanner data — holds: banner reads waitingStages (src/lib.mjs:747-847); header fields already used by detailView (public/render.mjs:548-561); specs list stays on detailSpecList. Round-2 findings resolved (banner lists every owner stage incl. MERGE; track filter kept). Non-blocking notes folded: roadmap tile drops the count line, parked tile layout; back pill follows the lens; action text sentence-cased; pct-null / no-description / error-branch edge cases; "as of main" hint named.

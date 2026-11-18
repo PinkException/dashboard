@@ -1,8 +1,9 @@
 ---
-status: DRAFT
+status: READY_FOR_REVIEW
 dependencies: [014-01, 012-01, 012-02, 012-03]
 last_verified:
 frame_review: true
+claimed_by: claude/dashboard-v1-3-design-911ebf
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
@@ -25,11 +26,16 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
 
 **Acceptance Criteria:**
 
-1. **Breadcrumb.** Pill "‹ All projects" (back to overview) + "Projects /
-   <name>".
+1. **Breadcrumb.** Back pill + "Projects / <name>". The pill follows the
+   lens the detail was opened from (`closeDetail(lens)`): "‹ All projects"
+   from the overview, "‹ Action queue" from the queue (round 3).
 2. **Header.** 84px progress ring with % in the centre; eyebrow "<type> · N of
    M specs done"; h1 name + status pill; line "● N sessions running · N in
    flight · last touched <age>".
+   Edge cases (round 3): `progress.pct === null` → the ring shows "—" with
+   an empty arc; no `description` → the eyebrow reads "N of M specs done"
+   alone; error / not-jig-managed projects keep today's detail branch,
+   restyled in the new tokens.
 3. **Tabs.** Pill tablist `Overview | Roadmap | Activity` (mockup style; the
    Roadmap tab is added in the same style). Active tab survives the
    `/api/prs` fold-in (spec 010 rule, unchanged).
@@ -37,7 +43,8 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
    - Owner banner: one accent-ringed card listing **every owner stage** in
      the project's `waitingStages` (MERGE, REVIEW, DECIDE — D7), in rank
      order, one line each: solid chip ("Land" / "Your review" / "Your
-     call"), action 22px/800 for the first and 17px/700 for the rest, line
+     call"), action 22px/800 for the first and 17px/700 for the rest (stage
+     `action` text sentence-cased at render: first letter upper), line
      "Waiting on you." No owner stage → no banner. (The "Spec NNN can't move"
      clause is 014-04, not here.) (Round 2.)
    - "What's next" card from the compass headline / next / age.
@@ -61,10 +68,13 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
    with the roadmap's decided label ("Now · We are here" / "Next up" /
    "Then" / "N parked", lightweight decision 2026-11-16) in the tile's
    small top line where the queue shows "Step N", and the spec title in the
-   name line; no "Step N" ordinal is added; the parked tile has no title;
+   name line; no "Step N" ordinal is added; the queue tile's count line is
+   dropped; the parked tile shows "N parked" in the top line and an empty
+   name line;
    the release block and each spec group use the section heading + card grid
    style; slice status uses pill chips; "show N done" stays a native
-   `<details>`; empty states keep 012-01's wording.
+   `<details>`; empty states keep 012-01's wording; the "as of main"
+   worktree hint (012-01) keeps rendering.
 7. **No regression.** 012-01's roadmap tests and the detail-view tests pass
    (updated only for markup/labels).
 
