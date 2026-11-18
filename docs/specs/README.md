@@ -29,10 +29,10 @@
 | [005-snapshot-store](005-snapshot-store/spec.md) | 005-04 — rebuild the recurring snapshot routine + choose its cadence | **DONE** |  |
 | [006-routine-installer](006-routine-installer/spec.md) | 006-01 — routine source, ADR, and read-only drift check | **DONE** |  |
 | [006-routine-installer](006-routine-installer/spec.md) | 006-02 — the owner-gated install path | **DONE** |  |
-| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | **DONE** |  |
+| [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-01 — graceful config-missing message | **DONE** | `loadConfig` throws typed `ConfigMissingError` / `ConfigMalformedError`; `snapshot.mjs --all` prints a friendly pointer to `/dashboard:open` instead of a stack trace. |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-02 — README onboarding section | **DONE** |  |
 | [007-plugin-onboarding](007-plugin-onboarding/spec.md) | 007-03 — converge the missing-config message | DRAFT |  |
-| [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | **DONE** |  |
+| [008-release-goal-view](008-release-goal-view/spec.md) | 008-01 — goal progress & next-action (happy path) | **DONE** | `resolveReleaseGoal` (`src/lib.mjs`) joins a shaper release plan's Include tokens to scanned slice statuses → `goalProgress` / `goalNext`; surfaced as the detail-view goal meter. |
 | [008-release-goal-view](008-release-goal-view/spec.md) | 008-02 — graceful degradation & honest unknowns | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-01 — uniform triage rows + project detail view (the split) | **DONE** |  |
 | [009-overview-redesign](009-overview-redesign/spec.md) | 009-02 — waiting-on state + finish-first ordering (the triage signal) | **DONE** |  |
@@ -43,6 +43,9 @@
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | **DONE** |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
 
 ## Abandoned slices
 
@@ -57,7 +60,7 @@
 Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/slice-*.md` `substrate:` fields.
 
 - **1** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
-- **2** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
+- **4** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
 - **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review

@@ -309,6 +309,18 @@ Stateless by design — same disk state → same page (vision principle 2):
   adds the sibling `waitingStages: [{ state, verb, action, rank }, …]` — the
   rank-ordered list of all open stages (`waitingOn === waitingStages[0]`), read by
   the cross-project action-queue lens; an empty list is Idle.
+  Spec 013-01 adds, for jig-managed projects only,
+  `history: { points: [{ ts, done, total, source, headline? }], live: { done,
+  total }, skipped: { noNumbers, malformed } }`, the progress-over-time series
+  drawn in the Activity tab. `points` is built by `buildProgressSeries`
+  (`src/lib.mjs`) from the **store file only**, never the legacy in-repo
+  history. It is oldest first, capped at the 200 newest, and only entries
+  carrying numeric `specs` are kept. `source` is `null` for untagged entries,
+  which count as narrative. The page computes only two things itself: the
+  down-step markers and the "last snapshot N days ago" caption. `live` is the
+  current scan's
+  `progress.done` / `progress.denom`, the same values the writer stores as
+  `specs`. This is an additive change; `compass` is unchanged.
   **Spec 010-01 (ADR-0007) makes `/api/data` disk-only:** it is now a scan run
   with a disabled `gh` context, so its `waitingOn`/`waitingStages` are derived from
   disk signals alone and it **no longer carries** `prs`/`ownerLogin` (those moved

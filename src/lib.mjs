@@ -201,6 +201,47 @@ export function parseCompassHistory(text) {
   return { latest, latestNarrative, malformed, count };
 }
 
+// Spec 013-01: progress series for the Activity-tab chart, from ONE source's
+// raw text (the store file only: the legacy in-repo file was removed under
+// ADR-0004 s6). Entries without numeric specs.done/total (legacy shape) are
+// counted in `noNumbers`; unparseable lines and entries with numbers but no
+// usable ts are counted in `malformed`. Nothing is guessed. Oldest first,
+// capped at the SERIES_CAP newest points (spec 013 A2).
+export const SERIES_CAP = 200;
+export function buildProgressSeries(text) {
+  const points = [];
+  let noNumbers = 0;
+  let malformed = 0;
+  for (const ln of String(text ?? '').split('\n')) {
+    if (!ln.trim()) continue;
+    let obj;
+    try {
+      obj = JSON.parse(ln);
+    } catch {
+      malformed++;
+      continue;
+    }
+    if (!obj || typeof obj !== 'object') {
+      malformed++;
+      continue;
+    }
+    const s = obj.specs;
+    if (!s || typeof s.done !== 'number' || typeof s.total !== 'number') {
+      noNumbers++;
+      continue;
+    }
+    if (typeof obj.ts !== 'string' || Number.isNaN(Date.parse(obj.ts))) {
+      malformed++;
+      continue;
+    }
+    const pt = { ts: obj.ts, done: s.done, total: s.total, source: obj.source ?? null };
+    if (obj.source !== 'auto' && typeof obj.headline === 'string') pt.headline = obj.headline;
+    points.push(pt);
+  }
+  points.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  return { points: points.slice(-SERIES_CAP), skipped: { noNumbers, malformed } };
+}
+
 // Pick the genuinely newer of two candidate snapshots (ADR-0004 §5: the reader
 // reads both the dashboard-owned store and the project's legacy in-repo file
 // during the migration window). Comparing by `ts` is deliberate — concatenating

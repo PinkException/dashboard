@@ -38,3 +38,5 @@
 ## Future spec: Phone layout
 
 - [2026-11-16] **Phone design with less info.** The owner uses the dashboard on desktop only and does not plan phone use now; a reduced-info phone layout may come later as its own spec. Known phone-width issue to fold in then: the detail header's progress readout (`.progress-readout`) overflows a 375px viewport, so the page scrolls sideways. Pre-existing, not from 012-01 (whose roadmap cards do wrap to one column). (from spec 012, slice 01 eyeball check)
+
+- [2026-11-17] **Spec 013-01 follow-ups (from the craft and arch reviews, non-blocking).** (a) The store text is parsed twice per scan: `parseCompassHistory` for `compass` and `buildProgressSeries` for `history`. Merge them into one pass when 012-03 widens `parseCompassHistory` (spec 013 A3). (b) A narrative entry with no string headline gets no dot on the chart; harmless while narrative writers always set one. (c) When `done` and `total` both drop at the same point, the two down-markers share an x position and carry duplicate `<title>` text. Cosmetic only.

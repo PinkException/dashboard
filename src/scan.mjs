@@ -15,6 +15,7 @@ import {
   countInboxItems,
   countRefinement,
   parseCompassHistory,
+  buildProgressSeries,
   laterSnapshot,
   ageLabel,
   ageDays,
@@ -572,7 +573,9 @@ function scanCompass(root) {
     return raw === null ? EMPTY_COMPASS : parseCompassHistory(raw);
   };
   const inRepo = readSource(path.join(root, 'docs', 'status', 'compass-history.jsonl'));
-  const fromStore = readSource(snapshotFileFor(root));
+  const storePath = snapshotFileFor(root);
+  const storeRaw = readIf(storePath);
+  const fromStore = storeRaw === null ? EMPTY_COMPASS : parseCompassHistory(storeRaw);
   // The card displays the latest narrative (human/skill) entry across both
   // sources, falling back to the latest entry overall only when no prose entry
   // exists anywhere (slice 005-04). This keeps the routine's deterministic
@@ -587,6 +590,8 @@ function scanCompass(root) {
     // How many of the two sources held at least one line — the warning names
     // this rather than one filename, since a malformed line may be from either.
     sources: (inRepo.count > 0 ? 1 : 0) + (fromStore.count > 0 ? 1 : 0),
+    // Spec 013-01: the store file's raw text only, for the progress series.
+    storeText: storeRaw ?? '',
   };
 }
 
@@ -684,6 +689,12 @@ export function scanProject(projectCfg, gh, { onGit } = {}) {
         stale: (ageDays(compass.latest.ts) ?? 0) > 7,
       }
     : null;
+  // Spec 013-01: additive `history` (store-only series + the live counts the
+  // writer would store as `specs`).
+  result.history = {
+    ...buildProgressSeries(compass.storeText),
+    live: { done: result.progress.done, total: result.progress.denom },
+  };
   result.warnings = [];
   if (compass.malformed > 0) {
     result.warnings.push(
