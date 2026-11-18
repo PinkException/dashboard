@@ -45,7 +45,7 @@
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | **DONE** |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
-| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | DRAFT |  |
+| [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-03 — slice and bug counts in the series | IN_PROGRESS (claude/slice-013-03-richer-…) |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-01 — new look + overview by project | READY_FOR_IMPLEMENTATION |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-02 — action queue in the new look | READY_FOR_IMPLEMENTATION |  |
 | [014-readable-redesign](014-readable-redesign/spec.md) | 014-03 — project detail in the new look (incl. roadmap) | READY_FOR_IMPLEMENTATION |  |
