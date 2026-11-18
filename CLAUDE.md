@@ -56,7 +56,9 @@ decision in [lightweight-decisions](docs/decisions/lightweight-decisions.md)).
 012-01 and 012-02 (parked + goals, not yet released) DONE; 012-03 (saved
 order from snapshots), 012-04 (end-of-day skill) are READY_FOR_IMPLEMENTATION. **Spec 013 (evolution
 graphs) is in flight on main, not yet released:** 013-01 (Activity-tab
-progress chart) DONE (2026-11-18). Specs 001–010 are DONE apart from 007-03
+progress chart) and 013-03 (slice counts, labels + key) DONE (2026-11-18);
+013-02 (sparkline) DRAFT. Slice data fills once 012-04's end-of-day snapshots
+run. Specs 001–010 are DONE apart from 007-03
 (DRAFT).
 
 Settled facts a new session should not re-litigate:

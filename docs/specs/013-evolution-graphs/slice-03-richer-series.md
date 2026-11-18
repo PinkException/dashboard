@@ -1,10 +1,9 @@
 ---
-status: REVIEWED
+status: DONE
 dependencies: [013-01]
 last_verified: 2026-11-18
 frame_review: true
 arch_review: true
-claimed_by: claude/slice-013-03-richer-series
 ---
 
 ## Slice 013-03 — slice and bug counts in the series
@@ -148,7 +147,10 @@ slices inside one long spec shows a rising line instead of a flat one.
    `scanned` is missing on either side. Review fix: the "ruled out" wording
    applies only when BOTH branches are non-null strings; a null branch
    (detached, unknown, subdirectory project) cannot rule the cause out, so it
-   gets the generic wording. Mutation-checked.
+   gets the generic wording. Mutation-checked. Counterpart: when one side's
+   branch is null and the other's is a string, the branches differ, so the
+   marker says "counted on another branch or worktree: <branch>" (AC8's
+   "differ in branch").
 3c. **Live segment:** a down-step on the dashed stretch to the live value always
    uses the generic wording (live carries no `scanned`), matching AC8's "both
    points" wording.
@@ -179,10 +181,10 @@ slices inside one long spec shows a rising line instead of a flat one.
 | `docs/product-vision.md` | `no-op` | Serves UC-1/UC-3 as spec 013 declares; no scope change. |
 | `docs/architecture.md` | `updated` | Snapshot-file bullet (optional `slices`/`bugs`/`scanned`, `branch: null` cases, writer-only provenance) and the `/api/data` `history` point/`live` fields and signature note. |
 | `docs/decisions/` (ADR-0002, ADR-0004) | `no-op` | Additive fields sit within ADR-0002 ("unknown extra fields are allowed"). ADR-0004's evidence section lists the old writer fields as historical evidence; `architecture.md` is the live contract (arch review). |
-| Primer surfaces: `CLAUDE.md` / `AGENTS.md` | `updated` | Active-specs line for 013 changed when this lands (013-03 DONE); no AGENTS.md in this repo. |
+| Primer surfaces: `CLAUDE.md` / `AGENTS.md` | `updated` | Active-specs line and Current Sprint Focus both mark 013-03 DONE (set in the same commit as the DONE transition); no AGENTS.md in this repo. |
 | `docs/inbox.md` | `updated` | Follow-up parked: down-step markers on the slice lines. The 2026-11-18 "chart does not say what it measures" item is addressed by AC7 and removed. |
 | `docs/refinement-todo.md` | `no-op` | No deferred decision; the cadence choice is recorded in DoR and A1. |
 | `docs/memory/**` | `no-op` | Nothing new beyond the existing leak-gate and `npm test` memories, both applied. |
 | `.gitignore` | `updated` | Ignores `**/reviews/.candidates/` (deviation 3f). |
 | `skills/snapshot/SKILL.md` | `no-op` | The skill calls `snapshot.mjs`, which now adds the fields itself; no instruction change needed. |
-| Merge of `origin/main` (012-02) | `no-op` | Integrated before reconciling; no conflicts; suite 465/465 after the merge. |
+| Merge of `origin/main` (012-02, spec 014 docs, v1.3 designs, bug 003, `feedback-notes.md`) | `no-op` | Not this slice's work: everything on `origin/main` since the branch point, integrated before reconciling; no conflicts; suite 465/465 after the merge. |
