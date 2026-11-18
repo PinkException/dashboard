@@ -1,9 +1,8 @@
 ---
-status: READY_FOR_REVIEW
+status: READY_FOR_IMPLEMENTATION
 dependencies: [014-01, 012-01, 012-02, 012-03]
 last_verified:
 frame_review: true
-claimed_by: claude/dashboard-v1-3-design-911ebf
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->

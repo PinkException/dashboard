@@ -1,10 +1,9 @@
 ---
-status: READY_FOR_REVIEW
+status: READY_FOR_IMPLEMENTATION
 dependencies: []
 last_verified:
 arch_review: true
 frame_review: true
-claimed_by: claude/dashboard-v1-3-design-911ebf
 ---
 
 <!-- jig self-defining vocabulary (soft, forward-only). -->
