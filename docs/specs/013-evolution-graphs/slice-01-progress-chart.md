@@ -117,9 +117,17 @@ means "recorded as unchanged"; a long dashed run means "not recorded lately".
       in both dark and light themes. The empty state for 0 points was **not**
       seen live, because every configured project has at least 2 points; it is
       covered by unit test only.
-- [ ] Owner looks at the live chart and confirms it is useful at spec-level
+- [x] Owner looks at the live chart and confirms it is useful at spec-level
       granularity. This gates 013-02 (sparkline) and prioritises 013-03
-      (frame-critique round 3). **Open, and handed to the owner.**
+      (frame-critique round 3). **Owner verdict (2026-11-18): keep it; "more
+      useful, but needs more info".** The first look was "not useful": the
+      chart showed only 7 days, because a folder rename had split this
+      project's history ([bug 003](../../bugs/003-folder-rename-splits-history.md);
+      local store merged by hand the same day). The owner also could not tell
+      what the vertical axis measures: the chart has no axis label or key.
+      Consequences: 013-03 (richer series) is the next priority for "more
+      info"; 013-02 stays gated, since the owner has not asked for a
+      glance-level signal.
 - [x] Deviation log and reconciliation sweep produced; reconciliation review
       passed.
 - [x] `docs/architecture.md` updated for `project.history`.
