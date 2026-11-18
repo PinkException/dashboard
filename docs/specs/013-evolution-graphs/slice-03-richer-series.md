@@ -138,8 +138,12 @@ slices inside one long spec shows a rising line instead of a flat one.
    margin widens (10 to 34) for a slice scale; slice lines use `--green` (done)
    and `--text-muted` at 50% opacity (total); no down-step markers for the
    slice lines (AC8 speaks of spec steps only); the key is an HTML row under the
-   SVG. When both points carry equal `scanned`, the generic 013-01 wording is
-   kept, as AC8 only specifies the differing and missing cases.
+   SVG. Those four are choices, not spec text.
+3b. **AC8 refinement (orchestrator decision, 2026-11-18; specified behaviour):**
+   when both points carry `scanned` and they are equal, the marker reads "count
+   went down: a spec was reopened or abandoned, or the counting rule changed"
+   (the branch cause is ruled out). The 013-01 generic wording stays only when
+   `scanned` is missing on either side. Mutation-checked.
 4. **Number check.** The shared shape checks require finite numbers (`NaN` and
    `Infinity` rejected), slightly stricter than `typeof === 'number'`.
 

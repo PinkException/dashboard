@@ -479,8 +479,12 @@ const EVO_DOWN_TIP =
 const evoNum = (n) => Number(n.toFixed(1)).toString();
 // Spec 013-03 AC8: only when both points carry `scanned` and they differ.
 const evoDownTip = (a, b) => {
-  if (a && b && a.scanned && b.scanned && (a.scanned.branch !== b.scanned.branch || a.scanned.worktree !== b.scanned.worktree)) {
-    return `counted on another branch or worktree: ${b.scanned.branch ?? 'unknown branch'}`;
+  if (a && b && a.scanned && b.scanned) {
+    if (a.scanned.branch !== b.scanned.branch || a.scanned.worktree !== b.scanned.worktree) {
+      return `counted on another branch or worktree: ${b.scanned.branch ?? 'unknown branch'}`;
+    }
+    // Same branch and worktree on both sides: that cause is ruled out.
+    return 'count went down: a spec was reopened or abandoned, or the counting rule changed';
   }
   return EVO_DOWN_TIP;
 };

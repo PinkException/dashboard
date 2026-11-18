@@ -239,5 +239,7 @@ test('013-03 AC8: precise down-step wording when both points carry scanned and d
   const old = evolutionChartSvg(hist([pt(0, 3, 4, sc('trunk', false)), pt(10, 2, 4)], { done: 2, total: 4 }), NOW);
   assert.match(old, /a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed/);
   const same = evolutionChartSvg(hist([pt(0, 3, 4, sc('trunk', false)), pt(10, 2, 4, sc('trunk', false))], { done: 2, total: 4 }), NOW);
-  assert.match(same, /a spec was reopened/);
+  // AC8 refinement (orchestrator, 2026-11-18): equal `scanned` rules out the branch cause.
+  assert.match(same, /count went down: a spec was reopened or abandoned, or the counting rule changed</);
+  assert.doesNotMatch(same, /another branch or worktree/);
 });
