@@ -34,13 +34,18 @@ roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
    Roadmap tab is added in the same style). Active tab survives the
    `/api/prs` fold-in (spec 010 rule, unchanged).
 4. **Overview tab.**
-   - Owner banner (DECIDE or REVIEW only): accent-ringed card, solid chip
-     ("Your call" / "Your review"), action 22px/800, line "Waiting on you."
-     (the "Spec NNN can't move" clause is 014-04, not here).
+   - Owner banner: one accent-ringed card listing **every owner stage** in
+     the project's `waitingStages` (MERGE, REVIEW, DECIDE — D7), in rank
+     order, one line each: solid chip ("Land" / "Your review" / "Your
+     call"), action 22px/800 for the first and 17px/700 for the rest, line
+     "Waiting on you." No owner stage → no banner. (The "Spec NNN can't move"
+     clause is 014-04, not here.) (Round 2.)
    - "What's next" card from the compass headline / next / age.
    - Count pills (specs, slices, bugs, inbox).
    - Open specs and workstreams side by side (two columns ≥ 900px, stacked
-     below); specs list shows unfinished specs with a "Show all N" control.
+     below); specs list keeps today's current-release-track filter (`detailSpecList`)
+     with the track as its label, as the mockup does ("Open specs · <track>"),
+     plus a "Show all N" control. (Round 2.)
    - Sessions as a table (title, branch, worktree, running, last activity)
      with "Show N older" (keeps spec 003-02's honest overflow counts).
    - PR state (spec 009-04) stays visible, styled as a card in the new look.

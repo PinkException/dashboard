@@ -90,9 +90,13 @@ by the owner as recommended:
 - **D9 — Queue shows Merge (External) and Idle.** Both sections render, as
   the mockup does: Merge from rank-6 stages (present only after the
   `/api/prs` fold-in; with no `gh` it honestly reads "Nothing here right
-  now."), Idle from projects whose `waitingOn.state` is `Idle`. The
-  per-project cap of 3 stays, but a capped project shows "+N more" so nothing
-  vanishes silently.
+  now."), Idle from projects whose `waitingOn.state` is `Idle`. (Cap: see
+  D11.)
+- **D11 — Queue cap is per project per step (2026-11-17, round 2).** The cap
+  of 3 applies to a project's items *within one step*, not across all its
+  stages, so a low-rank step (e.g. Merge) is never emptied by a project's
+  higher-rank items. Supersedes D9's "per-project cap of 3 stays". A step's
+  count equals the cards it shows plus any "+N more".
 - **D10 — 012-02 and 012-03 land before 014-03.** 014-03 then restyles every
   roadmap section present at implementation time.
 

@@ -19,7 +19,7 @@ v1.3 look.
 
 **DoR:**
 - ⬜ 014-01 DONE (tokens, chip vocabulary).
-- ✅ D3, D8, D9 settled (order, resume placement, Merge + Idle sections).
+- ✅ D3, D8, D9, D11 settled (order, resume placement, Merge + Idle sections, cap).
 
 **Acceptance Criteria:**
 
@@ -32,8 +32,8 @@ v1.3 look.
    1 **Land** (rank 1, MERGE); 2 **Review** (rank 2); 3 **Finish & unblock**
    (rank 3 DECIDE, then rank 4 resume); 4 **Start new** (rank 5); 5 **Merge**
    (rank 6, External — "out for someone else to review and merge"); 6 **Idle**
-   (projects whose `waitingOn.state` is `Idle`). A step's count includes items
-   hidden by the per-project cap (AC6).
+   (projects whose `waitingOn.state` is `Idle`). A step's count = its shown
+   cards plus any "+N more" in that step (AC6).
 3. **Sections.** Per step: coloured square, h2 name, count, "— description"
    (mockup text). An empty step shows "Nothing here right now." (dashed inset
    box).
@@ -42,12 +42,15 @@ v1.3 look.
    count. Radius 16px, surface, border.
 5. **Source.** Cards come from each project's emitted `waitingStages`
    (ranks 1-6) and, for Idle, its emitted `waitingOn` — no new derivation in
-   the page beyond today's grouping in `actionQueue`. Merge cards appear after
+   the page beyond today's grouping in `actionQueue`, whose rows grow to carry
+   the per-project fields a card shows (type, wait line, in-flight count). Merge cards appear after
    the `/api/prs` fold-in; with no `gh` the Merge section reads "Nothing here
    right now." (D9).
-6. **Cap.** The per-project cap of 3 stays (`actionQueue` `capPerProject`).
-   A capped project's last shown card carries "+N more" linking to its detail
-   view, so no stage vanishes silently (D9).
+6. **Cap (D11).** The cap of 3 applies per project **per step**
+   (`actionQueue` caps within each step, not across a project's whole stage
+   list). When a project has more than 3 items in one step, its last shown
+   card in that step carries "+N more" linking to its detail view. A step
+   with any items never shows the "Nothing here right now." box.
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).

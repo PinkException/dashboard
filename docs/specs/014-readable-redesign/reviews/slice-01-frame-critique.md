@@ -3,8 +3,8 @@ slice: 014-01 — new look + overview by project
 pass: frame-critique
 verdict: needs-changes
 reviewer: jig:reviewer
-reviewed_at: 2026-11-18T04:35:26Z
+reviewed_at: 2026-11-18T04:39:08Z
 prompt_source: review.py frame-critique
 ---
 
-Round 1 (2026-11-17). Load-bearing assumption attacked: the v1.3 Main mockup covers the scanner's real state space. It omits MERGE ("Land", rank 1, fires from any RECONCILED slice — src/lib.mjs:759-771): no chip colours, no wait line, no tint, and AC5's "Need you = DECIDE + REVIEW" leaves MERGE in no tile. Secondary: say whether tile counts sum to the project total (error / not-jig-managed rows).
+Round 2 (2026-11-17). Round-1 MERGE gap resolved. New load-bearing gap: AC5's summary counts emitted on /api/data go stale after the /api/prs fold-in (ADR-0007: /api/data is disk-only, src/server.mjs:25; prDeltas carries only per-project fields, src/scan.mjs:938-945; page refreshes only projects, public/index.html:399-400). Waiting on others is always 0; PR-driven MERGE/REVIEW are missed. Secondary: rank-4 Ready (resume) gets "You can start it now" and the "Ready to start" tile, contradicting D8.

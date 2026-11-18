@@ -49,10 +49,15 @@ the AC wins and the gap is logged in the deviation log.
    "Dashboard" (D6), h1 "Every project's next move", tagline "Nearly-done work
    sits above just-started work, so you finish before you start."
 5. **Summary tiles.** Five tiles — **Need you** (MERGE + REVIEW + DECIDE, D7),
-   **Ready to start** (Ready), **Waiting on others** (External), **Idle**,
+   **Ready to start** (Ready — both rank 4 resume and rank 5 start; the
+   tile subtitle reads "nothing blocking them"), **Waiting on others** (External), **Idle**,
    **Running now** (projects with ≥ 1 running session, green dot). Counts are
    computed **scanner-side** (`src/lib.mjs`, pure, fixture-tested) and emitted
    as an additive `/api/data` field (ADR-0001: the page does no derivation).
+   Because `/api/data` is disk-only (ADR-0007), `/api/prs` also returns the
+   summary recomputed over the `gh`-enriched projects, and the page swaps it
+   in alongside the project deltas (same keyed-swap rule as `mergePrDeltas`);
+   on any `/api/prs` failure the disk summary stands. (Round 2.)
    Tile: surface, border, radius 16px, number 38px/800 in the state colour.
    The first four tiles partition the jig-managed, error-free projects by
    their head state (`waitingOn.state`), so they sum to that count; error
@@ -67,8 +72,9 @@ the AC wins and the gap is logged in the deviation log.
    file's ok values — not in the mockup, D7), Ready → "Ready", External → "Waiting on others", Idle → "Idle".
    A chip legend renders beside the lens switch.
 8. **Rows.** Each project row shows: name + type (description), chip, next
-   action (17px/700), wait line ("Ready to land" for MERGE (D7), "Waiting on you" for DECIDE/REVIEW, "You can
-   start it now" for Ready, "Waiting on others" for External, "All specs done"
+   action (17px/700), wait line ("Ready to land" for MERGE (D7), "Waiting on you" for DECIDE/REVIEW, "Started — you
+   can pick it back up" for rank-4 Ready (resume, D8), "You can start it now"
+   for rank-5 Ready, "Waiting on others" for External, "All specs done"
    / "Nothing open" for Idle), in-flight count + heat word, progress bar
    (accent, ok-green at 100%) + "N of M specs", running count with dot, last
    touched. Row tint: owner states (MERGE/REVIEW/DECIDE, D7) `#FDF6EE`, Idle `#F7F3EA`
@@ -76,7 +82,7 @@ the AC wins and the gap is logged in the deviation log.
 9. **Unchanged states.** Error rows and not-jig-managed rows still render,
    using the new tokens and type (not designed in v1.3; layout kept).
 10. **No regression.** Existing render tests pass (updated for new labels);
-    `/api/data` stays additive.
+    `/api/data` and `/api/prs` changes are additive.
 
 **DoD:**
 - [ ] All ACs pass; full test suite green (no regressions).
