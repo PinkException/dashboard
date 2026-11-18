@@ -10,6 +10,7 @@ import {
   parseFrontmatter,
   normStatus,
   progressOf,
+  realSliceCounts,
   parseRunbook,
   countCheckboxes,
   countInboxItems,
@@ -386,6 +387,16 @@ function listWorktrees(root, onGit) {
   return parseWorktreeList(out, rootReal);
 }
 
+// Spec 013-03 AC2: where a snapshot was counted: the branch checked out at the
+// scanned root (null if detached or unknown) and whether that root is a linked
+// worktree (it differs from the project's canonical root).
+export function scannedProvenance(root) {
+  return {
+    branch: listWorktrees(root).branch ?? null,
+    worktree: realpath(path.resolve(root)) !== projectRootOf(root),
+  };
+}
+
 // Spec 012-01 AC10: the root checkout's branch plus the slice frontmatter of
 // every OTHER worktree, read from disk (uncommitted edits count). A new
 // content read, deliberately wider than scanWorktreeOnlyDocs's path-only rule;
@@ -686,7 +697,12 @@ export function scanProject(projectCfg, gh, { onGit } = {}) {
   // writer would store as `specs`).
   result.history = {
     ...buildProgressSeries(compass.storeText),
-    live: { done: result.progress.done, total: result.progress.denom },
+    live: {
+      done: result.progress.done,
+      total: result.progress.denom,
+      // Spec 013-03: the same real-slice counts the writer stores as `slices`.
+      ...(realSliceCounts(specs) ? { slices: realSliceCounts(specs) } : {}),
+    },
   };
   result.warnings = [];
   if (compass.malformed > 0) {

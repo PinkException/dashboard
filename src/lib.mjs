@@ -60,6 +60,17 @@ export function progressOf(items) {
   return { done, total, abandoned, deferred, denom, pct, by };
 }
 
+// Spec 013-03: slice counts for the snapshot series. Real slices only (a
+// `slice-*.md` with a `status:`), ABANDONED out of `total` as for specs.
+// Null when the project has no real slices. `sliceProgress` is not reused:
+// it also counts status-less files as UNKNOWN and would inflate `total`.
+export function realSliceCounts(specs) {
+  const real = specs.flatMap((s) => (s.slices || []).filter((x) => x.status));
+  if (!real.length) return null;
+  const p = progressOf(real);
+  return { done: p.done, total: p.denom };
+}
+
 const BOX_RE = /^(\s*)(?:([-*])|(\d+)[.)])\s+\[([ xX])\]\s*(.*)$/;
 const HEADING_RE = /^(#{2,4})\s+(.+)$/;
 
@@ -208,6 +219,14 @@ export function parseCompassHistory(text) {
 // usable ts are counted in `malformed`. Nothing is guessed. Oldest first,
 // capped at the SERIES_CAP newest points (spec 013 A2).
 export const SERIES_CAP = 200;
+
+// Spec 013-03: shape checks shared by the series reader and the writer-side
+// validator, so both agree on what a well-formed extra field is.
+const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
+export const isSlicesField = (v) => !!v && typeof v === 'object' && isNum(v.done) && isNum(v.total);
+export const isBugsField = (v) => !!v && typeof v === 'object' && isNum(v.open);
+export const isScannedField = (v) =>
+  !!v && typeof v === 'object' && (v.branch === null || typeof v.branch === 'string') && typeof v.worktree === 'boolean';
 export function buildProgressSeries(text) {
   const points = [];
   let noNumbers = 0;
@@ -236,6 +255,11 @@ export function buildProgressSeries(text) {
     }
     const pt = { ts: obj.ts, done: s.done, total: s.total, source: obj.source ?? null };
     if (obj.source !== 'auto' && typeof obj.headline === 'string') pt.headline = obj.headline;
+    // 013-03: optional richer fields, kept only when well-formed (the point
+    // itself stays: its `specs` are valid).
+    if (isSlicesField(obj.slices)) pt.slices = { done: obj.slices.done, total: obj.slices.total };
+    if (isBugsField(obj.bugs)) pt.bugs = { open: obj.bugs.open };
+    if (isScannedField(obj.scanned)) pt.scanned = { branch: obj.scanned.branch, worktree: obj.scanned.worktree };
     points.push(pt);
   }
   points.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
@@ -291,6 +315,15 @@ export function validateSnapshot(obj) {
     ) {
       errors.push('specs must be {done: number, total: number} when present');
     }
+  }
+  if (obj.slices !== undefined && !isSlicesField(obj.slices)) {
+    errors.push('slices must be {done: number, total: number} when present');
+  }
+  if (obj.bugs !== undefined && !isBugsField(obj.bugs)) {
+    errors.push('bugs must be {open: number} when present');
+  }
+  if (obj.scanned !== undefined && !isScannedField(obj.scanned)) {
+    errors.push('scanned must be {branch: string|null, worktree: boolean} when present');
   }
   return errors;
 }

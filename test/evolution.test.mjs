@@ -82,7 +82,9 @@ test('013-01 AC2: scanProject attaches history from the STORE only (legacy in-re
   const p = scanProject({ path: root, label: 'x', pinnedWorkstreams: [], hiddenWorkstreams: [] });
   assert.equal(p.history.points.length, 1);
   assert.deepEqual(p.history.skipped, { noNumbers: 0, malformed: 0 });
-  assert.deepEqual(p.history.live, { done: p.progress.done, total: p.progress.denom });
+  // 013-03 AC5 widened `live` with `slices`; the 013-01 fields are unchanged.
+  assert.equal(p.history.live.done, p.progress.done);
+  assert.equal(p.history.live.total, p.progress.denom);
   assert.equal(p.history.live.total, 3); // denom excludes ABANDONED (4 specs - 1)
   assert.equal(p.compass.headline, 'beta is close'); // legacy file still read
   fs.rmSync(snapshotFileFor(root));

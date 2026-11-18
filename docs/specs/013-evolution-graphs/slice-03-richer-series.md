@@ -112,9 +112,36 @@ each line and axis means without asking (AC7), and every new snapshot carries
 slice counts. Once 012-04's end-of-day snapshots run (A1), a project finishing
 slices inside one long spec shows a rising line instead of a flat one.
 
+**DoD:**
+- [x] ACs 1-9 pass; full suite green (`npm test`: 443/443, baseline 430; 13 new
+      tests in `test/richer-series.test.mjs`).
+- [x] Each new test shown to fail when its feature is removed: 19 isolated
+      mutations (real-only slice filter, null-when-none, `bugs`, `scanned`, each
+      of the 3 validator branches, signature without slices, signature with
+      bugs, malformed-slices drop, scanned passthrough, `live.slices`, slice
+      lines, first-slice-point start, key, y label, slice key entries, precise
+      down-step wording, equal-scanned wording). All killed by a 013-03 test.
+- [x] `docs/architecture.md` updated (entry fields, `history` point and `live`
+      fields, signature and the retired spec-granular note).
+- [ ] Compliance, craft and arch reviews recorded (post-implementation review).
+
 ### Deviation log (after reconciliation)
 
-_Filled at reconciliation._
+1. **Test superseded.** 013-01 AC2's test asserted `history.live` deep-equals
+   `{done, total}`; its fixture has slices, so `live` now also carries
+   `slices`. The assertion was narrowed to the two 013-01 fields (labelled in
+   the test).
+2. **Provenance helper.** `scannedProvenance(root)` is a new export of
+   `src/scan.mjs` (wraps `listWorktrees`), so the payload from `scanProject` is
+   unchanged; only the writer calls it.
+3. **Chart choices not fixed by the ACs:** with slice lines shown, the right
+   margin widens (10 to 34) for a slice scale; slice lines use `--green` (done)
+   and `--text-muted` at 50% opacity (total); no down-step markers for the
+   slice lines (AC8 speaks of spec steps only); the key is an HTML row under the
+   SVG. When both points carry equal `scanned`, the generic 013-01 wording is
+   kept, as AC8 only specifies the differing and missing cases.
+4. **Number check.** The shared shape checks require finite numbers (`NaN` and
+   `Infinity` rejected), slightly stricter than `typeof === 'number'`.
 
 ### Reconciliation sweep
 

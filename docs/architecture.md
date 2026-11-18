@@ -96,14 +96,13 @@ unattended twice-daily routine is rebuilt to write only deterministic
 `--commit` flag entirely — that write into each surveyed repo was the leak
 (bug 002). Cadence is **on-change-only**, enforced by the new `--if-changed`
 flag: a project is skipped unless its **progress signature** —
-`specs.done` + `specs.total` + `next` — differs from its most recent stored
+`specs.done` + `specs.total` + `slices.done` + `slices.total` + `next` — differs from its most recent stored
 entry *of the same `source`*. Two deliberate properties:
-- **Bug-count churn is excluded** from the signature (a bug opening then
-  closing is net-zero progress, not a series point).
-- **Progress is spec-granular**, so a multi-slice spec yields no auto point
-  until a spec completes or the active spec changes. Slice-granular sampling
-  would need a richer `auto` fingerprint and is deferred to the future
-  evolution-chart spec.
+- **Bug-count churn and `scanned` provenance are excluded** from the signature
+  (a bug opening then closing is net-zero progress, not a series point).
+- **Slice-granular since spec 013-03** (owner decision 2026-11-18): a slice
+  finishing or being added writes an auto point. An older stored entry without
+  `slices` compared with a new one that has them counts as changed once.
 
 Because the routine now adds a fresh `auto` line potentially every day, the
 card reader **prefers the latest narrative (non-`auto`) entry** for the card
@@ -310,8 +309,8 @@ Stateless by design — same disk state → same page (vision principle 2):
   rank-ordered list of all open stages (`waitingOn === waitingStages[0]`), read by
   the cross-project action-queue lens; an empty list is Idle.
   Spec 013-01 adds, for jig-managed projects only,
-  `history: { points: [{ ts, done, total, source, headline? }], live: { done,
-  total }, skipped: { noNumbers, malformed } }`, the progress-over-time series
+  `history: { points: [{ ts, done, total, source, headline?, slices?, bugs?,
+  scanned? }], live: { done, total, slices? }, skipped: { noNumbers, malformed } }`, the progress-over-time series
   drawn in the Activity tab. `points` is built by `buildProgressSeries`
   (`src/lib.mjs`) from the **store file only**, never the legacy in-repo
   history. It is oldest first, capped at the 200 newest, and only entries
@@ -321,6 +320,18 @@ Stateless by design — same disk state → same page (vision principle 2):
   current scan's
   `progress.done` / `progress.denom`, the same values the writer stores as
   `specs`. This is an additive change; `compass` is unchanged.
+  **Spec 013-03** adds three optional entry fields, written by every new
+  snapshot (`scripts/snapshot.mjs`) and passed through on each point when
+  well-formed (malformed extras are dropped, the point is kept):
+  `slices: {done, total}` (real slices only, i.e. with a `status:`; ABANDONED
+  out of `total`; omitted when the project has none; counted by
+  `realSliceCounts` in `src/lib.mjs`, not by `sliceProgress`), `bugs: {open}`,
+  and `scanned: {branch, worktree}` (the branch checked out at the scanned root,
+  `null` if detached or unknown; `worktree: true` when that root is a linked
+  worktree). `live.slices` is the current scan's real-slice count, absent when
+  there are none. `validateSnapshot` checks all three. Old entries stay valid;
+  the chart's slice lines, y-axis labels, key and the "counted on another
+  branch or worktree" down-step wording read these fields.
   **Spec 010-01 (ADR-0007) makes `/api/data` disk-only:** it is now a scan run
   with a disabled `gh` context, so its `waitingOn`/`waitingStages` are derived from
   disk signals alone and it **no longer carries** `prs`/`ownerLogin` (those moved

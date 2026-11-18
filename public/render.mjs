@@ -477,6 +477,13 @@ const EVO = { W: 560, H: 160, L: 34, R: 10, T: 10, B: 24 };
 const EVO_DOWN_TIP =
   'count went down: a spec was reopened or abandoned, the snapshot was taken on another branch or worktree, or the counting rule changed';
 const evoNum = (n) => Number(n.toFixed(1)).toString();
+// Spec 013-03 AC8: only when both points carry `scanned` and they differ.
+const evoDownTip = (a, b) => {
+  if (a && b && a.scanned && b.scanned && (a.scanned.branch !== b.scanned.branch || a.scanned.worktree !== b.scanned.worktree)) {
+    return `counted on another branch or worktree: ${b.scanned.branch ?? 'unknown branch'}`;
+  }
+  return EVO_DOWN_TIP;
+};
 
 export function evolutionChartSvg(history, now = Date.now()) {
   const h = history || { points: [], live: null, skipped: { noNumbers: 0, malformed: 0 } };
@@ -493,36 +500,47 @@ export function evolutionChartSvg(history, now = Date.now()) {
       `Run <code>/dashboard:snapshot</code> to start one.</div>` + skipLine
     );
   }
-  const { W, H, L, R, T, B } = EVO;
+  // 013-03: the slice lines start at the first stored point carrying `slices`.
+  const sliceIdx = pts.map((p, i) => (p.slices ? i : -1)).filter((i) => i >= 0);
+  const hasSlices = sliceIdx.length > 0;
+  const { W, H, L, T, B } = EVO;
+  const R = hasSlices ? 34 : EVO.R; // room for the slice scale on the right
   const t0 = Date.parse(pts[0].ts);
   const lastT = Date.parse(pts[pts.length - 1].ts);
   const tEnd = Math.max(now, lastT);
   const span = tEnd - t0 > 0 ? tEnd - t0 : 86400000;
   const maxY = Math.max(1, live.total, ...pts.map((p) => p.total));
+  const maxS = hasSlices ? Math.max(1, live.slices ? live.slices.total : 0, ...sliceIdx.map((i) => pts[i].slices.total)) : 1;
   const x = (t) => L + ((t - t0) / span) * (W - L - R);
   const y = (v) => H - B - (v / maxY) * (H - T - B);
+  const ys = (v) => H - B - (v / maxS) * (H - T - B);
   const xs = pts.map((p) => x(Date.parse(p.ts)));
   const xNow = x(tEnd);
   const last = pts[pts.length - 1];
 
-  const line = (key, cls, stroke, width) => {
-    let d = `M${evoNum(xs[0])} ${evoNum(y(pts[0][key]))}`;
-    for (let i = 1; i < pts.length; i++) d += `H${evoNum(xs[i])}V${evoNum(y(pts[i][key]))}`;
-    const dl = `M${evoNum(xs[xs.length - 1])} ${evoNum(y(last[key]))}H${evoNum(xNow)}V${evoNum(y(live[key]))}`;
-    const common = `fill="none" stroke="${stroke}" stroke-width="${width}"`;
+  // One step line over `idx` (point indices), solid through the stored points,
+  // dashed from the last of them to the live value.
+  const stepLine = (idx, val, liveVal, yf, cls, stroke, width, extra = '') => {
+    let d = `M${evoNum(xs[idx[0]])} ${evoNum(yf(val(pts[idx[0]])))}`;
+    for (let k = 1; k < idx.length; k++) d += `H${evoNum(xs[idx[k]])}V${evoNum(yf(val(pts[idx[k]])))}`;
+    const li = idx[idx.length - 1];
+    const dl = `M${evoNum(xs[li])} ${evoNum(yf(val(pts[li])))}H${evoNum(xNow)}V${evoNum(yf(liveVal))}`;
+    const common = `fill="none" stroke="${stroke}" stroke-width="${width}"${extra}`;
     return (
       `<path class="${cls}" ${common} d="${d}"></path>` +
       `<path class="${cls}-live" ${common} stroke-dasharray="4 3" d="${dl}"></path>`
     );
   };
+  const all = pts.map((_, i) => i);
+  const line = (key, cls, stroke, width) => stepLine(all, (p) => p[key], live[key], y, cls, stroke, width);
 
   const downs = [];
   for (const key of ['done', 'total']) {
-    const seq = pts.map((p, i) => ({ v: p[key], x: xs[i] })).concat([{ v: live[key], x: xNow }]);
+    const seq = pts.map((p, i) => ({ v: p[key], x: xs[i], p })).concat([{ v: live[key], x: xNow, p: null }]);
     for (let i = 1; i < seq.length; i++) {
       if (seq[i].v < seq[i - 1].v) {
         downs.push(
-          `<circle class="evo-down" cx="${evoNum(seq[i].x)}" cy="${evoNum(y(seq[i].v))}" r="4" fill="none" stroke="var(--blue)" stroke-width="1.5"><title>${esc(EVO_DOWN_TIP)}</title></circle>`,
+          `<circle class="evo-down" cx="${evoNum(seq[i].x)}" cy="${evoNum(y(seq[i].v))}" r="4" fill="none" stroke="var(--blue)" stroke-width="1.5"><title>${esc(evoDownTip(seq[i - 1].p, seq[i].p))}</title></circle>`,
         );
       }
     }
@@ -537,20 +555,42 @@ export function evolutionChartSvg(history, now = Date.now()) {
 
   const days = Math.floor((now - lastT) / 86400000);
   const ago = days <= 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
+  const tx = (px, py, anchor, txt, extra = '') =>
+    `<text x="${px}" y="${py}" text-anchor="${anchor}" fill="var(--text-muted)" font-size="10"${extra}>${txt}</text>`;
   const axis =
     `<line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--track)"></line>` +
-    `<text x="${L - 4}" y="${evoNum(y(0) + 3)}" text-anchor="end" fill="var(--text-muted)" font-size="10">0</text>` +
-    `<text x="${L - 4}" y="${evoNum(y(maxY) + 3)}" text-anchor="end" fill="var(--text-muted)" font-size="10">${maxY}</text>` +
+    tx(L - 4, evoNum(y(0) + 3), 'end', '0') +
+    tx(L - 4, evoNum(y(maxY) + 3), 'end', maxY) +
+    tx(L - 4, T - 1, 'end', 'specs', ' class="evo-ylabel"') +
+    (hasSlices
+      ? tx(W - R + 4, evoNum(ys(0) + 3), 'start', '0') +
+        tx(W - R + 4, evoNum(ys(maxS) + 3), 'start', maxS) +
+        tx(W - R + 4, T - 1, 'start', 'slices', ' class="evo-ylabel"')
+      : '') +
     `<text x="${L}" y="${H - 8}" fill="var(--text-muted)" font-size="10">${esc(pts[0].ts.slice(0, 10))}</text>` +
     `<text x="${W - R}" y="${H - 8}" text-anchor="end" fill="var(--text-muted)" font-size="10">now</text>`;
+  const sliceLines = hasSlices
+    ? stepLine(sliceIdx, (p) => p.slices.total, live.slices ? live.slices.total : last.slices ? last.slices.total : pts[sliceIdx[sliceIdx.length - 1]].slices.total, ys, 'evo-slice-total', 'var(--text-muted)', 1.2, ' opacity="0.5"') +
+      stepLine(sliceIdx, (p) => p.slices.done, live.slices ? live.slices.done : pts[sliceIdx[sliceIdx.length - 1]].slices.done, ys, 'evo-slice-done', 'var(--green)', 2)
+    : '';
+  const keyItem = (color, label, faint) =>
+    `<span class="evo-key-item"><i class="evo-swatch" style="background:${color}${faint ? ';opacity:.5' : ''}"></i>${label}</span>`;
+  const key =
+    `<div class="evo-key">` +
+    keyItem('var(--blue)', 'spec done') +
+    keyItem('var(--track)', 'spec total') +
+    (hasSlices ? keyItem('var(--green)', 'slice done') + keyItem('var(--text-muted)', 'slice total', true) : '') +
+    `</div>`;
   return (
-    `<div class="evo-chart"><svg class="evo-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="specs done and total over time">` +
+    `<div class="evo-chart"><svg class="evo-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${hasSlices ? 'specs and slices' : 'specs'} done and total over time">` +
     axis +
     line('total', 'evo-total', 'var(--track)', 1.5) +
     line('done', 'evo-done', 'var(--blue)', 2) +
+    sliceLines +
     dots +
     downs.join('') +
     `</svg>` +
+    key +
     `<div class="evo-caption">last snapshot ${ago}</div></div>` +
     skipLine
   );
