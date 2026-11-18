@@ -39,3 +39,6 @@ credentials/
 .jig/semantic-index-events.jsonl
 .jig/servo-hint-shown
 # <<< jig secret-ignore <<<
+
+# jig review.py candidate sidecars (run metadata with local paths; never commit)
+**/reviews/.candidates/

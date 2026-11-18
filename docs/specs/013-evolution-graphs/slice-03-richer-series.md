@@ -1,5 +1,5 @@
 ---
-status: IN_PROGRESS
+status: REVIEWED
 dependencies: [013-01]
 last_verified: 2026-11-18
 frame_review: true
@@ -123,7 +123,9 @@ slices inside one long spec shows a rising line instead of a flat one.
       down-step wording, equal-scanned wording). All killed by a 013-03 test.
 - [x] `docs/architecture.md` updated (entry fields, `history` point and `live`
       fields, signature and the retired spec-granular note).
-- [ ] Compliance, craft and arch reviews recorded (post-implementation review).
+- [x] Compliance, craft and arch reviews recorded (post-implementation review):
+      all pass (`reviews/slice-03-{compliance,craft,arch}.md`); their fixes are
+      folded in (deviation 3d). Suite after the fix round: 444/444.
 
 ### Deviation log (after reconciliation)
 
