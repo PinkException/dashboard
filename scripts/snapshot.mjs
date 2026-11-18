@@ -20,12 +20,13 @@
 //   node scripts/snapshot.mjs --all --auto --if-changed
 import fs from 'node:fs';
 import path from 'node:path';
-import { validateSnapshot } from '../src/lib.mjs';
+import { realSliceCounts, validateSnapshot } from '../src/lib.mjs';
 import {
   expandHome,
   loadConfig,
   resolveConfigPath,
   scanProject,
+  scannedProvenance,
   snapshotFileFor,
 } from '../src/scan.mjs';
 
@@ -46,17 +47,19 @@ function parseArgs(argv) {
 
 // The deterministic progress signal a snapshot carries, reduced to what the
 // on-change cadence rule (slice 005-04, `--if-changed`) treats as "changed":
-// spec completion (`specs.done`/`specs.total`) and which spec is active
-// (`next`). Deliberately EXCLUDES the open-bug count: a bug that opens and
-// closes nets zero real progress but would otherwise write two series points —
-// churn, not signal. Because progress here is measured at spec granularity, a
-// multi-slice spec produces no auto point until a spec completes or the active
-// spec changes; slice-level granularity would require enriching the auto
-// fingerprint and is deferred to the future evolution-chart spec.
+// spec completion (`specs.done`/`specs.total`), slice completion
+// (`slices.done`/`slices.total`, spec 013-03: a finished or added slice is a
+// point) and which spec is active (`next`). Deliberately EXCLUDES the open-bug
+// count and the `scanned` provenance: a bug that opens and closes nets zero
+// real progress but would otherwise write two series points — churn, not
+// signal. An older stored entry without `slices` differs from a new one with
+// them (null vs a number), so the first slice-carrying entry is always written.
 function progressSignature(snap) {
   return JSON.stringify({
     done: snap.specs?.done ?? null,
     total: snap.specs?.total ?? null,
+    sliceDone: snap.slices?.done ?? null,
+    sliceTotal: snap.slices?.total ?? null,
     next: snap.next ?? null,
   });
 }
@@ -119,6 +122,12 @@ function writeSnapshot(root, args) {
   // line. A bare `--source` with no value is ignored — the default tag stands.
   if (typeof args.source === 'string' && args.source) snapshot.source = args.source;
   snapshot.specs = { done: scanned.progress.done, total: scanned.progress.denom };
+  // Spec 013-03: slice and bug counts plus where the count was taken. Additive:
+  // old readers ignore them; `slices` is omitted when there are no real slices.
+  const slices = realSliceCounts(scanned.specs);
+  if (slices) snapshot.slices = slices;
+  snapshot.bugs = { open: scanned.counts.bugs.open };
+  snapshot.scanned = scannedProvenance(root);
 
   const errors = validateSnapshot(snapshot);
   if (errors.length) return { root, error: 'invalid snapshot: ' + errors.join('; ') };

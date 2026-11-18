@@ -82,7 +82,9 @@ test('013-01 AC2: scanProject attaches history from the STORE only (legacy in-re
   const p = scanProject({ path: root, label: 'x', pinnedWorkstreams: [], hiddenWorkstreams: [] });
   assert.equal(p.history.points.length, 1);
   assert.deepEqual(p.history.skipped, { noNumbers: 0, malformed: 0 });
-  assert.deepEqual(p.history.live, { done: p.progress.done, total: p.progress.denom });
+  // 013-03 AC5 widened `live` with `slices`; the 013-01 fields are unchanged.
+  assert.equal(p.history.live.done, p.progress.done);
+  assert.equal(p.history.live.total, p.progress.denom);
   assert.equal(p.history.live.total, 3); // denom excludes ABANDONED (4 specs - 1)
   assert.equal(p.compass.headline, 'beta is close'); // legacy file still read
   fs.rmSync(snapshotFileFor(root));
@@ -102,12 +104,12 @@ const attr = (svg, cls, name) => {
 
 test('013-01 AC4: solid step path for known series; dashed stretch ends at live value', () => {
   const svg = evolutionChartSvg(hist([pt(0, 1, 3), pt(10, 2, 3)], { done: 2, total: 4 }), NOW);
-  assert.equal(attr(svg, 'evo-done', 'd'), 'M34 104.5H292V73');
-  assert.equal(attr(svg, 'evo-done-live', 'd'), 'M292 73H550V73');
+  assert.equal(attr(svg, 'evo-done', 'd'), 'M34 107.5H292V79');
+  assert.equal(attr(svg, 'evo-done-live', 'd'), 'M292 79H550V79');
   assert.match(svg, /<path class="evo-done-live"[^>]*stroke-dasharray/);
   assert.doesNotMatch(svg, /<path class="evo-done"[^>]*stroke-dasharray/);
-  assert.equal(attr(svg, 'evo-total', 'd'), 'M34 41.5H292V41.5');
-  assert.equal(attr(svg, 'evo-total-live', 'd'), 'M292 41.5H550V10');
+  assert.equal(attr(svg, 'evo-total', 'd'), 'M34 50.5H292V50.5');
+  assert.equal(attr(svg, 'evo-total-live', 'd'), 'M292 50.5H550V22');
 });
 
 test('013-01 AC4: caption says "today" and "1 day ago" for recent snapshots', () => {

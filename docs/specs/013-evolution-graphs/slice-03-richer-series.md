@@ -1,7 +1,7 @@
 ---
-status: DRAFT
+status: DONE
 dependencies: [013-01]
-last_verified:
+last_verified: 2026-11-18
 frame_review: true
 arch_review: true
 ---
@@ -18,32 +18,173 @@ The writer explicitly hands this to "the future evolution-chart spec"
 **DoR:**
 - ✅ 013-01 DONE. Owner verdict 2026-11-18 ("needs more info") makes this
   slice the next priority in spec 013.
-- ⬜ Owner decision: should the auto guard (`--if-changed`) also fire when the
-  slice count changes? Firing makes the data denser, but adds more auto entries.
+- ✅ Owner decision (2026-11-18): **yes**, the auto guard (`--if-changed`) also
+  fires when the slice count changes. Denser data is the point of this slice;
+  it affects only `auto` entries, and the auto routine is currently stopped.
+- ✅ Owner decision (2026-11-18): the **cadence source** for new entries is
+  slice 012-04 (`/dashboard:end-of-day`, one snapshot per project worked on,
+  run each evening). Not chosen: restarting the stopped auto routine, or a
+  manual-snapshot habit. See Assumption A1.
+- ✅ Frame-critique passed (2 rounds, `reviews/slice-03-frame-critique.md`);
+  approved by the owner for implementation (2026-11-18).
 
-**Acceptance Criteria (draft, to sharpen after 013-01):**
+**Assumptions:**
+- **A1 — the richer series fills only as new entries are written.** No
+  back-fill (spec 013 non-goal, ADR-0004), so all existing entries lack
+  `slices`, and the auto routine is stopped. The slice line therefore appears
+  once 012-04 is built and run (or a manual `/dashboard:snapshot` is taken);
+  until then the visible gain of this slice is AC7 (labels and key). Building
+  013-03 **before** 012-04 is deliberate: every end-of-day snapshot then
+  carries `slices` from its first run (frame-critique 2026-11-18, round 1).
+  **Residual risk (round 2):** an end-of-day entry is still gated by the
+  snapshot skill's thin-day bar (`skills/snapshot/SKILL.md` step 3), and slice
+  progress counts only once merged to the scanned root, so the line may stay
+  step-shaped. If it does, the remaining lever is the stopped auto routine,
+  which AC4 already makes slice-aware. **Ordering:** this relies on 013-03
+  landing before 012-04 (chain 012-02 → 012-03 → 012-04); if 012-04 lands
+  first, its entries simply lack `slices` until 013-03 ships.
 
-1. The writer adds optional numeric fields `slices: {done, total}` and
-   `bugs: {open}` to new entries. This is an additive change to the ADR-0002
-   contract; old entries stay valid.
-2. If the owner agrees (DoR), the `--if-changed` signature includes
-   `slices.done`. The bug count stays excluded, per the 005-04 rationale.
-3. The series reader passes these fields through when present. The chart draws
-   a slice-level done line when at least 2 points carry `slices`, and otherwise
-   falls back to spec level without comment.
-4. The writer also records where a point was counted: `scanned: {branch,
-   worktree: true|false}`. The chart can then tell a branch or worktree point
-   apart from a main-checkout point, and explain a down-step precisely instead
-   of listing every possible cause (013-01 frame-critique round 2).
-5. Tests cover old and new entries mixed in one series.
+**Current state (verified 2026-11-18 on `main`):**
+- The scanner already computes slice progress: `result.sliceProgress =
+  progressOf(allSlices)` (`src/scan.mjs`), shape `{done, denom, ...}` with
+  ABANDONED excluded from `denom`, the same rule as `specs`. Open bugs are
+  `result.counts.bugs.open`. The branch is known to `scanWorktreeSpecs`.
+- The writer (`scripts/snapshot.mjs` `writeSnapshot`) stores only `specs`.
+  `progressSignature` hashes `specs.done`, `specs.total` and `next`.
+- `validateSnapshot` (`src/lib.mjs`) checks only `v`, `ts`, `headline`,
+  `next`, `blockers`, `specs`.
+- The 013-01 chart has no axis label and no key; the owner could not tell what
+  the vertical axis measured (inbox, 2026-11-18).
 
-**Anti-horizontal-phasing check:** after this slice, a project finishing slices
-inside one long spec shows a rising line instead of a flat one.
+**Acceptance Criteria:**
+
+1. **Writer: new optional fields.** Every new entry (auto and narrative) also
+   carries `slices: {done, total}` and `bugs: {open}`. Slices are counted over
+   **real slices only** (a `slice-*.md` with a `status:`; the `realSlices` rule,
+   `src/lib.mjs`), not `sliceProgress`, which also counts status-less files as
+   UNKNOWN and would inflate `total` (frame-critique 2026-11-18). `total`
+   excludes ABANDONED, as `specs.total` does. `slices` is omitted when the
+   project has no real slices. This is an
+   additive change to the ADR-0002/ADR-0004 entry contract: old entries stay
+   valid, and readers ignore fields they do not know.
+2. **Writer: provenance.** Every new entry carries `scanned: {branch,
+   worktree}`: the branch checked out at the scanned root (`null` if detached
+   or unknown) and `worktree: true` when the scanned root is a linked worktree
+   (it differs from `projectRootOf(root)`).
+3. **Validator.** `validateSnapshot` accepts the three fields when well-formed
+   and rejects malformed ones (`slices` without numeric `done`/`total`, `bugs`
+   without numeric `open`, `scanned` with a non-string-non-null `branch` or a
+   non-boolean `worktree`). Entries without them stay valid.
+4. **Cadence (owner decision).** `progressSignature` also includes
+   `slices.done` and `slices.total`, so `--if-changed` writes an auto entry when
+   a slice finishes or is added. `bugs` and `scanned` stay out of the signature
+   (005-04 rationale: churn, not progress). An older stored entry without
+   `slices` compared against a new one with them counts as **changed** once, so
+   the first slice-carrying auto entry is always written.
+5. **Reader.** `buildProgressSeries` passes `slices`, `bugs` and `scanned`
+   through on each point when present and well-formed; `history.live` gains
+   `slices` from the current scan. Malformed extra fields are dropped from the
+   point (the point itself is kept, since `specs` is valid).
+6. **Chart: slice line.** When at least 1 stored point carries `slices`, the
+   chart draws a **slice done** line from the first such point (solid stored
+   part, dashed to the live value, same rules as 013-01 AC4 and AC5, so one
+   stored point gives just the dashed stretch) and a fainter slice-total line,
+   on their own y-scale (0 to max slice total, live included). The spec lines
+   stay as they are. With no such point, the chart is the 013-01 chart plus
+   AC7's labels and key.
+7. **Chart: labels and key.** The chart says what it measures: a y-axis label
+   ("specs", or "slices" for the slice scale) and a small key naming each line
+   drawn (spec done, spec total, and the slice lines when shown). Colours come
+   from CSS tokens only, as in 013-01.
+8. **Chart: precise down-steps.** A down-step marker whose two points carry
+   `scanned` and differ in branch or worktree says so ("counted on another
+   branch or worktree: <branch>"). Without `scanned` on both sides it keeps the
+   013-01 wording listing every cause.
+9. **Tests.** Mixed old and new entries in one series; validator accept and
+   reject cases; signature change on a slice-only change and no change on a
+   bug-only change; the old-entry-vs-new-entry first write; slice line drawn from
+   1 point and absent at 0; labels and key present; the precise down-step
+   wording. Fixtures use invented project names (leak gate).
+
+**Anti-horizontal-phasing check:** after this slice, the owner can read what
+each line and axis means without asking (AC7), and every new snapshot carries
+slice counts. Once 012-04's end-of-day snapshots run (A1), a project finishing
+slices inside one long spec shows a rising line instead of a flat one.
+
+**DoD:**
+- [x] ACs 1-9 pass; full suite green (`npm test`: 443/443, baseline 430; 13 new
+      tests in `test/richer-series.test.mjs`).
+- [x] Each new test shown to fail when its feature is removed: 19 isolated
+      mutations (real-only slice filter, null-when-none, `bugs`, `scanned`, each
+      of the 3 validator branches, signature without slices, signature with
+      bugs, malformed-slices drop, scanned passthrough, `live.slices`, slice
+      lines, first-slice-point start, key, y label, slice key entries, precise
+      down-step wording, equal-scanned wording). All killed by a 013-03 test.
+- [x] `docs/architecture.md` updated (entry fields, `history` point and `live`
+      fields, signature and the retired spec-granular note).
+- [x] Compliance, craft and arch reviews recorded (post-implementation review):
+      all pass (`reviews/slice-03-{compliance,craft,arch}.md`); their fixes are
+      folded in (deviation 3d). Suite after the fix round: 444/444.
 
 ### Deviation log (after reconciliation)
 
-_Filled at reconciliation._
+1. **Test superseded.** 013-01 AC2's test asserted `history.live` deep-equals
+   `{done, total}`; its fixture has slices, so `live` now also carries
+   `slices`. The assertion was narrowed to the two 013-01 fields (labelled in
+   the test).
+2. **Provenance helper.** `scannedProvenance(root)` is a new export of
+   `src/scan.mjs` (wraps `listWorktrees`), so the payload from `scanProject` is
+   unchanged; only the writer calls it.
+3. **Chart choices not fixed by the ACs:** with slice lines shown, the right
+   margin widens (10 to 34) for a slice scale; slice lines use `--purple` (done; `--green` is taken by the narrative dots, review fix)
+   and `--text-muted` at 50% opacity (total); no down-step markers for the
+   slice lines (AC8 speaks of spec steps only); the key is an HTML row under the
+   SVG. Those four are choices, not spec text.
+3b. **AC8 refinement (orchestrator decision, 2026-11-18; specified behaviour):**
+   when both points carry `scanned` and they are equal, the marker reads "count
+   went down: a spec was reopened or abandoned, or the counting rule changed"
+   (the branch cause is ruled out). The 013-01 generic wording stays only when
+   `scanned` is missing on either side. Review fix: the "ruled out" wording
+   applies only when BOTH branches are non-null strings; a null branch
+   (detached, unknown, subdirectory project) cannot rule the cause out, so it
+   gets the generic wording. Mutation-checked. Counterpart: when one side's
+   branch is null and the other's is a string, the branches differ, so the
+   marker says "counted on another branch or worktree: <branch>" (AC8's
+   "differ in branch").
+3c. **Live segment:** a down-step on the dashed stretch to the live value always
+   uses the generic wording (live carries no `scanned`), matching AC8's "both
+   points" wording.
+3d. **Review-round fixes folded in:** slice-scale and null-branch tests added
+   (slice-total live end and right-axis max checked; swapping `ys` to `y` fails
+   it), a subdirectory-provenance test (characterization, passed on first run),
+   `realSliceCounts` reuses `realSlices`, duplicate call hoisted, live-slice
+   fallback simplified.
+3e. **Live-check fix (2026-11-18):** in the browser the "specs" axis-unit label
+   overlapped the max-value label (both drawn at the plot top; tests have no
+   layout engine). The plot's top margin `EVO.T` grew from 10 to 22 and the unit
+   labels moved 10px above it; two tests that pin exact path coordinates were
+   updated to the new top. Seen fixed live in dark theme.
+3f. **Leak-gate catch:** the review-tool sidecars
+   (`reviews/.candidates/*.json`, which hold a local home path) were committed
+   by accident; `npm test`'s leak test caught them. They were removed from the
+   unpushed commit (never published), and `.gitignore` ignores them (main added the same rule,
+   `docs/specs/*/reviews/.candidates/`, in parallel; the merge kept main's).
+4. **Number check.** The shared shape checks require finite numbers (`NaN` and
+   `Infinity` rejected), slightly stricter than `typeof === 'number'`.
 
 ### Reconciliation sweep
 
-_Filled at reconciliation._
+| Artifact | Disposition | Rationale |
+|----------|-------------|-----------|
+| `README.md` | `no-op` | The front door describes the dashboard generally; the chart is a detail-view feature. |
+| `docs/specs/README.md` | `updated` | Regenerated by `workflow.py status-board`. |
+| `docs/product-vision.md` | `no-op` | Serves UC-1/UC-3 as spec 013 declares; no scope change. |
+| `docs/architecture.md` | `updated` | Snapshot-file bullet (optional `slices`/`bugs`/`scanned`, `branch: null` cases, writer-only provenance) and the `/api/data` `history` point/`live` fields and signature note. |
+| `docs/decisions/` (ADR-0002, ADR-0004) | `no-op` | Additive fields sit within ADR-0002 ("unknown extra fields are allowed"). ADR-0004's evidence section lists the old writer fields as historical evidence; `architecture.md` is the live contract (arch review). |
+| Primer surfaces: `CLAUDE.md` / `AGENTS.md` | `updated` | Active-specs line and Current Sprint Focus both mark 013-03 DONE (set in the same commit as the DONE transition); no AGENTS.md in this repo. |
+| `docs/inbox.md` | `updated` | Follow-up parked: down-step markers on the slice lines. The 2026-11-18 "chart does not say what it measures" item is addressed by AC7 and removed. |
+| `docs/refinement-todo.md` | `no-op` | No deferred decision; the cadence choice is recorded in DoR and A1. |
+| `docs/memory/**` | `no-op` | Nothing new beyond the existing leak-gate and `npm test` memories, both applied. |
+| `.gitignore` | `no-op` | The sidecar ignore rule arrived from `origin/main` (`docs/specs/*/reviews/.candidates/`); this slice's equivalent rule was dropped at merge (deviation 3f). |
+| `skills/snapshot/SKILL.md` | `no-op` | The skill calls `snapshot.mjs`, which now adds the fields itself; no instruction change needed. |
+| Merge of `origin/main` (012-02, spec 014 docs, v1.3 designs, bug 003, `feedback-notes.md`) | `no-op` | Not this slice's work: everything on `origin/main` since the branch point, integrated before reconciling; no conflicts; suite 465/465 after the merge. |
