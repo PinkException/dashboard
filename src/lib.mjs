@@ -905,13 +905,15 @@ export function deriveWaitingOn(project, marker, ownerLogin) {
 // gh-enriched projects on /api/prs). The first four partition the jig-managed,
 // error-free projects by head state (`waitingOn.state`); error rows and
 // not-jig-managed rows are counted in none of them. `running` is independent
-// (projects with >= 1 running session) and overlaps the others.
+// (non-error projects with >= 1 running session) and overlaps the others.
 // `specsDone`/`specsDenom` feed the header ring (abandoned specs excluded,
 // same denominator as each row's "N of M specs").
 export function summarizeProjects(projects) {
   const s = { needYou: 0, ready: 0, external: 0, idle: 0, running: 0, specsDone: 0, specsDenom: 0 };
   for (const p of projects || []) {
-    if ((p.sessions || []).some((x) => x.running)) s.running += 1;
+    // Error rows render no activity cell (no running dot), so they are left
+    // out of `running` too — the tile always agrees with the rows' dots.
+    if (!p.error && (p.sessions || []).some((x) => x.running)) s.running += 1;
     if (p.error || !p.jigManaged) continue;
     const state = p.waitingOn && p.waitingOn.state;
     if (state === 'MERGE' || state === 'REVIEW' || state === 'DECIDE') s.needYou += 1;

@@ -59,7 +59,13 @@ test('AC5 summarizeProjects: partitions jig-managed error-free projects by head 
   assert.equal(s.external, 1);
   assert.equal(s.idle, 2);
   assert.equal(s.needYou + s.ready + s.external + s.idle, 8, 'partition sums to jig-managed error-free count');
-  assert.equal(s.running, 3, 'projects with >=1 running session (a, e, and the error row), not session count');
+  assert.equal(s.running, 2, 'projects with >=1 running session (a, e), not session count; error rows excluded — they show no running dot');
+});
+
+test('AC5 summarizeProjects: a jig-managed project with no or unknown waitingOn state counts as Idle (agrees with chip + tint fallback)', () => {
+  const s = summarizeProjects([proj('a', undefined), proj('b', wo('Weird', 9))]);
+  assert.equal(s.idle, 2);
+  assert.equal(s.needYou + s.ready + s.external, 0);
 });
 
 test('AC5 summarizeProjects: empty input is all zeros; a non-running active session does not count', () => {
