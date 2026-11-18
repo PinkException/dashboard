@@ -335,6 +335,14 @@ Stateless by design — same disk state → same page (vision principle 2):
   `projects[].currentReleasePath` (the default release track, derived
   scanner-side), and `projects[].roadmap` (the ordered roadmap model plus its
   `asOf` branch and worktree hint).
+  **Spec 012-02 adds (additively):** `specs[].slices[].goal` (first sentence of
+  the slice's `**Goal:**` paragraph as plain text, capped at 300 chars with "…";
+  `null` when absent), `specs[].slices[].trigger` (the `**Resolution trigger:**`
+  paragraph, same cap — present **only on DEFERRED slice records**, absent
+  elsewhere; `null` on a DEFERRED slice without one), `goal` on every slice-backed `roadmap` card (the unresolved-token release
+  placeholder has none), and `projects[].roadmap.parked` (one card per DEFERRED slice
+  from every spec except ABANDONED ones, sorted by spec number;
+  `roadmap.parkedCount === roadmap.parked.length`).
 - **`GET /api/prs`** — the phase-two enrichment surface (spec 010-01 / ADR-0007):
   a full `scanAll` with the real `gh` context, returned as **per-project deltas**
   `{ generatedAt, projects: [{ path, ownerLogin?, prs?, waitingOn, waitingStages }] }`,

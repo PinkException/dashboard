@@ -22,7 +22,7 @@ Always-loaded primer, kept lean per jig's context-cost discipline. This is an **
 
 ### Active specs
 Only work still in flight; the [status board](docs/specs/README.md) is the source of truth for everything else.
-- [012-project-roadmap-tab](docs/specs/012-project-roadmap-tab/spec.md) - roadmap tab in the detail view; 012-01 DONE, 012-02..04 READY.
+- [012-project-roadmap-tab](docs/specs/012-project-roadmap-tab/spec.md) - roadmap tab in the detail view; 012-01 and 012-02 (Parked section + slice goals) DONE, 012-03..04 READY.
 - [013-evolution-graphs](docs/specs/013-evolution-graphs/spec.md) - progress-over-time chart in the Activity tab; 013-01 DONE, 013-02 (sparkline, gated on owner verdict) and 013-03 DRAFT.
 - [007-plugin-onboarding](docs/specs/007-plugin-onboarding/spec.md) - 007-03 (converge the missing-config message) DRAFT; the rest DONE.
 - Specs 001-006 and 008-010 are DONE. [001-adopt-jig](docs/specs/001-adopt-jig/spec.md) is the worked example to imitate.
@@ -53,8 +53,8 @@ Only work still in flight; the [status board](docs/specs/README.md) is the sourc
 decision in [lightweight-decisions](docs/decisions/lightweight-decisions.md)).
 0.7.0 adds the **roadmap tab** (spec 012 slice 01) on top of 0.6.0 (specs
 008–010, leak-guard tooling, PR #8's follow-ups). **Spec 012 is in flight:**
-012-01 DONE; 012-02 (parked + goals), 012-03 (saved order from snapshots),
-012-04 (end-of-day skill) are READY_FOR_IMPLEMENTATION. **Spec 013 (evolution
+012-01 and 012-02 (parked + goals, not yet released) DONE; 012-03 (saved
+order from snapshots), 012-04 (end-of-day skill) are READY_FOR_IMPLEMENTATION. **Spec 013 (evolution
 graphs) is in flight on main, not yet released:** 013-01 (Activity-tab
 progress chart) DONE (2026-11-18). Specs 001–010 are DONE apart from 007-03
 (DRAFT).
@@ -81,7 +81,7 @@ Settled facts a new session should not re-litigate:
   `dashboard--vX.Y.Z` on the release commit. A cloud session cannot push tags
   (proxy 403) — the owner pushes the tag locally.
 
-Next pickable work: slice 012-02. Small parked items live in
+Next pickable work: slice 012-03. Small parked items live in
 [docs/inbox.md](docs/inbox.md).
 Later candidates (vision → MVP scope deferrals): hours-worked layer, jig
 upstreaming. (Evolution graphs, the third deferral, started as spec 013.)

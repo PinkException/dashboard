@@ -985,11 +985,12 @@ test('012-01 AC6: spec group shows ID, name, chip, and "Depends on" (same-spec, 
   assert.equal((html.match(/Depends on/g) || []).length, 1, 'no dependency line when none declared');
 });
 
-test('012-01 AC6: DEFERRED slices are not cards here; ABANDONED are not shown', () => {
+test('012-01 AC6 (amended by 012-02 AC3): DEFERRED slices are not in the spec groups (only the Parked section); ABANDONED are not shown', () => {
   const specs = [{ id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [rmSl('slice-01-a.md', 'DRAFT', 'Planned thing'), rmSl('slice-02-b.md', 'DEFERRED', 'Parked thing'), rmSl('slice-03-c.md', 'ABANDONED', 'Dead thing')] }];
   const html = roadmapTabHtml(rmProject(specs).roadmap);
   assert.match(html, /Planned thing/);
-  assert.doesNotMatch(html, /Parked thing/);
+  assert.ok(html.indexOf('rm-parked') > -1);
+  assert.doesNotMatch(html.slice(0, html.indexOf('rm-parked')), /Parked thing/);
   assert.doesNotMatch(html, /Dead thing/);
 });
 
@@ -1078,4 +1079,49 @@ test('012-01 AC9: roadmap content is escaped', () => {
 test('012-01 (superseded by 013-01 AC3): no tab is disabled any more; the activity tab is live', () => {
   const html = detailView(rmProject(rmSpecs));
   assert.doesNotMatch(html, /class="tab[^"]*disabled[^"]*" data-action="show-(overview|roadmap|activity)-tab"/);
+});
+
+// ===== Spec 012-02: goal lines + Parked section =====
+test('012-02 AC1: a slice card shows its goal line; no goal -> no goal element', () => {
+  const specs = [{ id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [
+    { ...rmSl('slice-01-a.md', 'IN_PROGRESS', 'With goal'), goal: 'Make it work.' },
+    rmSl('slice-02-b.md', 'DRAFT', 'No goal'),
+  ] }];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  assert.match(html, /<div class="rm-card-goal">Make it work\.<\/div>/);
+  assert.equal((html.match(/rm-card-goal/g) || []).length, 1);
+});
+
+test('012-02 AC3: Parked section below the spec groups: dashed cards with chip, id, name, goal, "Revisit when"', () => {
+  const specs = [
+    { id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [rmSl('slice-01-a.md', 'IN_PROGRESS', 'Live'), { ...rmSl('slice-02-b.md', 'DEFERRED', 'Later'), goal: 'Do later.', trigger: 'when X lands' }, rmSl('slice-03-c.md', 'DEFERRED', 'No trigger')] },
+    { id: '002-d', title: 'D', status: 'DONE', recency: 1, slices: [rmSl('slice-01-a.md', 'DONE', 'Fin'), rmSl('slice-02-b.md', 'DEFERRED', 'Tail')] },
+  ];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  const i = html.indexOf('rm-parked');
+  assert.ok(i > -1, 'parked section present');
+  assert.ok(i > html.indexOf('rm-spec-group'), 'parked section after the spec groups');
+  const parked = html.slice(i);
+  assert.match(parked, /Parked<\/span>/);
+  assert.match(parked, /001-02/);
+  assert.match(parked, /Later/);
+  assert.match(parked, /Do later\./);
+  assert.match(parked, /Revisit when: when X lands/);
+  assert.match(parked, /002-02/);
+  assert.equal((parked.match(/rm-card-parked/g) || []).length, 3);
+  assert.equal((parked.match(/Revisit when:/g) || []).length, 1, 'no trigger line when absent');
+});
+
+test('012-02 AC3: no parked slices -> no Parked section', () => {
+  assert.doesNotMatch(roadmapTabHtml(rmProject(rmSpecs).roadmap), /rm-parked/);
+});
+
+test('012-02 AC5: goal and trigger are escaped', () => {
+  const specs = [{ id: '001-a', title: 'A', status: 'IN_PROGRESS', recency: 1, slices: [
+    { ...rmSl('slice-01-a.md', 'IN_PROGRESS', 'x'), goal: '<script>alert(1)</script>' },
+    { ...rmSl('slice-02-b.md', 'DEFERRED', 'y'), goal: '<script>g</script>', trigger: '<script>t</script>' },
+  ] }];
+  const html = roadmapTabHtml(rmProject(specs).roadmap);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /&lt;script&gt;t&lt;\/script&gt;/);
 });

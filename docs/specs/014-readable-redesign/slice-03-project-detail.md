@@ -141,3 +141,7 @@ whether coverage and rationales are honest.
 | `docs/memory/**` | `no-op` | _TODO: note memory-sync result or why nothing was worth capturing._ |
 | `docs/decisions/README.md` / ADR index | `no-op` | _TODO: use `updated` when the slice touched ADRs; otherwise mark checked._ |
 | Additional live prose / generated templates touched by this slice | `deferred` | _TODO: name owner or trigger when real cleanup remains; otherwise replace with `no-op`._ |
+
+## Test feedback
+
+- [ ] The "N parked" tile in the sequence strip cannot be clicked. Make it take the owner to the Parked section (owner, 2026-11-17, trying 012-02).
