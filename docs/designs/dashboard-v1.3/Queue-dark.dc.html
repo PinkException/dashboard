@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Dashboard — action queue (dark)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121A2B;}
+a{color:#EFE9DC;text-decoration:none;}
+a:hover{color:#F08A63;}
+</style>
+</helmet>
+<div style="background: #121A2B; color: #EFE9DC; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; line-height: 1.5; padding: clamp(20px, 4vw, 52px); min-height: 100%; box-sizing: border-box">
+<div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px">
+
+<header style="display: flex; gap: 22px; align-items: center">
+<svg width="66" height="66" viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="27" fill="none" stroke="#2C374F" stroke-width="6"></circle><circle cx="33" cy="33" r="27" fill="none" stroke="#EE7E56" stroke-width="6" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="62" transform="rotate(-90 33 33)"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #F08A63; font-weight: 800">RosieBits · Dashboard</p>
+<h1 style="margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15">Everything waiting, in one queue</h1>
+<p style="margin: 0; font-size: 17px; color: #A9B3CA">Every waiting item across all projects. Work top to bottom: land and merge first, start new work last.</p>
+</div>
+</header>
+
+<nav aria-label="View" style="display: inline-flex; align-self: flex-start; background: #232E48; border: 1px solid #2C374F; border-radius: 999px; padding: 4px; gap: 4px">
+<a href="Main-dark.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; color: #EFE9DC; font-size: 15px; font-weight: 700">By project</a>
+<a href="Queue-dark.dc.html" aria-current="page" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: #EFE9DC; color: #1A2338; font-size: 15px; font-weight: 700">Action queue</a>
+</nav>
+
+<!-- Pipeline strip -->
+<section aria-label="Order of work" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<div style="background: #1A2338; border: 1px solid #2C374F; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.28)">
+<span style="font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #A9B3CA">Step {{s.step}}</span>
+<span style="font-size: 17px; font-weight: 800">{{s.name}}</span>
+<span style="font-size: 14px; font-weight: 700; {{s.countStyle}}">{{s.countText}}</span>
+</div>
+</sc-for>
+</section>
+
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+<span style="width: 12px; height: 12px; border-radius: 3px; align-self: center; {{s.dotStyle}}"></span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">{{s.name}}</h2>
+<span style="font-size: 15px; font-weight: 700; color: #A9B3CA">{{s.countText}}</span>
+<span style="font-size: 15px; color: #A9B3CA">— {{s.desc}}</span>
+</div>
+<sc-if value="{{s.empty}}" hint-placeholder-val="{{false}}">
+<div style="background: #232E48; border: 1px dashed #3A4560; border-radius: 14px; padding: 16px 20px; font-size: 16px; color: #A9B3CA">Nothing here right now.</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px">
+<sc-for list="{{s.items}}" as="it" hint-placeholder-count="2">
+<article style="background: #1A2338; border: 1px solid #2C374F; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.28); {{it.cardStyle}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<a href="Detail-dark.dc.html" style="font-size: 18px; font-weight: 800">{{it.name}}</a>
+<span style="display: inline-flex; flex-wrap: wrap; gap: 6px">
+<span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; {{it.chipStyle}}">{{it.chip}}</span>
+<sc-if value="{{it.blocking}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #B5372B; color: #FFFFFF">Blocking</span></sc-if>
+</span>
+</div>
+<span style="font-size: 14px; color: #A9B3CA; margin-top: -6px">{{it.type}}</span>
+<p style="margin: 0; font-size: 17px; font-weight: 700; line-height: 1.35">{{it.action}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 8px; border-top: 1px solid #2C374F; font-size: 14px; color: #A9B3CA">
+<span>{{it.wait}}</span>
+<span>{{it.flight}}</span>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var chip = {
+      decide:   ['Your call', 'background:#4A2618;color:#FFB497;'],
+      review:   ['Your review', 'background:#4A2618;color:#FFB497;'],
+      ready:    ['Ready', 'background:#1B3830;color:#7DD3A8;'],
+      external: ['Waiting on others', 'background:#26314C;color:#B4C3E6;'],
+      idle:     ['Idle', 'background:#2A303E;color:#C9C2B2;']
+    };
+    var raw = [
+      { name: 'Land', desc: 'finished work ready to go into main', dot: '#5BBB8D', items: [] },
+      { name: 'Merge', desc: 'out for someone else to review and merge', dot: '#93A4CB', items: [
+        { name: 'Semaphore', type: 'deploy notifier', state: 'external', action: 'PR out — awaiting a teammate’s review', wait: 'Waiting on a teammate', flight: '2 in flight' } ] },
+      { name: 'Review', desc: 'finished work waiting on your review', dot: '#EE7E56', items: [
+        { name: 'Cartographer', type: 'map-notes tool', state: 'review', action: 'Review 2 finished slices', wait: 'Waiting on you', flight: '5 in flight' },
+        { name: 'Almanac', type: 'habit tracker', state: 'review', action: 'Review 9 open drafts', wait: 'Waiting on you', flight: 'nothing in flight' } ] },
+      { name: 'Finish & unblock', desc: 'work in progress stuck on a call from you', dot: '#EE7E56', items: [
+        { name: 'Ledger', type: 'personal finance tracker', state: 'decide', blocking: true, action: 'Decide the currency-rounding rule', wait: 'Waiting on you', flight: '6 in flight' },
+        { name: 'Trailhead', type: 'hiking route planner', state: 'decide', action: 'Decide the routing-engine approach', wait: 'Waiting on you', flight: '10 in flight' } ] },
+      { name: 'Start new', desc: 'ready to launch, nothing blocking', dot: '#5BBB8D', items: [
+        { name: 'Kestrel', type: 'note-taking app', state: 'ready', action: 'Build the search index (spec 002)', wait: 'You can start it now', flight: '1 in flight' },
+        { name: 'Verdant', type: 'plant-care reminders', state: 'ready', action: 'Start the plant-list spec (spec 001)', wait: 'You can start it now', flight: 'nothing in flight' } ] },
+      { name: 'Idle', desc: 'nothing open', dot: '#4A5470', items: [
+        { name: 'Beacon', type: 'status-page generator', state: 'idle', action: 'Shipped v1.0 — nothing open', wait: 'All specs done', flight: 'nothing in flight' } ] }
+    ];
+    var stages = raw.map(function (s, i) {
+      var n = s.items.length;
+      return {
+        step: i + 1, name: s.name, desc: s.desc, empty: n === 0,
+        countText: n === 0 ? 'clear' : (n === 1 ? '1 item' : n + ' items'),
+        countStyle: n === 0 ? 'color:#A9B3CA;' : 'color:#EFE9DC;',
+        dotStyle: 'background:' + s.dot + ';',
+        items: s.items.map(function (it) {
+          var c = chip[it.state];
+          return {
+            name: it.name, type: it.type, action: it.action, wait: it.wait, flight: it.flight,
+            chip: c[0], chipStyle: c[1], blocking: !!it.blocking,
+            cardStyle: it.blocking ? 'border-color:#EE7E56;box-shadow:0 0 0 2px #EE7E56 inset, 0 6px 20px rgba(0,0,0,.28);' : ''
+          };
+        })
+      };
+    });
+    return { stages: stages };
+  }
+}
+</script>
+</body>
+</html>

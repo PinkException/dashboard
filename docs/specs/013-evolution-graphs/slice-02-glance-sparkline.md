@@ -11,8 +11,10 @@ frame_review: true
 "moving vs stalled" is visible without opening the detail view.
 
 **DoR:**
-- ⬜ 013-01 DONE (reuses `project.history`).
-- ⬜ Owner has seen 013-01 live and still wants a glance-level signal. The
+- ✅ 013-01 DONE (reuses `project.history`).
+- ⬜ Owner has seen 013-01 live and still wants a glance-level signal. Seen
+  2026-11-18: verdict "keep it, needs more info"; no glance signal asked for
+  yet, so this stays open. The
   design notes allow at most one sparkline per glance row
   (`docs/design/brainstorm-highlights.md`).
 

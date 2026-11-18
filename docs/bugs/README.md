@@ -9,6 +9,7 @@
 | ID | slug | severity | tier | status | reproduces? | regression test | claimed_by | escalated_to | Notes |
 |----|------|----------|------|--------|-------------|-----------------|------------|--------------|-------|
 | 002 | compass-writer-still-active | medium | standard | DONE | no | test/snapshot-store.test.mjs |  |  | Pausing the `compass-snapshots` routine retired only one of ADR-0004's three writers. Compass half fixed by the owner 2026-07-24; `snapshot.mjs` half fixed by slice 005-01. Closed 2026-11-11 after a fresh bug-review. |
+| 003 | folder-rename-splits-history |  |  | REPORTED | no |  | claude/bug-003-rename-splits-history |  |  |
 
 ## Terminal — closed (not fixed as bugs)
 

@@ -16,7 +16,8 @@ The writer explicitly hands this to "the future evolution-chart spec"
 (`scripts/snapshot.mjs:53-55`, `docs/architecture.md:103-106`).
 
 **DoR:**
-- ⬜ 013-01 DONE.
+- ✅ 013-01 DONE. Owner verdict 2026-11-18 ("needs more info") makes this
+  slice the next priority in spec 013.
 - ⬜ Owner decision: should the auto guard (`--if-changed`) also fire when the
   slice count changes? Firing makes the data denser, but adds more auto entries.
 

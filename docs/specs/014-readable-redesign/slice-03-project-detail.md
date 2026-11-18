@@ -1,0 +1,143 @@
+---
+status: READY_FOR_IMPLEMENTATION
+dependencies: [014-01, 012-01, 012-02, 012-03]
+last_verified:
+frame_review: true
+---
+
+<!-- jig self-defining vocabulary (soft, forward-only). -->
+<!-- jig grounding (spec 064-02 / ADR-0020): probe runnable-surface claims. -->
+
+## Slice 014-03 — project detail in the new look (incl. roadmap)
+
+**Goal:** Open a project and see its detail view in the v1.3 look —
+breadcrumb, progress-ring header, a "Your call" banner when it waits on the
+owner, what's next, open specs beside workstreams, sessions — with the
+roadmap tab rebuilt from the same v1.3 parts (owner decision D2).
+
+**Authority:** `docs/designs/dashboard-v1.3/Detail.dc.html` /
+`Detail-dark.dc.html`; for the roadmap tab, the v1.3 parts listed in AC6.
+
+**DoR:**
+- ⬜ 014-01 DONE.
+- ✅ 012-01 DONE (roadmap tab + `deriveRoadmap`).
+- ⬜ 012-02 and 012-03 DONE (D10), so every roadmap section exists.
+
+**Acceptance Criteria:**
+
+1. **Breadcrumb.** Back pill + "Projects / <name>". The pill follows the
+   lens the detail was opened from (`closeDetail(lens)`): "‹ All projects"
+   from the overview, "‹ Action queue" from the queue (round 3).
+2. **Header.** 84px progress ring with % in the centre; eyebrow "<type> · N of
+   M specs done"; h1 name + status pill; line "● N sessions running · N in
+   flight · last touched <age>".
+   Edge cases (round 3): `progress.pct === null` → the ring shows "—" with
+   an empty arc; no `description` → the eyebrow reads "N of M specs done"
+   alone; error / not-jig-managed projects keep today's detail branch,
+   restyled in the new tokens.
+3. **Tabs.** Pill tablist `Overview | Roadmap | Activity` (mockup style; the
+   Roadmap tab is added in the same style). Active tab survives the
+   `/api/prs` fold-in (spec 010 rule, unchanged).
+4. **Overview tab.**
+   - Owner banner: one accent-ringed card listing **every owner stage** in
+     the project's `waitingStages` (MERGE, REVIEW, DECIDE — D7), in rank
+     order, one line each: solid chip ("Land" / "Your review" / "Your
+     call"), action 22px/800 for the first and 17px/700 for the rest (stage
+     `action` text sentence-cased at render: first letter upper), line
+     "Waiting on you." No owner stage → no banner. (The "Spec NNN can't move"
+     clause is 014-04, not here.) (Round 2.)
+   - "What's next" card from the compass headline / next / age.
+   - Count pills (specs, slices, bugs, inbox).
+   - Open specs and workstreams side by side (two columns ≥ 900px, stacked
+     below); specs list keeps today's current-release-track filter (`detailSpecList`)
+     with the track as its label, as the mockup does ("Open specs · <track>"),
+     plus a "Show all N" control. (Round 2.)
+   - Sessions as a table (title, branch, worktree, running, last activity)
+     with "Show N older" (keeps spec 003-02's honest overflow counts).
+   - PR state (spec 009-04) stays visible, styled as a card in the new look.
+   - Every other overview section that renders today keeps rendering,
+     restyled — at least: the un-merged-worktree warning, the "Discovered,
+     not pinned" workstream block (mockup: "Found, not pinned yet"), and the
+     "Blocked:" line in What's next. (Frame-critique round 1.)
+5. **Activity tab.** Existing content, new tokens/type.
+6. **Roadmap tab (D2, D10).** Every roadmap section present at
+   implementation time — 012-01's, plus 012-02's Parked section and goal
+   lines and 012-03's Order label — keeps its data and rules, rebuilt from v1.3
+   parts: the sequence strip uses the queue's step-tile style (014-02 AC2),
+   with the roadmap's decided label ("Now · We are here" / "Next up" /
+   "Then" / "N parked", lightweight decision 2026-11-16) in the tile's
+   small top line where the queue shows "Step N", and the spec title in the
+   name line; no "Step N" ordinal is added; the queue tile's count line is
+   dropped; the parked tile shows "N parked" in the top line and an empty
+   name line;
+   the release block and each spec group use the section heading + card grid
+   style; slice status uses pill chips; "show N done" stays a native
+   `<details>`; empty states keep 012-01's wording; the "as of main"
+   worktree hint (012-01) keeps rendering.
+7. **No regression.** 012-01's roadmap tests and the detail-view tests pass
+   (updated only for markup/labels).
+
+**DoD:**
+- [ ] All ACs pass; full test suite green (no regressions).
+- [ ] Implementer test coverage exercises each AC with at least one
+      fixture. Edge cases listed in the slice are covered explicitly.
+- [ ] Each new test has been shown to fail when its feature is removed —
+      the test is capable of failing, not vacuously green (mutate the
+      feature, watch the test go red, restore).
+- [ ] Reviewed by `reviewer` subagent. Reviewer prompt built by
+      `review.py`.
+- [ ] Implementation review passed.
+- [ ] Deviation log produced under this slice heading.
+- [ ] Reconciliation sweep produced under this slice heading.
+- [ ] Reconciliation review passed.
+- [ ] `docs/refinement-todo.md` updated if any decisions were
+      deferred during implementation.
+
+### Close-out (post-DONE)
+
+These items can only be ticked AFTER the final `RECONCILED → DONE`
+transition. Slice-land's `check_dod` (slice 009-01) excludes them
+from the count.
+
+- [ ] `docs/specs/README.md` regenerated by `workflow.py status-board`.
+      Notes column receives any load-bearing per-slice invariant
+      (it's preserved across regen).
+- [ ] Primer hygiene per spec 025-01 rule: **if this slice closes the
+      spec** (all non-deferred slices DONE), check `CLAUDE.md`,
+      `AGENTS.md`, and scaffold templates when present, then **compress**
+      the spec's Active-specs entry — drop facts derivable from the
+      spec dir + status board, migrate load-bearing per-slice
+      invariants to the status board Notes column, keep at most a
+      one-liner only for cross-cutting facts. If the spec is still
+      in flight (other slices DRAFT / READY / IN_PROGRESS), leave
+      the entry. If this slice introduces a new skill, add or
+      update its row in the Skills table.
+
+**Anti-horizontal-phasing check:** After this lands the owner opens any
+project and reads its detail, roadmap and activity in the new look.
+
+### Deviation log (after reconciliation)
+
+The original spec is preserved above. Implementation notes:
+
+_TODO: numbered sections covering deviations from the planned shape,
+reviewer findings folded back in, doc updates, plan adherence._
+
+### Reconciliation sweep
+
+Record the drift-prone surfaces checked during reconciliation. The transition
+gate only requires this subsection to exist; the reconciliation reviewer judges
+whether coverage and rationales are honest.
+
+| Artifact | Disposition | Rationale |
+|----------|-------------|-----------|
+| `README.md` | `no-op` | _TODO: why this slice did not affect the project front door, or summarize the update._ |
+| `docs/specs/README.md` | `updated` | _TODO: regenerated by `workflow.py status-board`, or explain why deferred._ |
+| `docs/product-vision.md` | `no-op` | _TODO: checked for behavior / scope drift._ |
+| `docs/architecture.md` | `no-op` | _TODO: checked for module-boundary / public-contract drift._ |
+| Primer surfaces: `CLAUDE.md` / `AGENTS.md` / scaffold templates | `no-op` | _TODO: primer hygiene checked; note compression or template updates if any._ |
+| `docs/inbox.md` | `no-op` | _TODO: checked for items resolved by this slice._ |
+| `docs/refinement-todo.md` | `no-op` | _TODO: checked for resolved items or new deferred decisions._ |
+| `docs/memory/**` | `no-op` | _TODO: note memory-sync result or why nothing was worth capturing._ |
+| `docs/decisions/README.md` / ADR index | `no-op` | _TODO: use `updated` when the slice touched ADRs; otherwise mark checked._ |
+| Additional live prose / generated templates touched by this slice | `deferred` | _TODO: name owner or trigger when real cleanup remains; otherwise replace with `no-op`._ |
