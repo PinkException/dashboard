@@ -56,7 +56,7 @@
 | Spec | Slice | Resolution trigger |
 |------|-------|--------------------|
 | [011-readability-wcag](011-readability-wcag/spec.md) | 011-01 — contrast: every text colour passes WCAG AA in both modes | paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, rerun `test/contrast.test.mjs` (and this slice's token findings) against the new design rather than reviving these token edits as-is. State at pause: REVIEWED (compliance + craft pass; owner read-check AC5 not done). |
-| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, apply this slice's rules (12px floor, sans labels, tabular digits) to the new design if it still needs them. |
+| [011-readability-wcag](011-readability-wcag/spec.md) | 011-02 — type: 12px floor, sans-serif labels | paused 2026-11-17 by the owner — a new dashboard design is being built in another session. When it lands, apply this slice's rules (12px floor, sans labels, fixed-width digits) to the new design if it still needs them. |
 
 ## Abandoned slices
 
