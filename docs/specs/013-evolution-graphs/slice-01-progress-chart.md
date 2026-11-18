@@ -52,8 +52,10 @@ contract (`project.history`) and a second reader over the store.
    `specs` (`scripts/snapshot.mjs:121`). `project.compass` is unchanged, and so
    is every existing field (an additive contract change).
 3. **Activity tab enabled.** The Activity tab is no longer `disabled`. Its panel
-   shows the chart first, then the existing token-usage "coming soon" line
-   below it.
+   shows the chart first, then whatever "coming soon" line the Activity panel
+   carries when this slice is built. Today that is the token-usage line; the
+   v1.3 design (spec 014) words it as "specs shipped, slices reviewed, bugs
+   found". The chart does not depend on which wording is there.
 4. **Chart shape.** `evolutionChartSvg(history, now)` in `public/render.mjs`
    returns inline SVG with no dependencies:
    - **done** is drawn as a **solid** step line through the stored points (it
@@ -74,7 +76,10 @@ contract (`project.history`) and a second reader over the store.
      worktree, or the counting rule changed". It is never smoothed away
      (measured: 3 such steps in 92 stored points, spec A1).
    - colours come from the existing CSS tokens (`--blue`, `--green`, `--track`),
-     so light and dark themes both work.
+     never hard-coded hex values, so light and dark themes both work. If the
+     v1.3 redesign (spec 014) gives those tokens new values, the chart follows
+     automatically. If it renames them, the chart moves to the new names in the
+     same change.
 5. **Honest empty states.**
    - **0 stored points:** no chart. The panel says "No progress history yet.
      Today: N of M specs done." and names `/dashboard:snapshot` as the way to

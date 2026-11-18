@@ -22,7 +22,11 @@ frame_review: true
    the last 30 days, extended to now. It has no axes and is at most row height.
 2. A row with fewer than 2 points in that window shows nothing, not an empty
    box.
-3. The sparkline does not change row height (uniform rows, ADR-0006).
+3. The sparkline sits **inside the Progress cell**, under the percentage and
+   bar. That cell is 180px wide in the v1.3 design (spec 014), and there is
+   room for it there. It must fit within the height the row already has. v1.3
+   rows grow to fit their content (the "Next move" cell sets the height), so the
+   sparkline must never be what makes a row taller (uniform rows, ADR-0006).
 4. Tests cover the 30-day window, the "fewer than 2 points" rule, and the fixed
    size.
 
