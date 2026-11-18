@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dashboard — by project</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4EFE4;}
+a{color:#1C2A47;text-decoration:none;}
+a:hover{color:#B04A24;}
+</style>
+</helmet>
+<div style="background: #F4EFE4; color: #1C2A47; font-family: 'Nunito', ui-rounded, system-ui, sans-serif; line-height: 1.5; padding: clamp(20px, 4vw, 52px); min-height: 100%; box-sizing: border-box">
+<div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px">
+
+<!-- Header -->
+<header style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between">
+<div style="display: flex; gap: 22px; align-items: center">
+<svg width="66" height="66" viewBox="0 0 66 66" aria-hidden="true"><circle cx="33" cy="33" r="27" fill="none" stroke="#E4DAC7" stroke-width="6"></circle><circle cx="33" cy="33" r="27" fill="none" stroke="#E16B43" stroke-width="6" stroke-linecap="round" stroke-dasharray="170" stroke-dashoffset="62" transform="rotate(-90 33 33)"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #B04A24; font-weight: 800">RosieBits · Dashboard</p>
+<h1 style="margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15">Every project's next move</h1>
+<p style="margin: 0; font-size: 17px; color: #4E5A7C">Nearly-done work sits above just-started work, so you finish before you start.</p>
+</div>
+</div>
+</header>
+
+<!-- Summary tiles -->
+<section aria-label="Summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px">
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 38px; font-weight: 800; line-height: 1.1; color: #B04A24">4</span>
+<span style="font-size: 16px; font-weight: 700">Need you</span>
+<span style="font-size: 14px; color: #4E5A7C">a decision or a review</span>
+</div>
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 38px; font-weight: 800; line-height: 1.1; color: #23704F">2</span>
+<span style="font-size: 16px; font-weight: 700">Ready to start</span>
+<span style="font-size: 14px; color: #4E5A7C">nothing blocking them</span>
+</div>
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 38px; font-weight: 800; line-height: 1.1; color: #3F5379">1</span>
+<span style="font-size: 16px; font-weight: 700">Waiting on others</span>
+<span style="font-size: 14px; color: #4E5A7C">out for someone's review</span>
+</div>
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 38px; font-weight: 800; line-height: 1.1; color: #625C4E">1</span>
+<span style="font-size: 16px; font-weight: 700">Idle</span>
+<span style="font-size: 14px; color: #4E5A7C">nothing open</span>
+</div>
+<div style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 16px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); display: flex; flex-direction: column; gap: 2px">
+<span style="display: flex; align-items: center; gap: 10px; font-size: 38px; font-weight: 800; line-height: 1.1; color: #1C2A47"><span style="width: 12px; height: 12px; border-radius: 50%; background: #2F8A63"></span>5</span>
+<span style="font-size: 16px; font-weight: 700">Running now</span>
+<span style="font-size: 14px; color: #4E5A7C">projects with live sessions</span>
+</div>
+</section>
+
+<!-- Lens switch -->
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between">
+<nav aria-label="View" style="display: inline-flex; background: #EFE7D6; border: 1px solid #E4DAC7; border-radius: 999px; padding: 4px; gap: 4px">
+<a href="Main.dc.html" aria-current="page" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: #1C2A47; color: #FBF8F1; font-size: 15px; font-weight: 700">By project</a>
+<a href="Queue.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; color: #1C2A47; font-size: 15px; font-weight: 700">Action queue</a>
+</nav>
+<div style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 14px; color: #4E5A7C">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #FBE3D8; color: #A3401C">Your call</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #FBE3D8; color: #A3401C">Your review</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #E2EFE7; color: #23704F">Ready</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #E7E9F0; color: #3F5379">Waiting on others</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #ECE7DB; color: #625C4E">Idle</span>
+</div>
+</div>
+
+<!-- Project list -->
+<section aria-label="Projects" style="background: #FBF8F1; border: 1px solid #E4DAC7; border-radius: 18px; box-shadow: 0 1px 2px rgba(28,42,71,.05), 0 6px 20px rgba(28,42,71,.06); overflow-x: auto">
+<div style="min-width: 1000px">
+<div style="display: grid; grid-template-columns: 230px minmax(300px, 1fr) 140px 180px 160px; gap: 24px; padding: 16px 26px; border-bottom: 1px solid #E4DAC7; font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #4E5A7C">
+<span>Project</span><span>Next move</span><span>In flight</span><span>Progress</span><span>Activity</span>
+</div>
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 230px minmax(300px, 1fr) 140px 180px 160px; gap: 24px; align-items: center; padding: 20px 26px; border-top: 1px solid #E4DAC7; {{row.rowStyle}}">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<a href="Detail.dc.html" style="font-size: 19px; font-weight: 800; line-height: 1.25">{{row.name}}</a>
+<span style="font-size: 15px; color: #4E5A7C">{{row.type}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; {{row.chipStyle}}">{{row.chip}}</span>
+<sc-if value="{{row.blocking}}" hint-placeholder-val="{{false}}">
+<span style="display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: #B5372B; color: #FFFFFF">Blocking</span>
+</sc-if>
+</div>
+<span style="font-size: 17px; font-weight: 700; line-height: 1.35; {{row.actionStyle}}">{{row.action}}</span>
+<span style="font-size: 15px; color: #4E5A7C">{{row.wait}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 24px; font-weight: 800; line-height: 1.1; {{row.flightStyle}}">{{row.flight}}</span>
+<span style="font-size: 14px; color: #4E5A7C">{{row.flightWord}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 19px; font-weight: 800">{{row.pct}}%</span><span style="font-size: 14px; color: #4E5A7C">{{row.specs}}</span></div>
+<div style="height: 8px; border-radius: 999px; background: #E4DAC7; overflow: hidden"><div style="height: 8px; border-radius: 999px; {{row.barStyle}}"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 50%; flex: none; {{row.dotStyle}}"></span>{{row.running}}</span>
+<span style="font-size: 14px; color: #4E5A7C">{{row.last}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<p style="margin: 0; font-size: 15px; color: #4E5A7C">Click a project name to open its detail page.</p>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var chips = {
+      decide:   ['Your call', 'background:#FBE3D8;color:#A3401C;'],
+      review:   ['Your review', 'background:#FBE3D8;color:#A3401C;'],
+      ready:    ['Ready', 'background:#E2EFE7;color:#23704F;'],
+      external: ['Waiting on others', 'background:#E7E9F0;color:#3F5379;'],
+      idle:     ['Idle', 'background:#ECE7DB;color:#625C4E;']
+    };
+    var heat = {
+      hot:   ['color:#B04A24;', 'in flight · a lot open'],
+      busy:  ['color:#8A5A08;', 'in flight · busy'],
+      light: ['color:#1C2A47;', 'in flight · light'],
+      clear: ['color:#4E5A7C;', 'in flight · clear']
+    };
+    var data = [
+      { name: 'Semaphore', type: 'deploy notifier', state: 'external', action: 'PR out — awaiting a teammate’s review', wait: 'Waiting on a teammate', flight: 2, heat: 'light', pct: 55, specs: '6 of 11 specs', running: 1, last: 'touched 45m ago' },
+      { name: 'Cartographer', type: 'map-notes tool', state: 'review', action: 'Review 2 finished slices', wait: 'Waiting on you', flight: 5, heat: 'busy', pct: 78, specs: '14 of 18 specs', running: 3, last: 'touched just now' },
+      { name: 'Almanac', type: 'habit tracker', state: 'review', action: 'Review 9 open drafts', wait: 'Waiting on you', flight: 0, heat: 'clear', pct: 30, specs: '3 of 10 specs', running: 0, last: 'touched 3 days ago' },
+      { name: 'Ledger', type: 'personal finance tracker', state: 'decide', blocking: true, action: 'Decide the currency-rounding rule', wait: 'Waiting on you — other work is stuck behind it', flight: 6, heat: 'hot', pct: 45, specs: '9 of 20 specs', running: 4, last: 'touched 5m ago' },
+      { name: 'Trailhead', type: 'hiking route planner', state: 'decide', action: 'Decide the routing-engine approach', wait: 'Waiting on you', flight: 10, heat: 'hot', pct: 62, specs: '18 of 28 specs', running: 6, last: 'touched just now' },
+      { name: 'Kestrel', type: 'note-taking app', state: 'ready', action: 'Build the search index (spec 002)', wait: 'You can start it now', flight: 1, heat: 'light', pct: 50, specs: '1 of 2 specs', running: 1, last: 'touched 30m ago' },
+      { name: 'Verdant', type: 'plant-care reminders', state: 'ready', action: 'Start the plant-list spec (spec 001)', wait: 'You can start it now', flight: 0, heat: 'clear', pct: 8, specs: '1 of 12 specs', running: 0, last: 'touched about a week ago' },
+      { name: 'Beacon', type: 'status-page generator', state: 'idle', action: 'Shipped v1.0 — nothing open', wait: 'All specs done', flight: 0, heat: 'clear', pct: 100, specs: '11 of 11 specs', running: 0, last: 'touched 6 days ago' }
+    ];
+    var rows = data.map(function (p) {
+      var c = chips[p.state];
+      var h = heat[p.heat];
+      var you = p.state === 'decide' || p.state === 'review';
+      return {
+        name: p.name, type: p.type, action: p.action, wait: p.wait,
+        chip: c[0], chipStyle: c[1], blocking: !!p.blocking,
+        rowStyle: p.blocking ? 'background:#FCEFE9;' : (you ? 'background:#FDF6EE;' : (p.state === 'idle' ? 'background:#F7F3EA;' : '')),
+        actionStyle: p.state === 'idle' ? 'color:#4E5A7C;font-weight:600;' : 'color:#1C2A47;',
+        flight: p.flight, flightStyle: h[0], flightWord: h[1],
+        pct: p.pct, specs: p.specs,
+        barStyle: 'width:' + p.pct + '%;background:' + (p.pct === 100 ? '#2F8A63' : '#E16B43') + ';',
+        running: p.running > 0 ? p.running + ' running' : 'Idle',
+        dotStyle: p.running > 0 ? 'background:#2F8A63;' : 'background:#C9BFAA;',
+        last: p.last
+      };
+    });
+    return { rows: rows };
+  }
+}
+</script>
+</body>
+</html>
