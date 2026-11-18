@@ -73,16 +73,9 @@ this decision blocks" link (parked, D4); the restyle ships without them. The moc
 - **D5 — Fidelity by eyeball (2026-11-17).** The mockup's values are ACs in
   each slice; fidelity is attested by eye at review against the v1.3 files.
   No servo `design-eval`, no `design_review: true`.
-
-## Owner decisions (open — answer before READY_FOR_IMPLEMENTATION)
-
-Asked one at a time. Each has a recommendation.
-
-- **OQ6 — Header eyebrow.** The mockup reads "RosieBits · Dashboard". The
-  plugin ships publicly, so a hard-coded org name would show on every
-  user's page. Options: (a) "Dashboard" only; (b) an optional `title` in
-  `~/.claude/my-dashboard/config.json`, default "Dashboard". **Recommend (a)**
-  now; (b) is a small follow-up if wanted.
+- **D6 — Header eyebrow (2026-11-17).** The eyebrow reads just
+  "Dashboard" — the mockup's "RosieBits ·" prefix is dropped, since the
+  plugin ships publicly. A config-set title is a possible later add-on.
 
 ## Assumptions
 

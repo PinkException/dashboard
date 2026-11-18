@@ -25,7 +25,7 @@ the AC wins and the gap is logged in the deviation log.
 - ✅ Design v1.3 committed under `docs/designs/dashboard-v1.3/`.
 - ✅ D1 (font) settled.
 - ✅ D3 (queue order) settled — the chip legend follows today's order.
-- ⬜ OQ6 (header eyebrow text) answered.
+- ✅ D6 (header eyebrow) settled.
 
 **Acceptance Criteria:**
 
@@ -46,7 +46,7 @@ the AC wins and the gap is logged in the deviation log.
    letter-spacing .04em. Monospace remains only for IDs/paths. Every
    clickable control is ≥ 44px tall.
 4. **Header.** Progress ring (66px, accent arc on border track), eyebrow
-   (text per OQ6), h1 "Every project's next move", tagline "Nearly-done work
+   "Dashboard" (D6), h1 "Every project's next move", tagline "Nearly-done work
    sits above just-started work, so you finish before you start."
 5. **Summary tiles.** Five tiles — **Need you** (DECIDE + REVIEW),
    **Ready to start** (Ready), **Waiting on others** (External), **Idle**,
