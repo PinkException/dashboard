@@ -273,6 +273,11 @@ Stateless by design — same disk state → same page (vision principle 2):
   Identity is **declared here, not derived** — a derived identifier (first
   commit) was rejected because this repo's history was rewritten before
   publication, giving its old and new folders different first commits.
+- **`~/.claude/my-dashboard/end-of-day.json`** (user home, beside the resolved
+  config so it moves with `DASHBOARD_CONFIG`; spec 012-04) — the
+  `/dashboard:end-of-day` run state `{v:1, lastRunStarted, failed:[paths]}`,
+  read and written only by `scripts/end-of-day.mjs` (`--select` / `--record`).
+  Missing, malformed or future-dated → treated as a first run.
 - **`~/.claude/sessions/*.json` + `~/.claude/projects/<slug>/<uuid>.jsonl`**
   (Claude Code's own global session store; **read-only input**, never written
   by the dashboard — spec 003-01) — running-process sidecars and session

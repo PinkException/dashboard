@@ -24,7 +24,10 @@ your home directory, never inside a repo.
 2. **`/dashboard:open`** — creates `~/.claude/my-dashboard/config.json` on first
    use and serves the page. Do this before anything else: the config must exist
    before the dashboard or the snapshot routine can read it.
-3. *(optional)* **Arm the automatic snapshot routine** — see
+3. *(optional)* **`/dashboard:end-of-day`** — at the end of a working day,
+   snapshots every project you touched since the last run and shows one summary
+   with each proposed roadmap order (see [Skills](#skills)).
+4. *(optional)* **Arm the automatic snapshot routine** — see
    [Automatic snapshots](#automatic-snapshots-optional) below — if you want the
    dashboard's history/"what's next" line to refresh on a schedule instead of only
    when you run it by hand.
@@ -32,6 +35,14 @@ your home directory, never inside a repo.
 If you run the snapshot routine before step 2, it stops with a one-line
 `dashboard config not found at <path> — run /dashboard:open to create one`
 message rather than a stack trace.
+
+## Skills
+
+| Skill | What it does |
+|---|---|
+| `/dashboard:open` | Serves the dashboard on localhost (creates your config on first use). |
+| `/dashboard:snapshot` | Composes and records a "what's next" snapshot (headline + roadmap block) for one project. |
+| `/dashboard:end-of-day` | One command at the end of the day: snapshots every project with session activity since the last run, then summarises each proposed roadmap order for you to correct. Writes only to `~/.claude/my-dashboard/`, never into a project. |
 
 ## Configure
 
