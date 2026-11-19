@@ -193,7 +193,12 @@ One-directional, read-only coupling:
 - **`scripts/snapshot.mjs`** — the one writer
   ([ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md)): validates a
   snapshot and appends it to the dashboard-owned store in the user's home data
-  folder. It never writes into a surveyed project. Imports lib + scan.
+  folder. It never writes into a surveyed project. Imports lib + scan. Spec
+  012-03 adds three roadmap modes — `--roadmap <file.json>` (narrative block +
+  optional `proposedOrder`), `--move <id> --before <id>` (an owner correction)
+  and `--print-order` (read-only) — and the writer alone decides `order`,
+  `orderOrigin` and their dates, through the same pure `mergeSavedOrder`
+  (`src/lib.mjs`) the tab uses at read time.
 - **`prompts/compass-snapshots/SKILL.md`** — the version-controlled **source of
   truth** for the scheduled snapshot routine
   ([ADR-0005](decisions/adr-0005-dashboard-owns-routine-install.md)). Changed only
@@ -295,6 +300,13 @@ Stateless by design — same disk state → same page (vision principle 2):
   non-git project or a detached HEAD. `scannedProvenance` (`src/scan.mjs`) is
   writer-only: it costs one extra git call per write, so never call it from the
   server scan path.
+  **Spec 012-03 adds an optional `roadmap` object** (additive, `v` stays 1,
+  `headline` still required): `{ order: ["NNN-MM", …], groups?, layers?,
+  rule?, locked?, orderOrigin: "proposed"|"corrected", proposedAt?,
+  correctedAt? }` — see the 2026-11-18 amendment in
+  [ADR-0004](decisions/adr-0004-dashboard-owned-snapshots.md). When present,
+  `validateSnapshot` checks it strictly (`validateRoadmapBlock`); the reader
+  only uses a roadmap block that passes the same check.
 - **`~/.claude/my-dashboard/config.json`** — local config contract (see
   [dashboard.config.example.json](../dashboard.config.example.json));
   consumed by scanner, server, and `snapshot.mjs --all`.
@@ -360,6 +372,14 @@ Stateless by design — same disk state → same page (vision principle 2):
   placeholder has none), and `projects[].roadmap.parked` (one card per DEFERRED slice
   from every spec except ABANDONED ones, sorted by spec number;
   `roadmap.parkedCount === roadmap.parked.length`).
+  **Spec 012-03 adds (additively)** on `projects[].roadmap`: `autoOrder` (the
+  automatic slice-ID order; read by the writer), `order: { origin, at,
+  atLabel, label, stale, ids }` (which order is in effect and its date),
+  `flow` (`[{ label, cards, specId? }]` labelled runs when a saved order exists, else
+  `null`; slice-less unfinished specs are appended as card-less runs),
+  `doneInFlight` (DONE slices of unfinished specs, shown in the done fold in
+  saved-order mode; `null` otherwise) and `extras` (`{ layers?, rule?, locked? }` or `null`). The card's
+  `compass` payload never carries the snapshot's `roadmap` block.
   **Spec 014-01 adds (additively)** a top-level `summary: { needYou, ready,
   external, idle, running, specsDone, specsDenom }` from the pure
   `summarizeProjects` (`src/lib.mjs`). The first four partition the

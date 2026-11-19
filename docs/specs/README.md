@@ -41,7 +41,7 @@
 | [010-nonblocking-pr-load](010-nonblocking-pr-load/spec.md) | 010-01 — two-phase load: disk-first render, gh PR states fold in | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-01 — roadmap tab with automatic order | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-02 — parked section and slice goals | **DONE** |  |
-| [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | READY_FOR_IMPLEMENTATION |  |
+| [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-03 — saved order and narrative extras from snapshots | **DONE** |  |
 | [012-project-roadmap-tab](012-project-roadmap-tab/spec.md) | 012-04 — end-of-day skill | READY_FOR_IMPLEMENTATION |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-01 — progress-over-time chart in the Activity tab | **DONE** |  |
 | [013-evolution-graphs](013-evolution-graphs/spec.md) | 013-02 — trend sparkline on the overview row | DRAFT |  |
@@ -73,7 +73,8 @@ Advisory (ADR-0040 auditability — never blocks). Regenerated from `reviews/sli
 
 - **3** pass(es) recorded `not-shown` (selection step did not run — the kill-criterion-1 defect signal).
 - **6** pass(es) recorded `non-interactive` (declared no-orchestrator / CI).
-- **3** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
+- **4** shown-and-declined anomaly(ies) (a high-confidence richer skill was shown and not applied):
   - `009-overview-redesign/slice-02-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `009-overview-redesign/slice-04-arch.md` — applied `arch-review`; declined: design-jury, design-review
   - `010-nonblocking-pr-load/slice-01-arch.md` — applied `arch-review`; declined: design-jury, design-review
+  - `012-project-roadmap-tab/slice-03-arch.md` — applied `arch-review`; declined: design-jury, design-review

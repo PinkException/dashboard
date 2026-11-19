@@ -63,7 +63,26 @@ project is a separate routine (spec 005-04), not this skill.
    `--blockers` when you have none. The writer refuses a missing or non-jig
    project and writes nothing — surface its message rather than retrying.
 
-5. **Confirm.** Report the headline you recorded and where it landed. If the
+5. **Roadmap block (optional, narrative only).** When you can say more than a
+   headline, also compose the project's roadmap narrative from its own artifacts
+   into a JSON file in a **temp directory outside the surveyed repo**:
+   `groups` (`[{label, slices: ["NNN-MM"]}]`), `layers` (`[{name, title, text}]`),
+   `rule` (string), `locked` (strings), and — only while the order is not yet
+   corrected — `proposedOrder` (slice IDs). Pass it with `--roadmap <file>` on the
+   step-4 command.
+   - **Never write `order` yourself, and never compute one by hand.** The writer
+     proposes, carries forward or corrects it. Once the owner has corrected the
+     order, the writer ignores `proposedOrder` (it prints it as a suggestion;
+     mention it in your summary, apply it only if the owner says so).
+   - **Owner correction** ("move 007-03 before 007-02") is exactly one call:
+     `node "${CLAUDE_PLUGIN_ROOT}/scripts/snapshot.mjs" --project "<path>" --move 007-03 --before 007-02`.
+   - **Thin day** (no headline worth writing, per step 3): write nothing; new
+     slices still appear via the tab's read-time merge.
+
+6. **Confirm.** Run
+   `node "${CLAUDE_PLUGIN_ROOT}/scripts/snapshot.mjs" --project "<path>" --print-order`
+   and show its output (the `a → b → c` line plus which order is in effect) in
+   your summary. Report the headline you recorded and where it landed. If the
    dashboard server is running (`/dashboard:open`), the project card shows it on
    the next refresh — there is nothing to restart.
 
@@ -72,7 +91,7 @@ project is a separate routine (spec 005-04), not this skill.
 - **Never write into the surveyed project.** The writer targets the store
   outside every repo; do not create or edit any `docs/status/compass-history.jsonl`.
 - **One project per run.** A cross-project sweep is the scheduled routine's job
-  (005-04), not this skill.
+  (005-04); `/dashboard:end-of-day` (012-04) may invoke this skill once per project.
 - **Keep the scanner and page out of it.** They stay deterministic and
   LLM-free; the judgment lives only here.
 - **Do not invent state.** Every claim in the headline must trace to something

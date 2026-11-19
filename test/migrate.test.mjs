@@ -421,3 +421,14 @@ test('AC1: a source changing between planning and writing aborts instead of merg
   assert.throws(() => writePlan(plan, { storeDir: store }), /changed/i);
   assert.equal(fs.existsSync(store), false, 'nothing was written');
 });
+
+// ---------------------------------------------------------------- 012-03 A3 probe
+
+test('012-03 A3: migration carries an entry with a nested roadmap block through untouched', () => {
+  const repo = makeRepo('mossgrove');
+  const roadmap = { order: ['007-01', '007-02'], groups: [{ label: 'g', slices: ['007-01'] }], orderOrigin: 'proposed', proposedAt: '2026-03-01T00:00:00Z' };
+  writeHistory(repo, [entry('2026-03-01T00:00:00Z', 'with roadmap', { roadmap })]);
+  const plan = plannerFor();
+  assert.equal(plan.problems.length, 0);
+  assert.deepEqual(plan.projects[0].entries[0].roadmap, roadmap);
+});

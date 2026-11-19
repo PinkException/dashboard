@@ -190,6 +190,7 @@ export const BUG_CLOSED = new Set(['DONE', 'RESOLVED_ON_MAIN', 'CLOSED', 'WONT_F
 export function parseCompassHistory(text) {
   let latest = null;
   let latestNarrative = null;
+  let latestRoadmap = null;
   let malformed = 0;
   let count = 0;
   for (const line of text.split('\n')) {
@@ -204,7 +205,11 @@ export function parseCompassHistory(text) {
         typeof obj.headline === 'string'
       ) {
         latest = obj;
-        if (obj.source !== 'auto') latestNarrative = obj;
+        if (obj.source !== 'auto') {
+          latestNarrative = obj;
+          // Spec 012-03: the newest narrative entry carrying a roadmap block.
+          if (validateRoadmapBlock(obj.roadmap).length === 0) latestRoadmap = obj;
+        }
       } else {
         malformed++;
       }
@@ -212,7 +217,77 @@ export function parseCompassHistory(text) {
       malformed++;
     }
   }
-  return { latest, latestNarrative, malformed, count };
+  return { latest, latestNarrative, latestRoadmap, malformed, count };
+}
+
+// Spec 012-03: the optional `roadmap` block of a snapshot entry (additive
+// amendment to ADR-0004). Slice IDs are `NNN-MM` tokens.
+export const SLICE_ID_RE = /^\d{3}-\d{2}$/;
+const isIdList = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string' && SLICE_ID_RE.test(x));
+const isStrList = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+// Shared by the narrative input file (`--roadmap`) and the stored block.
+function narrativeErrors(o) {
+  const errors = [];
+  if (o.groups !== undefined) {
+    const ok = Array.isArray(o.groups) && o.groups.every((g) => g && typeof g === 'object' && typeof g.label === 'string' && g.label.trim() && isIdList(g.slices));
+    if (!ok) errors.push('roadmap.groups must be [{label: string, slices: [NNN-MM ids]}]');
+  }
+  if (o.layers !== undefined) {
+    const ok = Array.isArray(o.layers) && o.layers.every((l) => l && typeof l === 'object' && typeof l.name === 'string' && typeof l.title === 'string' && typeof l.text === 'string');
+    if (!ok) errors.push('roadmap.layers must be [{name, title, text}] strings');
+  }
+  if (o.rule !== undefined && typeof o.rule !== 'string') errors.push('roadmap.rule must be a string');
+  if (o.locked !== undefined && !isStrList(o.locked)) errors.push('roadmap.locked must be an array of strings');
+  return errors;
+}
+
+export function validateRoadmapInput(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return ['roadmap input must be a JSON object'];
+  const errors = narrativeErrors(obj);
+  const allowed = new Set(['groups', 'layers', 'rule', 'locked', 'proposedOrder']);
+  for (const k of Object.keys(obj)) {
+    if (!allowed.has(k)) errors.push(`unknown key "${k}" (allowed: ${[...allowed].join(', ')})`);
+  }
+  if (obj.proposedOrder !== undefined && !isIdList(obj.proposedOrder)) errors.push('roadmap.proposedOrder must be an array of NNN-MM slice ids');
+  return errors;
+}
+
+export function validateRoadmapBlock(rm) {
+  if (!rm || typeof rm !== 'object' || Array.isArray(rm)) return ['roadmap must be an object when present'];
+  const errors = narrativeErrors(rm);
+  if (!isIdList(rm.order)) errors.push('roadmap.order must be an array of NNN-MM slice ids');
+  if (rm.orderOrigin !== 'proposed' && rm.orderOrigin !== 'corrected') errors.push('roadmap.orderOrigin must be "proposed" or "corrected"');
+  const isoOk = (v) => typeof v === 'string' && !Number.isNaN(Date.parse(v));
+  for (const k of ['proposedAt', 'correctedAt']) {
+    if (rm[k] !== undefined && !isoOk(rm[k])) errors.push(`roadmap.${k} must be an ISO-8601 string`);
+  }
+  // AC1 exclusivity: each date belongs to exactly one origin.
+  if (rm.proposedAt !== undefined && rm.orderOrigin !== 'proposed') errors.push('roadmap.proposedAt is only valid when orderOrigin is "proposed"');
+  if (rm.correctedAt !== undefined && rm.orderOrigin !== 'corrected') errors.push('roadmap.correctedAt is only valid when orderOrigin is "corrected"');
+  return errors;
+}
+
+// The ONE which-order label (012-03 AC7), shared by the tab and --print-order.
+export function orderLabel(o) {
+  if (!o || o.origin === 'automatic') return 'Order: automatic';
+  return `Order: ${o.origin === 'corrected' ? 'yours' : 'proposed'}${o.atLabel ? ` · ${o.atLabel}` : ''}`;
+}
+
+// The ONE merge of a saved order with the live automatic order (012-03 AC4),
+// used by the tab at read time and by the snapshot writer. `autoOrder` holds
+// only live, unfinished slice IDs (DONE / DEFERRED / ABANDONED never appear),
+// so saved IDs outside it drop; unfinished IDs the saved list lacks append in
+// automatic order.
+export function mergeSavedOrder(saved, autoOrder) {
+  const live = new Set(autoOrder || []);
+  const out = [];
+  const seen = new Set();
+  for (const id of Array.isArray(saved) ? saved : []) {
+    if (live.has(id) && !seen.has(id)) { seen.add(id); out.push(id); }
+  }
+  for (const id of autoOrder || []) if (!seen.has(id)) { seen.add(id); out.push(id); }
+  return out;
 }
 
 // Spec 013-01: progress series for the Activity-tab chart, from ONE source's
@@ -328,6 +403,7 @@ export function validateSnapshot(obj) {
   if (obj.scanned !== undefined && !isScannedField(obj.scanned)) {
     errors.push('scanned must be {branch: string|null, worktree: boolean} when present');
   }
+  if (obj.roadmap !== undefined) errors.push(...validateRoadmapBlock(obj.roadmap));
   return errors;
 }
 
@@ -1178,11 +1254,85 @@ export function worktreeHint(rootSpecs, worktrees) {
   return { further: further + best.size, onlyInWorktrees: onlySpecs.size };
 }
 
+// 012-03: the saved-order layer over the automatic order. `saved` is the
+// newest narrative snapshot entry carrying a `roadmap` block (or null).
+function deriveSavedPart({ saved, ordered, specs }) {
+  const cardById = new Map();
+  const specOf = new Map();
+  const autoOrder = [];
+  // Unfinished cards that cannot take a place in the saved order (a token that
+  // is not NNN-MM, or a duplicate token): still shown, appended after the order.
+  const unplaced = [];
+  const doneInFlight = [];
+  const sliceless = [];
+  for (const g of ordered) {
+    if (g.slices.length === 0) sliceless.push(g);
+    const doneHere = g.slices.filter((c) => c.status === 'DONE');
+    if (doneHere.length) doneInFlight.push({ id: g.id, title: g.title, tier: g.tier, slices: doneHere });
+    for (const c of g.slices) {
+      if (c.status === 'DONE') continue;
+      if (!SLICE_ID_RE.test(c.id) || cardById.has(c.id)) {
+        unplaced.push({ card: c, spec: g });
+        continue;
+      }
+      cardById.set(c.id, c);
+      specOf.set(c.id, g);
+      autoOrder.push(c.id);
+    }
+  }
+  const rm = saved && saved.roadmap && typeof saved.roadmap === 'object' ? saved.roadmap : null;
+  if (!rm) {
+    const autoO = { origin: 'automatic', at: null, atLabel: null, stale: false, ids: autoOrder };
+    autoO.label = orderLabel(autoO);
+    return { autoOrder, order: autoO, flow: null, doneInFlight: null, extras: null };
+  }
+  const ids = mergeSavedOrder(Array.isArray(rm.order) ? rm.order : [], autoOrder);
+  const groupOf = new Map();
+  (Array.isArray(rm.groups) ? rm.groups : []).forEach((g, gi) => {
+    if (!g || typeof g.label !== 'string' || !Array.isArray(g.slices)) return;
+    for (const id of g.slices) if (!groupOf.has(id)) groupOf.set(id, { key: `g${gi}`, label: g.label });
+  });
+  const flow = [];
+  for (const id of ids) {
+    const gr = groupOf.get(id);
+    const key = gr ? gr.key : `s:${specOf.get(id).id}`;
+    const label = gr ? gr.label : specOf.get(id).title;
+    const last = flow[flow.length - 1];
+    if (last && last.key === key) last.cards.push(cardById.get(id));
+    else flow.push({ key, label, cards: [cardById.get(id)] });
+  }
+  for (const { card: c, spec } of unplaced) {
+    const key = `s:${spec.id}`;
+    const last = flow[flow.length - 1];
+    if (last && last.key === key) last.cards.push(c);
+    else flow.push({ key, label: spec.title, cards: [c] });
+  }
+  // Specs with no slices at all have no card to order; keep them visible.
+  for (const g of sliceless) flow.push({ key: `e:${g.id}`, label: g.title, specId: g.id, cards: [] });
+  const origin = rm.orderOrigin === 'corrected' ? 'corrected' : 'proposed';
+  const at = (origin === 'corrected' ? rm.correctedAt : rm.proposedAt) || null;
+  const atMs = at ? Date.parse(at) : NaN;
+  const stale = !Number.isNaN(atMs) && specs.some((s) => (s.recency || 0) * 1000 > atMs);
+  const extras = {};
+  if (Array.isArray(rm.layers) && rm.layers.length) extras.layers = rm.layers;
+  if (typeof rm.rule === 'string' && rm.rule.trim()) extras.rule = rm.rule;
+  if (Array.isArray(rm.locked) && rm.locked.length) extras.locked = rm.locked;
+  const order = { origin, at, atLabel: Number.isNaN(atMs) ? null : at.slice(0, 10), stale, ids };
+  order.label = orderLabel(order);
+  return {
+    autoOrder,
+    order,
+    flow: flow.map(({ label, cards, specId }) => (specId ? { label, cards, specId } : { label, cards })),
+    doneInFlight,
+    extras: Object.keys(extras).length ? extras : null,
+  };
+}
+
 // Builds the roadmap model the tab renders. Inputs: `specs` (scanned records;
 // each may carry `recency`, epoch seconds), `track` (the current release
 // workstream or null; carries `includeTokens`), `branch` (root checkout's
 // branch), `worktrees` (see worktreeHint).
-export function deriveRoadmap({ specs = [], track = null, branch = null, worktrees = [] } = {}) {
+export function deriveRoadmap({ specs = [], track = null, branch = null, worktrees = [], saved = null } = {}) {
   const includeTokens = (track && Array.isArray(track.includeTokens)) ? track.includeTokens : [];
   const inRelease = new Set();
   const releaseSlices = [];
@@ -1252,7 +1402,9 @@ export function deriveRoadmap({ specs = [], track = null, branch = null, worktre
   if (parked > 0) sequence.push({ kind: 'parked', label: `${parked} parked` });
 
   const hint = worktreeHint(specs, worktrees);
+  const savedPart = deriveSavedPart({ saved, ordered, specs });
   return {
+    ...savedPart,
     asOf: branch || null,
     worktreeHint: hint.further || hint.onlyInWorktrees ? hint : null,
     release: track ? { title: track.title, slices: releaseSlices } : null,
