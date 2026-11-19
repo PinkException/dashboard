@@ -573,7 +573,7 @@ function scanWorktreeOnlyDocs(root) {
   return out;
 }
 
-const EMPTY_COMPASS = { latest: null, latestNarrative: null, malformed: 0, count: 0 };
+const EMPTY_COMPASS = { latest: null, latestNarrative: null, latestRoadmap: null, malformed: 0, count: 0 };
 
 // Reads both sources during the migration window (ADR-0004 §5): the
 // dashboard-owned store, and the project's legacy in-repo file that 005-02 has
@@ -597,6 +597,9 @@ function scanCompass(root) {
   const overall = laterSnapshot(inRepo.latest, fromStore.latest);
   return {
     latest: narrative ?? overall,
+    // 012-03: newest narrative entry (any), and newest carrying a roadmap block.
+    narrative,
+    roadmap: laterSnapshot(inRepo.latestRoadmap, fromStore.latestRoadmap),
     malformed: inRepo.malformed + fromStore.malformed,
     count: inRepo.count + fromStore.count,
     // How many of the two sources held at least one line — the warning names
@@ -605,6 +608,13 @@ function scanCompass(root) {
     // Spec 013-01: the store file's raw text only, for the progress series.
     storeText: storeRaw ?? '',
   };
+}
+
+// Spec 012-03: the writer's view of the store — newest narrative entry and
+// newest roadmap-carrying entry (null when absent).
+export function readSavedEntries(root) {
+  const c = scanCompass(root);
+  return { narrative: c.narrative ?? null, roadmap: c.roadmap ?? null };
 }
 
 // spec 009-04: gh-optional PR enrichment. `gh` is an optional external binary
@@ -691,11 +701,13 @@ export function scanProject(projectCfg, gh, { onGit } = {}) {
   const track = currentReleaseTrack(result);
   result.currentReleasePath = track ? track.path : null;
   const wtScan = scanWorktreeSpecs(root, onGit);
-  result.roadmap = deriveRoadmap({ specs, track, branch: wtScan.branch, worktrees: wtScan.worktrees });
   const compass = scanCompass(root);
+  result.roadmap = deriveRoadmap({ specs, track, branch: wtScan.branch, worktrees: wtScan.worktrees, saved: compass.roadmap });
+  // The roadmap block rides on result.roadmap, not on the card's compass payload.
+  const { roadmap: _rm, ...compassLatest } = compass.latest || {};
   result.compass = compass.latest
     ? {
-        ...compass.latest,
+        ...compassLatest,
         ageLabel: ageLabel(compass.latest.ts),
         ageDays: ageDays(compass.latest.ts),
         stale: (ageDays(compass.latest.ts) ?? 0) > 7,

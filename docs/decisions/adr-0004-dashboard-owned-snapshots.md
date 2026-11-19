@@ -575,3 +575,29 @@ here rather than edited into it:
   distinct entries across 7 projects, with no case where the two disagree.
   005-02 nonetheless de-duplicates on full content and refuses if the two ever
   diverge.
+
+## Amendment (2026-11-18): optional `roadmap` field (spec 012-03)
+
+An additive field on the snapshot line, under ADR-0002's existing rule that
+unknown extra fields are allowed and breaking changes bump `v`. No decision
+here is reversed; `v` stays 1 and every entry still carries a `headline`.
+
+- **Shape.** `roadmap?: { order: ["NNN-MM", …], groups?: [{ label, slices }],
+  layers?: [{ name, title, text }], rule?: string, locked?: [string],
+  orderOrigin: "proposed" | "corrected", proposedAt?: ISO, correctedAt?: ISO }`.
+  `proposedAt` is present only when `orderOrigin` is `"proposed"`,
+  `correctedAt` only when `"corrected"`.
+- **Writer only.** `scripts/snapshot.mjs` sets `order`, `orderOrigin` and the
+  dates (`--roadmap`, `--move`, `--print-order`); the skill never writes
+  `order`. A mechanical carry-forward never moves either date. Once
+  `"corrected"`, a new proposal is printed as a suggestion only.
+- **Validation.** When `roadmap` is present, `validateSnapshot` checks it
+  strictly (`validateRoadmapBlock`) — a new writer-side rule on what was a free
+  extra field. The reader stays lenient: it uses only the newest narrative
+  entry whose roadmap block passes the same check, and ignores the rest.
+- **Auto entries never carry it**, so the `--if-changed` progress signature
+  (which now includes `roadmap`) is unchanged for the auto routine.
+- **Known limit:** `src/migrate.mjs`'s `canonical()` sorts only top-level
+  keys; two copies of one roadmap entry with nested keys in different order
+  would read as a divergence. Only legacy in-repo files are migrated and they
+  never carry a roadmap, so this does not apply today.

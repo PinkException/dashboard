@@ -708,6 +708,30 @@ function rmGroup(g) {
   );
 }
 
+// 012-03: which order is in effect, plus the narrative extras (present-only).
+function rmOrderLabel(o) {
+  if (!o) return '';
+  return `<div class="rm-order">${esc(o.label || '')}${o.stale ? ' (older than latest changes)' : ''}</div>`;
+}
+
+function rmExtras(x) {
+  if (!x) return '';
+  const rule = x.rule ? `<div class="rm-rule"><span class="label">The rule</span> ${esc(x.rule)}</div>` : '';
+  const layers = (x.layers || []).length
+    ? `<div class="rm-layers">${x.layers.map((l) => `<div class="rm-layer"><span class="rm-layer-name">${esc(l.name)}</span> <span class="rm-layer-title">${esc(l.title)}</span><div class="rm-layer-text">${esc(l.text)}</div></div>`).join('')}</div>`
+    : '';
+  const locked = (x.locked || []).length
+    ? `<div class="rm-locked"><span class="label">Locked</span><ul>${x.locked.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`
+    : '';
+  return `<div class="rm-extras">${rule}${layers}${locked}</div>`;
+}
+
+function rmFlow(runs) {
+  return runs
+    .map((g) => g.specId && !g.cards.length ? rmGroup({ id: g.specId, title: g.label, slices: [] }) : `<div class="rm-spec-group"><div class="rm-group-title"><span class="rm-group-name">${esc(g.label)}</span></div><div class="rm-cards">${g.cards.map(rmCard).join('')}</div></div>`)
+    .join('');
+}
+
 function rmHeader(r) {
   const h = r.worktreeHint;
   const parts = [];
@@ -736,15 +760,18 @@ export function roadmapTabHtml(r) {
   let empty = '';
   if (r.empty === 'no-specs') empty = `<div class="rm-empty">No specs yet</div>`;
   else if (r.empty === 'nothing-planned') empty = `<div class="rm-empty">Nothing planned</div>`;
-  const groups = (r.specs || []).map(rmGroup).join('');
-  const done = (r.done || []).length
-    ? `<details class="roadmap-done"><summary>show ${r.done.length} done</summary>${r.done.map(rmGroup).join('')}</details>`
+  const groups = r.flow ? rmFlow(r.flow) : (r.specs || []).map(rmGroup).join('');
+  // Saved-order mode (012-03): DONE slices of unfinished specs fold in with
+  // the done specs, grouped by spec; the count is of spec groups in the fold.
+  const doneGroups = [...(r.done || []), ...(r.doneInFlight || [])];
+  const done = doneGroups.length
+    ? `<details class="roadmap-done"><summary>show ${doneGroups.length} done</summary>${doneGroups.map(rmGroup).join('')}</details>`
     : '';
   const parked = (r.parked || []).length
     ? `<div class="rm-parked"><div class="rm-group-title"><span class="rm-group-name">Parked</span></div>` +
       `<div class="rm-cards">${r.parked.map(rmParkedCard).join('')}</div></div>`
     : '';
-  return rmHeader(r) + strip + release + empty + groups + done + parked;
+  return rmHeader(r) + rmOrderLabel(r.order) + rmExtras(r.extras) + strip + release + empty + groups + done + parked;
 }
 
 const TAB_NAMES = ['overview', 'roadmap', 'activity'];

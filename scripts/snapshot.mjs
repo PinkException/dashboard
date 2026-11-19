@@ -8,6 +8,11 @@
 // --source overrides the provenance tag (default: `auto` under --auto, else
 // `manual`). The dashboard-owned narrative skill passes `--source dashboard`.
 //
+// Roadmap modes (spec 012-03) — the writer owns every order computation:
+//   ... --headline "..." --roadmap <file.json>   narrative block (+ optional proposedOrder)
+//   node scripts/snapshot.mjs --project <path> --move <id> --before <id>   owner correction
+//   node scripts/snapshot.mjs --project <path> --print-order               read-only
+//
 // Auto (deterministic headline from scan data; for scheduled routines):
 //   node scripts/snapshot.mjs --project <path> --auto
 //   node scripts/snapshot.mjs --all --auto     # every jig project in the resolved config
@@ -20,10 +25,11 @@
 //   node scripts/snapshot.mjs --all --auto --if-changed
 import fs from 'node:fs';
 import path from 'node:path';
-import { realSliceCounts, validateSnapshot } from '../src/lib.mjs';
+import { mergeSavedOrder, realSliceCounts, validateRoadmapInput, validateSnapshot } from '../src/lib.mjs';
 import {
   expandHome,
   loadConfig,
+  readSavedEntries,
   resolveConfigPath,
   scanProject,
   scannedProvenance,
@@ -54,6 +60,9 @@ function parseArgs(argv) {
 // real progress but would otherwise write two series points — churn, not
 // signal. An older stored entry without `slices` differs from a new one with
 // them (null vs a number), so the first slice-carrying entry is always written.
+// 012-03: the signature also hashes the entry's `roadmap` block (null when
+// absent — `auto` entries never carry one, so they always hash it as null and
+// their cadence is unchanged), so a roadmap-only change is never skipped.
 function progressSignature(snap) {
   return JSON.stringify({
     done: snap.specs?.done ?? null,
@@ -61,6 +70,8 @@ function progressSignature(snap) {
     sliceDone: snap.slices?.done ?? null,
     sliceTotal: snap.slices?.total ?? null,
     next: snap.next ?? null,
+    // 012-03 AC9: a roadmap change is a change.
+    roadmap: snap.roadmap ?? null,
   });
 }
 
@@ -100,13 +111,84 @@ function autoFields(scanned) {
   };
 }
 
+const ARROW = ' → ';
+// Roadmap block for a `--roadmap` write: the writer, never the caller, sets
+// `order` (012-03 AC2). Returns { block, note } or { error }.
+function composeRoadmap(root, scanned, file, ts) {
+  let input;
+  try {
+    input = JSON.parse(fs.readFileSync(expandHome(file), 'utf8'));
+  } catch (err) {
+    return { error: `invalid roadmap file ${file}: ${err.message}` };
+  }
+  if (input && typeof input === 'object' && 'order' in input) {
+    return { error: `invalid roadmap file ${file}: the writer owns \`order\`; send \`proposedOrder\` instead` };
+  }
+  const errs = validateRoadmapInput(input);
+  if (errs.length) return { error: `invalid roadmap file ${file}: ${errs.join('; ')}` };
+  const auto = scanned.roadmap.autoOrder;
+  const prev = readSavedEntries(root).roadmap?.roadmap || null;
+  const block = {};
+  for (const k of ['groups', 'layers', 'rule', 'locked']) if (input[k] !== undefined) block[k] = input[k];
+  let note = null;
+  if (prev && prev.orderOrigin === 'corrected') {
+    block.order = mergeSavedOrder(prev.order, auto);
+    block.orderOrigin = 'corrected';
+    if (prev.correctedAt) block.correctedAt = prev.correctedAt;
+    if (input.proposedOrder) {
+      note = `suggested order (not applied; yours stands): ${mergeSavedOrder(input.proposedOrder, auto).join(ARROW)}`;
+    }
+  } else if (input.proposedOrder || !prev) {
+    block.order = mergeSavedOrder(input.proposedOrder, auto);
+    block.orderOrigin = 'proposed';
+    block.proposedAt = ts;
+  } else {
+    block.order = mergeSavedOrder(prev.order, auto);
+    block.orderOrigin = 'proposed';
+    if (prev.proposedAt) block.proposedAt = prev.proposedAt;
+  }
+  return { block, note };
+}
+
+// `--move <id> --before <id>`: the owner's correction as one new entry.
+function composeMove(root, scanned, args, ts) {
+  const { narrative, roadmap } = readSavedEntries(root);
+  if (!roadmap || !narrative) return { error: 'no saved roadmap for this project; nothing to move' };
+  const order = mergeSavedOrder(roadmap.roadmap.order, scanned.roadmap.autoOrder);
+  const id = args.move;
+  const before = args.before;
+  if (typeof id !== 'string' || typeof before !== 'string') return { error: '--move needs --before <id>' };
+  if (!order.includes(id) || !order.includes(before)) return { error: `unknown slice id (current order: ${order.join(ARROW)})` };
+  if (id === before) return { error: '--move and --before name the same slice' };
+  const next = order.filter((x) => x !== id);
+  next.splice(next.indexOf(before), 0, id);
+  const { proposedAt: _p, ...rest } = roadmap.roadmap;
+  const snapshot = { v: 1, ts, headline: narrative.headline };
+  if (narrative.next !== undefined) snapshot.next = narrative.next;
+  if (narrative.blockers !== undefined) snapshot.blockers = narrative.blockers;
+  snapshot.source = narrative.source ?? 'manual';
+  snapshot.roadmap = { ...rest, order: next, orderOrigin: 'corrected', correctedAt: ts };
+  return { snapshot };
+}
+
 function writeSnapshot(root, args) {
   const scanned = scanProject({ path: root, pinnedWorkstreams: [], hiddenWorkstreams: [] });
   if (scanned.error) return { root, error: scanned.error };
   if (!scanned.jigManaged) return { root, skipped: 'not jig-managed' };
 
-  const snapshot = { v: 1, ts: args.ts || new Date().toISOString() };
-  if (args.auto) {
+  if (args['print-order']) {
+    const o = scanned.roadmap.order;
+    return { root, printed: `${o.ids.join(ARROW) || '(nothing unfinished)'}\n${o.label}` };
+  }
+
+  const ts = args.ts || new Date().toISOString();
+  let snapshot = { v: 1, ts };
+  let note = null;
+  if (args.move !== undefined) {
+    const m = composeMove(root, scanned, args, ts);
+    if (m.error) return { root, error: m.error };
+    snapshot = m.snapshot;
+  } else if (args.auto) {
     Object.assign(snapshot, autoFields(scanned), { source: 'auto' });
   } else {
     snapshot.headline = args.headline;
@@ -115,6 +197,12 @@ function writeSnapshot(root, args) {
       snapshot.blockers = args.blockers.split(';').map((s) => s.trim()).filter(Boolean);
     }
     snapshot.source = 'manual';
+    if (typeof args.roadmap === 'string') {
+      const c = composeRoadmap(root, scanned, args.roadmap, ts);
+      if (c.error) return { root, error: c.error };
+      snapshot.roadmap = c.block;
+      note = c.note;
+    }
   }
   // --source overrides the default provenance tag. The dashboard-owned snapshot
   // skill (slice 005-03) passes `--source dashboard` so its narrative entries are
@@ -157,14 +245,42 @@ function writeSnapshot(root, args) {
   } catch (err) {
     return { root, error: `could not write ${target}: ${err.message}` };
   }
-  return { root, snapshot, target };
+  return { root, snapshot, target, note };
 }
 
 const args = parseArgs(process.argv.slice(2));
 const usage =
   'usage: node scripts/snapshot.mjs --project <path> --headline "..." [--next "..."] [--blockers "a;b"] [--ts <iso>] [--source <value>]\n' +
   '       node scripts/snapshot.mjs --project <path> --auto\n' +
-  '       node scripts/snapshot.mjs --all --auto [--if-changed] [--config <path>]';
+  '       node scripts/snapshot.mjs --all --auto [--if-changed] [--config <path>]\n' +
+  '       node scripts/snapshot.mjs --project <path> --headline "..." --roadmap <file.json> [--source dashboard]\n' +
+  '       node scripts/snapshot.mjs --project <path> --move <id> --before <id>\n' +
+  '       node scripts/snapshot.mjs --project <path> --print-order';
+
+// 012-03: refuse ambiguous roadmap-mode combinations before touching anything.
+function argConflict(a) {
+  if (a.roadmap === true) return '--roadmap needs a file path (--roadmap <file.json>)';
+  if (a.move !== undefined && a.move === true) return '--move needs a slice id (--move <id> --before <id>)';
+  if (a.before !== undefined && a.move === undefined) return '--before is only valid with --move';
+  if (a.roadmap !== undefined && a.auto) return '--roadmap cannot be combined with --auto';
+  if (a['print-order']) {
+    for (const k of ['move', 'headline', 'roadmap', 'auto']) {
+      if (a[k] !== undefined) return `--print-order is read-only and cannot be combined with --${k}`;
+    }
+  }
+  if (a.move !== undefined) {
+    for (const k of ['headline', 'roadmap', 'auto', 'source', 'next', 'blockers']) {
+      if (a[k] !== undefined) return `--move cannot be combined with --${k} (a correction copies the latest entry, including its source)`;
+    }
+  }
+  if (a.all && (a.move !== undefined || a['print-order'])) return '--move and --print-order work on one --project, not --all';
+  return null;
+}
+const conflict = argConflict(args);
+if (conflict) {
+  console.error(conflict + '\n' + usage);
+  process.exit(1);
+}
 
 let targets;
 if (args.all) {
@@ -187,7 +303,7 @@ if (args.all) {
     throw err;
   }
   targets = cfg.projects.map((p) => p.path);
-} else if (args.project && (args.auto || args.headline)) {
+} else if (args.project && (args.auto || args.headline || args['print-order'] || args.move !== undefined)) {
   targets = [expandHome(args.project)];
 } else {
   console.error(usage);
@@ -202,11 +318,14 @@ for (const root of targets) {
     console.error(`✗ ${root}: ${res.error}`);
   } else if (res.skipped) {
     console.log(`- ${root}: skipped (${res.skipped})`);
+  } else if (res.printed) {
+    console.log(res.printed);
   } else if (res.unchanged) {
     console.log(`- ${root}: unchanged (no new entry)`);
   } else {
     console.log(`✓ ${root}: ${res.snapshot.headline}`);
     console.log(`  → ${res.target}`);
+    if (res.note) console.log(`  ${res.note}`);
   }
 }
 process.exit(failed ? 1 : 0);
