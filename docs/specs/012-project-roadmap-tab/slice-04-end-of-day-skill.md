@@ -1,7 +1,7 @@
 ---
-status: READY_FOR_IMPLEMENTATION
+status: DONE
 dependencies: [012-03]
-last_verified:
+last_verified: 2026-11-18
 frame_review: true
 ---
 
@@ -17,7 +17,7 @@ to correct.
 
 **DoR:**
 - ✅ 012-03 DONE (snapshot skill writes the roadmap block).
-- ⬜ A4 probed first: can the skill list projects with session activity since
+- ✅ A4 probed first (2026-11-18; see deviation log §1): can the skill list projects with session activity since
   a given time (AC2's window) without the server running? Result and chosen source recorded in the deviation log.
 
 **Acceptance Criteria:**
@@ -76,10 +76,10 @@ to correct.
       feature, watch the test go red, restore).
 - [ ] Reviewed by `reviewer` subagent. Reviewer prompt built by
       `review.py`.
-- [ ] Implementation review passed.
+- [x] Implementation review passed.
 - [ ] Deviation log produced under this slice heading.
 - [ ] Reconciliation sweep produced under this slice heading.
-- [ ] Reconciliation review passed.
+- [x] Reconciliation review passed.
 - [ ] `docs/refinement-todo.md` updated if any decisions were
       deferred during implementation.
 
@@ -111,8 +111,65 @@ day.
 
 The original spec is preserved above. Implementation notes:
 
-_TODO: numbered sections covering deviations from the planned shape,
-reviewer findings folded back in, doc updates, plan adherence._
+1. **A4 probe — activity source.** Yes, activity can be listed without the
+   server. The AC2 guess (`readAllSessions`) was **not** used: it caps each
+   project at 20 sessions sorted running-first (an idle running session can
+   crowd out a newer one) and reads transcript bodies, while selection needs
+   only mtimes. `scripts/end-of-day.mjs` walks `<store>/projects/*/*.jsonl`
+   mtimes itself, reusing `resolveSessionStore(config)`, `encodeCwdSlug` and
+   `attributeSessionDir` (`src/lib.mjs`). Worktree sessions attribute to their
+   project root; a similarly named sibling (`alpha` vs `alpha-extra`) does not
+   cross-attribute; a session outside every configured root selects nothing
+   (the known gap AC2 names); a missing store means "no activity signal", so
+   only previously failed projects are selected.
+2. **Deterministic/judgment split (unplanned script).** The spec named no
+   script. The window, the 7-day cap, the failed-project retry and the run
+   state live in `scripts/end-of-day.mjs` (`--select [--now]` prints JSON;
+   `--record --started <iso> [--failed p1,p2]` writes state), so no model
+   improvises them. `skills/end-of-day/SKILL.md` owns the orchestration and
+   summary and points each per-project subagent at
+   `${CLAUDE_PLUGIN_ROOT}/skills/snapshot/SKILL.md` (single source, AC3).
+3. **State shape.** `end-of-day.json` = `{v:1, lastRunStarted, failed:[paths]}`,
+   beside the resolved config (moves with `DASHBOARD_CONFIG`). Failed projects
+   are stored by **path**, not label (labels are optional). Missing, malformed
+   or future-dated (`lastRunStarted` > now, clock skew) state counts as a first
+   run (24h); the 7-day cap is therefore only reported when a valid prior state
+   exists. Unusable state also drops its `failed` list, so a clock-skewed
+   file loses pending retries once (craft round-2 nit; accepted — clock skew
+   past the next run is rare and the next run re-records failures). Documented in `docs/architecture.md` (data stores).
+4. **No projects selected → no `--record`.** The window is not advanced when
+   nothing is selected, consistent with AC2's "writes nothing".
+5. **Worktree-only flag** is computed per project (`worktreeOnly`) by the
+   script; the skill renders the "work is in worktrees" wording (decision 7).
+6. **Known limits (recorded, not fixed).** A configured project path containing
+   a comma can't be carried in `--failed` (comma-separated); two overlapping
+   runs can overwrite each other's state (AC2). Both noted in the skill.
+7. **Reviewer findings folded in** (compliance + craft, round 1, both
+   needs-changes): the script ignored `config.sessionStore` (both passes,
+   craft `[blocker]`) — fixed and covered by a config-only test, witnessed
+   red; future-dated state now means first run (test added, witnessed red);
+   snapshot-skill reference uses `${CLAUDE_PLUGIN_ROOT}`; duplicate
+   missing-config message removed; a mislabelled test renamed. Left as-is
+   (craft nits): a second small `parseArgs` copy (zero-dep script, same
+   pattern as `snapshot.mjs`), and prose-regex tests for the skill/README
+   (orchestration prose can't be unit-tested).
+8. **Doc updates.** `README.md` gained a Skills table (`open`, `snapshot`,
+   `end-of-day`) and an optional first-run step 3 (old step 3 → 4).
+   `skills/snapshot/SKILL.md`'s one-project guardrail reworded per 012-03 AC8
+   to allow `/dashboard:end-of-day` to run it once per project.
+9. **Tests.** 520 → 537, all green (`npm test`). Every new script test was
+   mutation-checked red; one equivalent mutation survived (dropping the
+   `--started` validation still exits non-zero via `toISOString()`, only the
+   message differs).
+10. **Reconciliation-review findings folded in** (round 1, needs-changes,
+    bookkeeping only): status board regenerated during reconciliation (it
+    still showed READY_FOR_IMPLEMENTATION); the clock-skew retry loss added
+    to the skill's Known gaps; the unused `retry` flag now shown in the
+    summary ("retried from last run"); the primer compression (close-out
+    item) applied before DONE so the slice lands in one commit with DONE.
+    AC2's line citations (`src/scan.mjs:656-701`, `src/lib.mjs:328-343`)
+    are stale — `readAllSessions` is now at `src/scan.mjs:885`,
+    `attributeSessionDir` at `src/lib.mjs:481`; ACs left as written.
 
 ### Reconciliation sweep
 
@@ -122,13 +179,13 @@ whether coverage and rationales are honest.
 
 | Artifact | Disposition | Rationale |
 |----------|-------------|-----------|
-| `README.md` | `no-op` | _TODO: why this slice did not affect the project front door, or summarize the update._ |
-| `docs/specs/README.md` | `updated` | _TODO: regenerated by `workflow.py status-board`, or explain why deferred._ |
-| `docs/product-vision.md` | `no-op` | _TODO: checked for behavior / scope drift._ |
-| `docs/architecture.md` | `no-op` | _TODO: checked for module-boundary / public-contract drift._ |
-| Primer surfaces: `CLAUDE.md` / `AGENTS.md` / scaffold templates | `no-op` | _TODO: primer hygiene checked; note compression or template updates if any._ |
-| `docs/inbox.md` | `no-op` | _TODO: checked for items resolved by this slice._ |
-| `docs/refinement-todo.md` | `no-op` | _TODO: checked for resolved items or new deferred decisions._ |
-| `docs/memory/**` | `no-op` | _TODO: note memory-sync result or why nothing was worth capturing._ |
-| `docs/decisions/README.md` / ADR index | `no-op` | _TODO: use `updated` when the slice touched ADRs; otherwise mark checked._ |
-| Additional live prose / generated templates touched by this slice | `deferred` | _TODO: name owner or trigger when real cleanup remains; otherwise replace with `no-op`._ |
+| `README.md` | `updated` | Added a Skills table (`open`, `snapshot`, `end-of-day`) and an optional first-run step 3 for `/dashboard:end-of-day` (AC7); old step 3 renumbered to 4. |
+| `docs/specs/README.md` | `updated` | Regenerated by `workflow.py status-board` during reconciliation (shows REVIEWED) and again after DONE, in the same commit. |
+| `docs/product-vision.md` | `no-op` | Checked: no mention of the end-of-day ritual or snapshot cadence that this slice contradicts; scope unchanged (still read-only over repos, store outside repos). |
+| `docs/architecture.md` | `updated` | New data-store entry for `~/.claude/my-dashboard/end-of-day.json` (shape, location, first-run fallbacks). No module boundary changed: the new script reuses exported `src/lib.mjs` / `src/scan.mjs` helpers. |
+| Primer surfaces: `CLAUDE.md` / `AGENTS.md` / scaffold templates | `updated` | This slice closes spec 012: its Active-specs entry dropped (derivable from the board); Sprint Focus now says 012 DONE, 012-02..04 unreleased; 013's "once 012-04 runs" reworded to `/dashboard:end-of-day`; next pickable → 014-02 / 014-03. Applied during reconciliation, ahead of DONE, so it lands in the same commit as the DONE transition (deviation §10). No `AGENTS.md`; CLAUDE.md has no Skills table to extend. |
+| `docs/inbox.md` | `no-op` | Searched for end-of-day / 012-04 items: none. |
+| `docs/refinement-todo.md` | `no-op` | No decision deferred; known limits (comma in path, overlapping runs, skewed-clock retry loss) are recorded in the skill and deviation log §3/§6 as accepted, not open. |
+| `docs/memory/**` | `no-op` | Nothing new beyond the deviation log; the deterministic-script + narrative-skill split already follows 012-03's `snapshot.mjs` pattern. |
+| `docs/decisions/README.md` / ADR index | `no-op` | No ADR touched. The new state file is additive user data under ADR-0003's folder; no load-bearing choice with rejected alternatives beyond §1 (activity source), which is recorded here. |
+| Additional live prose / generated templates touched by this slice | `updated` | `skills/snapshot/SKILL.md` one-project guardrail reworded per 012-03 AC8 to allow `/dashboard:end-of-day`. |

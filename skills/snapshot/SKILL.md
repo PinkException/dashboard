@@ -91,7 +91,8 @@ project is a separate routine (spec 005-04), not this skill.
 - **Never write into the surveyed project.** The writer targets the store
   outside every repo; do not create or edit any `docs/status/compass-history.jsonl`.
 - **One project per run.** A cross-project sweep is the scheduled routine's job
-  (005-04); `/dashboard:end-of-day` (012-04) may invoke this skill once per project.
+  (005-04), or `/dashboard:end-of-day` (012-04), which runs this skill once per
+  project in its own subagent.
 - **Keep the scanner and page out of it.** They stay deterministic and
   LLM-free; the judgment lives only here.
 - **Do not invent state.** Every claim in the headline must trace to something
