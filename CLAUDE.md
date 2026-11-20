@@ -49,17 +49,14 @@ Only work still in flight; the [status board](docs/specs/README.md) is the sourc
 
 > Updated each session by the team: what are we building right now?
 
-**State (2026-11-17): plugin 0.7.0 is released** (tag `dashboard--v0.7.0`;
+**State (2026-11-20): plugin 0.8.0 is released** (tag `dashboard--v0.8.0`;
 decision in [lightweight-decisions](docs/decisions/lightweight-decisions.md)).
-0.7.0 adds the **roadmap tab** (spec 012 slice 01) on top of 0.6.0 (specs
-008–010, leak-guard tooling, PR #8's follow-ups). **Spec 012 is DONE
-(2026-11-18)**; 012-02..04 (parked + goals, saved order from snapshots,
-`/dashboard:end-of-day`) are not yet released. **Spec 013 (evolution
-graphs) is in flight on main, not yet released:** 013-01 (Activity-tab
-progress chart) and 013-03 (slice counts, labels + key) DONE (2026-11-18);
-013-02 (sparkline) DRAFT. Slice data fills once `/dashboard:end-of-day`
-snapshots run. Specs 001–010 and 012 are DONE apart from 007-03
-(DRAFT).
+0.8.0 adds, on top of 0.7.0's roadmap tab: the roadmap's Parked section, slice
+goals, saved order and narrative from `/dashboard:snapshot` (spec 012, now
+DONE), the new `/dashboard:end-of-day` skill, the Activity-tab progress chart
+(spec 013-01/03; 013-02 sparkline DRAFT) and the v1.3 readable overview
+(014-01). Slice data in the chart fills once `/dashboard:end-of-day` runs.
+Specs 001–010 and 012 are DONE apart from 007-03 (DRAFT).
 
 Settled facts a new session should not re-litigate:
 - Repo is `PinkException/dashboard` (the GitHub account `Kyarha` was renamed

@@ -160,3 +160,11 @@ fields), so the documented shape and the helper output agree.
 **Context:** Owner asked to cut 0.7.0 on 2026-11-17, right after PR #16 (slice 012-01) merged, so installed copies of the plugin get the roadmap tab. Distribution unchanged: marketplace is the PinkException/dashboard GitHub clone. Install path after the release commit is on main: 'claude plugin marketplace update', then 'claude plugin update dashboard@dashboard' (the plugin argument is required), then restart Claude Code.
 
 **Scope:** .claude-plugin/plugin.json, package.json
+
+### 2026-11-20 — Release cut: plugin 0.8.0 (roadmap narrative, end-of-day, evolution chart, readable overview)
+
+**Decision:** Plugin version bumped 0.7.0 -> 0.8.0 (plugin.json + package.json). Carries everything landed on main since 0.7.0. User-facing: spec 012 slices 02-04 (roadmap Parked section and slice goals; saved order and narrative extras from /dashboard:snapshot with --move corrections; new /dashboard:end-of-day skill that snapshots every project worked on since the last run), spec 013 slices 01 and 03 (progress-over-time chart in the Activity tab with slice/bug counts, labels and key), spec 014 slice 01 (v1.3 readable overview: tokens, header, tiles, chips, rows). Minor (not patch): new user-facing features and a new skill; snapshot roadmap field and /api/data changes are additive, no breaking change for the installed plugin.
+
+**Context:** Owner asked on 2026-11-20 to release what is on main, including PR #29 (slice 012-04, merged first). /dashboard:end-of-day has not yet had a real evening run; only the test suite exercised it. Install path unchanged from 0.7.0: 'claude plugin marketplace update', then 'claude plugin update dashboard@dashboard', then restart Claude Code.
+
+**Scope:** .claude-plugin/plugin.json, package.json
